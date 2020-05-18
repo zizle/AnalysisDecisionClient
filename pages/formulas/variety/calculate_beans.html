@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<title>豆类计算公式</title>
+	<link rel="stylesheet" type="text/css" href="../css/calculate_beans.css"/>
+	<script src="../js/vue.js" type="text/javascript" charset="utf-8"></script>
+	<style>
+        body{background-color: rgb(240,240,240)}
+    </style>
+</head>
+<body>
+<div id="app">
+	<!-- 压榨利润计算 -->
+	<div>
+		<!-- 计算 -->
+		<div class="calculateDiv">
+			<table>
+				<tr>
+					<th colspan="2" class="calDivHeader">大豆现货压榨利润</th>
+				</tr>
+				<tr>
+					<td>豆粕现货价格</td>
+					<td><input type="number" v-model="mealSpotPrice"></td>
+					<td rowspan="4" class="resultLabel">利润:</td>
+					<td rowspan="4" class="calResult">{{ spotBeansProfit }}</td>
+				</tr>
+				
+				<tr>
+					<td>豆油现货价格</td>
+					<td><input type="number" v-model="beanOilSpotPrice"></td>
+				</tr>
+				<tr>
+					<td>大豆成本</td>
+					<td><input type="number" v-model="primeBeansCostPrice"></td>
+				</tr>
+				
+				<tr>
+					<td>加工费</td>
+					<td><input type="number" v-model="processCostPrice"></td>
+				</tr>
+			</table>
+			<!-- 公式注解 -->
+			<div class="formalasNote">注1:大豆现货压榨利润=豆粕现货价格*0.785 + 豆油现货价格*0.19 - 大豆成本 - 加工费</div>
+			<div class="formalasNote">注2:计算结果四舍五入</div>
+		</div>
+		
+	</div>
+	
+	<hr>
+	<!-- 大豆盘面压榨利润 -->
+	<div class="calculateDiv">
+		<table>
+			<tr>
+				<th colspan="4" class="calDivHeader">大豆盘面压榨利润</th>
+			</tr>
+			<tr>
+				<td>豆油期价</td>
+				<td><input type="number" v-model="beanOilFuturePrice"></td>
+				<td>即期汇率</td>
+				<td><input type="number" v-model="spotRate"></td>
+				<td rowspan="6" class="resultLabel">利润:</td>
+				<td rowspan="6" class="calResult">{{ diskBeansProfit }}</td>
+			</tr>
+			<tr>
+				<td>豆粕期价</td>
+				<td><input type="number" v-model="mealFuturePrice"></td>
+				<td>NDF</td>
+				<td><input type="number" v-model="NDForwards"></td>
+			</tr>
+			<tr>
+				<td>CBOT点价总金额</td>
+				<td><input type="number" v-model="CBOTPointPrice"></td>
+				<td>国内锁定汇率</td>
+				<td><input type="number" v-model="domestocLockRate"></td>
+			</tr>
+			<tr>
+				<td>点价数量</td>
+				<td><input type="number" v-model="pointCount"></td>
+				<td>保险</td>
+				<td><input type="number" v-model="insurancePrice"></td>
+			</tr>
+			<tr>
+				<td>升贴水</td>
+				<td><input type="number" v-model="beanPrimiun"></td>
+				<td>中转费用</td>
+				<td><input type="number" v-model="middleCost"></td>
+			</tr>
+			<tr>
+				<td>损耗</td>
+				<td><input type="number" v-model="beanLossWare"></td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:大豆盘面压榨利润 =（豆油期价 x 0.19 + 豆粕期价 x 0.785）-[（CBOT点价总金额/点价数量+升贴水）x 0.367433 x（即期汇率+NDF+国内锁定汇率)x1.11x1.03+保险+中转费用+损耗]</div>
+		<div class="formalasNote">注2:计算结果四舍五入</div>
+	</div>
+	<hr>
+	<div class="calculateDiv">
+		<table>
+			<tr><th colspan="4" class="calDivHeader">大豆进口成本</th></tr>
+			<tr>
+				<td>CBOT期价</td>
+				<td><input type="number" v-model="CBOTFuturesPrice"></td>
+				<td>增值税</td>
+				<td><input type="number" v-model="addedTax"></td>
+				<td rowspan="4" class="resultLabel">成本:</td>
+				<td rowspan="4" class="calResult">{{ beansImportCost }}</td>
+			</tr>
+			<tr>
+				<td>FOB升贴水</td>
+				<td><input type="number" v-model="FOBPrimiun"></td>
+				<td>关税</td>
+				<td><input type="number" v-model="tariff"></td>
+			</tr>
+			<tr>
+				<td>单位转换系数</td>
+				<td><input type="number" v-model="unitReverseRatio"></td>
+				<td>人民币汇率</td>
+				<td><input type="number" v-model="RMBRate"></td>
+			</tr>
+			<tr>
+				<td>海运费</td>
+				<td><input type="number" v-model="seaTrafficCost"></td>
+				<td>港杂费</td>
+				<td><input type="number" v-model="seaMixedCost"></td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:大豆进口成本 =〔（CBOT期价＋FOB升贴水）×单位转换系数＋海运费〕×(1+增值税)×(1+关税)×人民币汇率＋港杂费</div>
+		<div class="formalasNote">注2:计算结果四舍五入</div>
+	</div>
+	<hr>
+	<div class="calculateDiv">
+		<table>
+			<tr>
+				<th colspan="2" class="calDivHeader">大豆出粕量</th>
+			</tr>
+			<tr>
+				<td>大豆压榨量</td>
+				<td><input type="number" v-model="mealPressAmount"></td>
+				<td class="resultLabel">出粕量:</td>
+				<td class="calResult"> {{ generateMealAmount }}</td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:出粕量=大豆压榨量*0.785</div>
+		<div class="formalasNote">注2:计算结果四舍五入</div>
+	</div>
+	
+	<hr>
+	
+	<div class="calculateDiv">
+		<table>
+			<tr><th colspan="2" class="calDivHeader">大豆出油量</th></tr>
+			<tr>
+				<td>大豆压榨量</td>
+				<td><input type="number" v-model="oilPressAmount"></td>
+				<td class="resultLabel">出油量:</td>
+				<td class="calResult">{{ genarateOilAmount }}</td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:出油量=大豆压榨量*0.195</div>
+		<div class="formalasNote">注2:计算结果四舍五入</div>
+	</div>
+	
+</div>
+</body>
+<script src="../js/calculate_beans.js" type="text/javascript" charset="UTF-8"></script>
+</html>
