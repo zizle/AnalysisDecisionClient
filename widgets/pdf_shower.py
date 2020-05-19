@@ -22,19 +22,22 @@ class PDFContentShower(QScrollArea):
         # scroll
         # self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+
+        # content
+        self.page_container = QWidget(self)
+        self.page_container.setLayout(QVBoxLayout(self))
+        self.page_container.setObjectName('pageContainer')
+        # initial data
+        self.add_pages()
+        # add to show
+        self.setWidget(self.page_container)
+
         # 设置滚动条样式
         with open("media/ScrollBar.qss", "rb") as fp:
             content = fp.read()
             encoding = chardet.detect(content) or {}
             content = content.decode(encoding.get("encoding") or "utf-8")
-        self.setStyleSheet(content)
-        # content
-        self.page_container = QWidget()
-        self.page_container.setLayout(QVBoxLayout())
-        # initial data
-        self.add_pages()
-        # add to show
-        self.setWidget(self.page_container)
+        self.setStyleSheet(content + 'QScrollArea{border:none;}')
 
     def add_pages(self):
         # 请求文件

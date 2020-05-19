@@ -10,6 +10,7 @@ import json
 from urllib3 import encode_multipart_formdata
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog, QFileDialog
 from PyQt5.QtCore import Qt, QSize, QMargins, pyqtSignal
+from PyQt5.QtGui import QCursor
 from widgets import CAvatar, LoadedPage
 import settings
 
@@ -17,6 +18,7 @@ import settings
 # 基本资料窗口
 class BaseInfo(QWidget):
     avatar_url = pyqtSignal(str)
+
     def __init__(self, uid, *args, **kwargs):
         super(BaseInfo, self).__init__(*args, **kwargs)
         self.user_id = uid
@@ -76,9 +78,8 @@ class BaseInfo(QWidget):
     # 请求用户信息
     def on_load_info(self):
         try:
-            machine = settings.app_dawn.value('machine')
             r = requests.get(
-                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/baseInfo/?mc=' + machine
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/baseInfo/?utoken=' + settings.app_dawn.value('AUTHORIZATION')
             )
             response = json.loads(r.content.decode('utf-8'))
             if r.status_code != 200:
@@ -103,14 +104,15 @@ class ModifyPassword(QWidget):
         layout = QVBoxLayout()
         # 新密码
         new_psd_layout1 = QHBoxLayout()
-        new_psd_layout1.addWidget(QLabel('<div>新&nbsp;密&nbsp;码：</div>', objectName='newLabel1'))
+        new_psd_layout1.addWidget(QLabel('重置密码：', objectName='newLabel1'), alignment=Qt.AlignRight)
         self.new_psd1 = QLineEdit(objectName='newEdit1')
         self.new_psd1.setEchoMode(QLineEdit.Password)
         new_psd_layout1.addWidget(self.new_psd1)
         layout.addLayout(new_psd_layout1)
         # 确认新密码
         new_psd_layout2 = QHBoxLayout()
-        new_psd_layout2.addWidget(QLabel('再次确认密码：', objectName='newLabel2'))
+        new_psd_layout2.addWidget(QLabel('确认密码：', objectName='newLabel2'), alignment=Qt.AlignRight)
+
         self.new_psd2 = QLineEdit(objectName='newEdit2')
         self.new_psd2.setEchoMode(QLineEdit.Password)
         new_psd_layout2.addWidget(self.new_psd2)
@@ -178,12 +180,14 @@ class ModifyPassword(QWidget):
             settings.app_dawn.remove('AUTHORIZATION')  # 移除token
             self.new_password.emit(True)
 
+
 # 修改头像
 class EditUserAvatar(QDialog):
     new_avatar_url = pyqtSignal(str)
 
     def __init__(self, user_id, current_url, *args, **kwargs):
         super(EditUserAvatar, self).__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         self.user_id = user_id
         self.new_image_path = None
         self.setFixedWidth(300)
@@ -274,48 +278,60 @@ class UserCenter(QWidget):
         middle_layout = QHBoxLayout()  # 中间布局
         # 左侧显示头像和菜单
         left_layout = QVBoxLayout()  # 左侧布局
-        # left_layout.setContentsMargins(QMargins(100, 0, 0, 0))
-        # avatar_layout = QHBoxLayout()
         self.avatar = CAvatar(size=QSize(180, 180))
         self.avatar.clicked.connect(self.modify_user_avatar)
         left_layout.addWidget(self.avatar, alignment=Qt.AlignCenter)
-        # avatar_layout.addWidget(self.avatar)
-        # left_layout.addLayout(avatar_layout)
+
+        machine_code = settings.app_dawn.value('machine')
+        code_label = QLineEdit(machine_code, parent=self)
+        code_label.setMaximumWidth(250)
+        code_label.setCursor(QCursor(Qt.ArrowCursor))
+        code_label.setAlignment(Qt.AlignCenter)
+        code_label.setFocusPolicy(Qt.NoFocus)
+        left_layout.addWidget(code_label)
+
         # 菜单
-        self.left_list = QListWidget(clicked=self.menu_clicked, objectName='leftList')
+        self.left_list = QListWidget(clicked=self.menu_clicked, parent=self)
         self.left_list.setMaximumWidth(250)
-        # self.left_list.addItems(['基本资料', '修改密码'])
-        item1 = QListWidgetItem('基本资料')
-        item2 = QListWidgetItem('修改密码')
+        item1 = QListWidgetItem('基本资料', self.left_list)
+        item2 = QListWidgetItem('修改密码', self.left_list)
         item1.setTextAlignment(Qt.AlignCenter)
         item2.setTextAlignment(Qt.AlignCenter)
         self.left_list.addItem(item1)
         self.left_list.addItem(item2)
         left_layout.addWidget(self.left_list)
+
         middle_layout.addLayout(left_layout)
         # 右侧显示具体窗口
-        self.right_win = LoadedPage()
+        self.right_win = LoadedPage(self)
+        self.right_win.remove_borders()
         middle_layout.addWidget(self.right_win)
         layout.addLayout(middle_layout)
-        # 底部显示机器码
-        machine_code = settings.app_dawn.value('machine')
-        msg = ''
-        if machine_code:
-            msg = '本机id：' + machine_code
-        code_label = QLineEdit(msg, parent=self, objectName='machineCode')
-        code_label.setFocusPolicy(Qt.NoFocus)
-        layout.addWidget(code_label, alignment=Qt.AlignBottom)
+
         self.setLayout(layout)
+
+        code_label.setObjectName('machineCode')
+        self.left_list.setObjectName('leftList')
         self.setStyleSheet("""
         #machineCode{
             border: none;
             background:rgb(240,240,240);
         }
         #leftList{
-            font-size:14px;
+            outline:none;
+            border:none;
+            background-color: rgb(240,240,240);
         }
         #leftList::item{
-            height: 25px;
+           height:25px;
+        }
+        #leftList::item:selected{
+           color:rgb(100,180,230);
+           background-color:rgb(240,240,240);
+        }
+        #leftList::item:hover{
+           color:rgb(150,180,230);
+           background-color:rgb(240,240,240);
         }
         """)
         self.left_list.setCurrentRow(0)
@@ -330,7 +346,6 @@ class UserCenter(QWidget):
             self.avatar.setUrl('media/avatar.png')
 
     def password_changed(self):
-        print('密码修改了')
         self.psd_changed.emit(True)
 
     # 修改用户头像
@@ -348,7 +363,7 @@ class UserCenter(QWidget):
         if text == '基本资料':
             frame_page = BaseInfo(uid=self.user_id)
             frame_page.avatar_url.connect(self.setAvatar)
-            frame_page.on_load_info()
+            frame_page.on_load_info()  # 获取基本信息
         elif text == '修改密码':
             frame_page = ModifyPassword(user_id=self.user_id)
             frame_page.new_password.connect(self.password_changed)

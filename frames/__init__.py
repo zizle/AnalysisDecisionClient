@@ -231,10 +231,13 @@ class ADSClient(FrameLessWindow):
     # 跳转个人中心
     def skip_to_usercenter(self, user_id):
         self.page_container.clear()
-        page = UserCenter(user_id, parent=self.page_container)
-        page.avatar_changed.connect(self.navigation_bar.permit_bar.setAvatar)
-        page.psd_changed.connect(self.navigation_bar.permit_bar.user_logout)
-        self.page_container.addWidget(page)
+        try:
+            page = UserCenter(user_id, parent=self.page_container)
+            page.avatar_changed.connect(self.navigation_bar.permit_bar.setAvatar)
+            page.psd_changed.connect(self.navigation_bar.permit_bar.user_logout)
+            self.page_container.addWidget(page)
+        except Exception as e:
+            print(e)
 
     # 检测是否有权限进入
     def is_accessed_module(self, module_id):
@@ -257,17 +260,18 @@ class ADSClient(FrameLessWindow):
 
     # 进入数据管理页面
     def to_data_manage_page(self, module_text):
-        if False:
-            pass
-        # if module_text == u"首页管理":
-        #     from frame.homepage.homeCollector import HomePageCollector
-        #     page = HomePageCollector()
-        # elif module_text == u"产品服务":
-        #     from frame.proservice.infoServiceCollector import InfoServicePageCollector
-        #     page = InfoServicePageCollector()
-        # elif module_text == u'基本分析':
-        #     from frame.basetrend.trendCollector import TrendPageCollector
-        #     page = TrendPageCollector()
+        if module_text == u"首页管理":
+            from admin.homepage import HomePageAdmin
+            page = HomePageAdmin()
+            page.add_left_menus()
+        elif module_text == u"产品服务":
+            from admin.prosever import ProductServiceAdmin
+            page = ProductServiceAdmin()
+            page.add_left_tree_menus()
+        elif module_text == u'基本分析':
+            from admin.basetrend import BaseTrendAdmin
+            page = BaseTrendAdmin()
+            page.add_left_menus()
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',

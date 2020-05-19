@@ -9,7 +9,7 @@ import json
 import requests
 from urllib3 import encode_multipart_formdata
 from PyQt5.QtWidgets import QWidget, QListWidget, QHBoxLayout, QVBoxLayout,QMessageBox, QTabWidget, QLabel, QComboBox, QGridLayout, \
-    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu
+    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame
 from PyQt5.QtCore import Qt, QPoint, QMargins
 from PyQt5.QtGui import QCursor, QIcon, QColor, QBrush, QPixmap, QImage
 from widgets import PDFContentPopup, ImagePathLineEdit, FilePathLineEdit
@@ -141,6 +141,7 @@ class UsersTable(QTableWidget):
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setFrameShape(QFrame.NoFrame)
 
     def setRowContents(self, row_contents):
         self.clear()
@@ -175,12 +176,13 @@ class UsersTable(QTableWidget):
             self.setItem(row, 6, item6)
 
     def mousePressEvent(self, event):
+        super(UsersTable, self).mousePressEvent(event)
         if event.buttons() != Qt.RightButton:
             return
         index = self.indexAt(QPoint(event.x(), event.y()))
         current_row = index.row()
         self.setCurrentIndex(index)
-        if current_row < 0 :
+        if current_row < 0:
             return
         menu = QMenu()
         variety_auth_action = menu.addAction("品种权限")
@@ -188,7 +190,6 @@ class UsersTable(QTableWidget):
         role_modify_action = menu.addAction("角色设置")
         role_modify_action.triggered.connect(self.modifyUserRole)
         menu.exec_(QCursor.pos())
-        super(UsersTable, self).mousePressEvent(event)
 
     def setUserVarietyAuth(self):
         current_row = self.currentRow()
@@ -359,6 +360,8 @@ class ModulesTable(QTableWidget):
         self.verticalHeader().hide()
         self.setFocusPolicy(Qt.NoFocus)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setFrameShape(QFrame.NoFrame)
         self.module_data = None
 
     # 设置表格数据
@@ -383,6 +386,10 @@ class ModulesTable(QTableWidget):
             table_item1.setTextAlignment(Qt.AlignCenter)
             table_item1.setBackground(QBrush(QColor(218,233,231)))
             self.setItem(current_row, 1, table_item1)
+            table_item2 = QTableWidgetItem('')
+            table_item2.setTextAlignment(Qt.AlignCenter)
+            table_item2.setBackground(QBrush(QColor(218, 233, 231)))
+            self.setItem(current_row, 2, table_item2)
             current_row += 1
             for sub_module in module_item['subs']:
                 self.insertRow(current_row)
@@ -518,6 +525,8 @@ class VarietiesTable(QTableWidget):
         self.verticalHeader().hide()
         self.setFocusPolicy(Qt.NoFocus)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setFrameShape(QFrame.NoFrame)
 
     def setRowContents(self, row_list):
         self.clear()
@@ -674,7 +683,9 @@ class AdvertisementTable(QTableWidget):
         super(AdvertisementTable, self).__init__(*args, **kwargs)
         self.verticalHeader().hide()
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setFocusPolicy(Qt.NoFocus)
+        self.setFrameShape(QFrame.NoFrame)
         self.cellClicked.connect(self.cell_clicked)
 
     def cell_clicked(self, row, col):
@@ -768,7 +779,7 @@ class OperatorMaintain(QWidget):
         layout.setSpacing(0)
         # 左侧管理项目列表
         self.operate_list = QListWidget(self)
-        self.operate_list.setObjectName('optsList')
+
         self.operate_list.clicked.connect(self.operate_list_clicked)
         layout.addWidget(self.operate_list, alignment=Qt.AlignLeft)
         # 右侧tab显示
@@ -778,14 +789,21 @@ class OperatorMaintain(QWidget):
         layout.addWidget(self.frame_tab)
         self.setLayout(layout)
 
+        self.operate_list.setObjectName('optsList')
         self.setStyleSheet("""
         #optsList{
-            background-color: rgb(240,240,240);
+            outline:none;
             border:none;
-            border-right: 1px solid rgb(180, 180, 180);
+            border-right: 1px solid rgb(180,180,180);
+            background-color: rgb(240,240,240);
         }
         #optsList::item{
-            height: 25px;
+           height:25px;
+        }
+        #optsList::item:selected{
+           border-left:3px solid rgb(100,120,150);
+           color:#000;
+           background-color:rgb(180,220,230);
         }
         """)
 

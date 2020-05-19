@@ -529,13 +529,13 @@ class TransactionNoticeTable(QTableWidget):
 
     def mouseMoveEvent(self, event):
         index = self.indexAt(QPoint(event.pos().x(), event.pos().y()))
-        if index.column() == 3:
+        if index.column() == 4:
             self.setCursor(Qt.PointingHandCursor)
         else:
             self.setCursor(Qt.ArrowCursor)
 
     def mouseClickedCell(self, row, col):
-        if col != 3:
+        if col != 4:
             return
         item = self.item(row, col)
         title = self.item(row, 1).text()
@@ -1130,9 +1130,9 @@ class HomePage(QScrollArea):
                 "name": "交易通知",
                 "menus":[
                     {"id": -1, "name": "全部"},
-                    {"id": 1, "name": "公司"},
-                    {"id": 2, "name":"交易所"},
-                    {"id": 3, "name":"系统"},
+                    {"id": 1, "name": "交易所"},
+                    {"id": 2, "name": "公司"},
+                    {"id": 3, "name": "系统"},
                     {"id": 0, "name": "其他"},
                 ]
             },

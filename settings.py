@@ -3,7 +3,7 @@
 import os
 from PyQt5.QtCore import QSettings
 
-SERVER_ADDR = "http://192.168.1.3:5000/"
+SERVER_ADDR = "http://127.0.0.1:5000/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADMINISTRATOR = True
 # app设置
