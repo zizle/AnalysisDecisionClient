@@ -159,11 +159,6 @@ class LoginPopup(QDialog):
         if not phone:
             self.findChild(QLabel, 'phoneError').setText('请输入正确的手机号')
             return
-        if not password:
-            self.findChild(QLabel, 'psdError').setText('请输入密码')
-            return
-        # 判断记住密码和自动登录的情况
-
         # 登录成功
         if self._login_post(phone, password):
             self.close()

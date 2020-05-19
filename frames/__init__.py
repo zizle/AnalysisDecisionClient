@@ -138,7 +138,6 @@ class ADSClient(FrameLessWindow):
                 self.user_to_login()
                 return  # 自动登录失败
             else:
-                # print(response)
                 if response['user_data']:
                     self.user_login_successfully(response['user_data'])
 
@@ -157,7 +156,7 @@ class ADSClient(FrameLessWindow):
             dynamic_username = phone[0:3] + '****' + phone[7:11]
         # 设置头像
         if response_data['avatar']:
-            avatar_url = settings.SERVER_ADDR[:-1] + response_data['avatar']
+            avatar_url = settings.STATIC_PREFIX + response_data['avatar']
             self.navigation_bar.permit_bar.setAvatar(avatar_url)
         # 改变显示用户名
         self.navigation_bar.permit_bar.show_username(dynamic_username)

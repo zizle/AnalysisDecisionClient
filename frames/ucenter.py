@@ -8,7 +8,7 @@
 import requests
 import json
 from urllib3 import encode_multipart_formdata
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog, QFileDialog
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QLabel, QPushButton, QDialog, QFileDialog, QMessageBox
 from PyQt5.QtCore import Qt, QSize, QMargins, pyqtSignal
 from PyQt5.QtGui import QCursor
 from widgets import CAvatar, LoadedPage
@@ -32,19 +32,20 @@ class BaseInfo(QWidget):
         layout.addLayout(phone_layout)
         # 用户名
         name_layout = QHBoxLayout()
-        name_layout.addWidget(QLabel('昵称：', objectName='nameLabel'))
-        self.username_edit = QLineEdit(objectName='usernameEdit')
+        name_layout.addWidget(QLabel('昵称：', parent=self, objectName='nameLabel'))
+        self.username_edit = QLineEdit(parent=self, objectName='usernameEdit')
         name_layout.addWidget(self.username_edit)
         layout.addLayout(name_layout)
         # 邮箱
         email_layout = QHBoxLayout()
-        email_layout.addWidget(QLabel('邮箱：', objectName='emailLabel'))
-        self.email_edit = QLineEdit(objectName='emailEdit')
+        email_layout.addWidget(QLabel('邮箱：', parent=self, objectName='emailLabel'))
+        self.email_edit = QLineEdit(parent=self, objectName='emailEdit')
         email_layout.addWidget(self.email_edit)
         layout.addLayout(email_layout)
         # 确认修改
         confirm_layout = QHBoxLayout()
-        self.submit_button = QPushButton('确定', objectName='submitBtn', cursor=Qt.PointingHandCursor)
+        self.submit_button = QPushButton('确定', parent=self, objectName='submitBtn', cursor=Qt.PointingHandCursor)
+        self.submit_button.clicked.connect(self.commit_current_userinfo)
         confirm_layout.addWidget(self.submit_button, alignment=Qt.AlignRight)
         layout.addLayout(confirm_layout)
         self.setLayout(layout)
@@ -79,7 +80,7 @@ class BaseInfo(QWidget):
     def on_load_info(self):
         try:
             r = requests.get(
-                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/baseInfo/?utoken=' + settings.app_dawn.value('AUTHORIZATION')
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/base_info/?utoken=' + settings.app_dawn.value('AUTHORIZATION')
             )
             response = json.loads(r.content.decode('utf-8'))
             if r.status_code != 200:
@@ -92,6 +93,29 @@ class BaseInfo(QWidget):
             self.username_edit.setText(user_data['username'])
             self.email_edit.setText(user_data['email'])
             self.avatar_url.emit(user_data['avatar'])
+            self.user_id = user_data['id']
+
+    # 提交当前信息修改
+    def commit_current_userinfo(self):
+        username = self.username_edit.text().strip()
+        email = self.email_edit.text().strip()
+        try:
+            r = requests.patch(
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/base_info/',
+                headers={'Content-Type':'application/json;charset=utf8'},
+                data=json.dumps({
+                    'username':username,
+                    'email': email,
+                    'utoken': settings.app_dawn.value('AUTHORIZATION')
+                })
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            QMessageBox.information(self, '错误', str(e))
+        else:
+            QMessageBox.information(self, '成功', response['message'])
 
 
 # 修改密码窗口
@@ -104,7 +128,7 @@ class ModifyPassword(QWidget):
         layout = QVBoxLayout()
         # 新密码
         new_psd_layout1 = QHBoxLayout()
-        new_psd_layout1.addWidget(QLabel('重置密码：', objectName='newLabel1'), alignment=Qt.AlignRight)
+        new_psd_layout1.addWidget(QLabel('新的密码：', objectName='newLabel1'), alignment=Qt.AlignRight)
         self.new_psd1 = QLineEdit(objectName='newEdit1')
         self.new_psd1.setEchoMode(QLineEdit.Password)
         new_psd_layout1.addWidget(self.new_psd1)
@@ -119,7 +143,7 @@ class ModifyPassword(QWidget):
         layout.addLayout(new_psd_layout2)
         # 错误提示
         error_layout = QHBoxLayout()
-        error_layout.addWidget(QLabel(parent=self, objectName='errorTips'))
+        error_layout.addWidget(QLabel(parent=self, objectName='errorTips', styleSheet='color:rgb(200,100,100)'))
         layout.addLayout(error_layout)
         # 确认修改
         confirm_layout = QHBoxLayout()
@@ -161,13 +185,10 @@ class ModifyPassword(QWidget):
             return
         # 请求修改密码
         try:
-            r = requests.post(
-                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/psd/?mc=' + settings.app_dawn.value(
-                    'machine'),
-                headers={
-                    'AUTHORIZATION': settings.app_dawn.value('AUTHORIZATION')
-                },
-                data=json.dumps({'password': psd2})
+            r = requests.patch(
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/base_info/',
+                headers={'Content-Type':'application/json;charset=utf8'},
+                data=json.dumps({'utoken': settings.app_dawn.value('AUTHORIZATION'), 'password': psd2})
             )
             response = json.loads(r.content.decode('utf-8'))
             if r.status_code != 200:
@@ -234,34 +255,35 @@ class EditUserAvatar(QDialog):
 
     # 确定更改头像
     def confirm_avatar(self):
-        data = dict()
-        if self.new_image_path:
+        if not self.new_image_path:
+            return
+        try:
+            data = dict()
             image_name = self.new_image_path.rsplit('/', 1)[1]
             image = open(self.new_image_path, 'rb')
             image_content = image.read()
             image.close()
             data['image'] = (image_name, image_content)
             encode_data = encode_multipart_formdata(data)
-            try:
-                # 发起上传请求
-                r = requests.post(
-                    url=settings.SERVER_ADDR + 'user/'+ str(self.user_id) +'/avatar/?mc=' + settings.app_dawn.value('machine'),
-                    headers={
-                        'AUTHORIZATION': settings.app_dawn.value('AUTHORIZATION'),
-                        'Content-Type': encode_data[1]
-                    },
-                    data=encode_data[0]
-                )
-                response = json.loads(r.content.decode('utf-8'))
-                if r.status_code != 201:
-                    raise ValueError(response['message'])
-            except Exception as e:
-                pass
-            else:
-                # 关闭弹窗，修改头像
-                new_avatar = response['data']
-                self.new_avatar_url.emit(new_avatar)
-                self.close()
+            # 发起上传请求
+            r = requests.post(
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/avatar/',
+                headers={
+                    'AUTHORIZATION': settings.app_dawn.value('AUTHORIZATION'),
+                    'Content-Type': encode_data[1]
+                },
+                data=encode_data[0]
+            )
+            response = json.loads(r.content.decode('utf-8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            pass
+        else:
+            # 关闭弹窗，修改头像
+            new_avatar = response['avatar_url']
+            self.new_avatar_url.emit(new_avatar)
+            self.close()
 
 
 # 用户个人中心
@@ -339,7 +361,7 @@ class UserCenter(QWidget):
 
     def setAvatar(self, avatar_url):
         if avatar_url:
-            url = settings.SERVER_ADDR[:-1] + avatar_url
+            url = settings.STATIC_PREFIX + avatar_url
             self.avatar.setUrl(url)
             self.avatar_changed.emit(url)
         else:
@@ -352,9 +374,7 @@ class UserCenter(QWidget):
     def modify_user_avatar(self):
         popup = EditUserAvatar(user_id=self.user_id, current_url=self.avatar.url, parent=self)
         popup.new_avatar_url.connect(self.setAvatar)
-        if not popup.exec_():
-            popup.deleteLater()
-            del popup
+        popup.exec_()
 
     # 点击左侧菜单
     def menu_clicked(self):
