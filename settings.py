@@ -6,6 +6,7 @@ from PyQt5.QtCore import QSettings
 SERVER_ADDR = "http://127.0.0.1:5000/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADMINISTRATOR = True
+USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.0'
 # app设置
 app_dawn = QSettings('dawn/initial.ini', QSettings.IniFormat)
 # 与后端对应的静态文件路径

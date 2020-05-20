@@ -157,7 +157,9 @@ class ADSClient(FrameLessWindow):
         # 设置头像
         if response_data['avatar']:
             avatar_url = settings.STATIC_PREFIX + response_data['avatar']
-            self.navigation_bar.permit_bar.setAvatar(avatar_url)
+        else:
+            avatar_url = 'media/avatar.png'
+        self.navigation_bar.permit_bar.setAvatar(avatar_url)
         # 改变显示用户名
         self.navigation_bar.permit_bar.show_username(dynamic_username)
 
@@ -230,13 +232,10 @@ class ADSClient(FrameLessWindow):
     # 跳转个人中心
     def skip_to_usercenter(self, user_id):
         self.page_container.clear()
-        try:
-            page = UserCenter(user_id, parent=self.page_container)
-            page.avatar_changed.connect(self.navigation_bar.permit_bar.setAvatar)
-            page.psd_changed.connect(self.navigation_bar.permit_bar.user_logout)
-            self.page_container.addWidget(page)
-        except Exception as e:
-            print(e)
+        page = UserCenter(user_id, parent=self.page_container)
+        page.avatar_changed.connect(self.navigation_bar.permit_bar.setAvatar)
+        page.psd_changed.connect(self.navigation_bar.permit_bar.user_logout)
+        self.page_container.addWidget(page)
 
     # 检测是否有权限进入
     def is_accessed_module(self, module_id):
@@ -312,7 +311,7 @@ class ADSClient(FrameLessWindow):
 
     # 点击模块菜单事件(接受到模块的id和模块名称)
     def module_clicked(self, module_id, module_text):
-        print(module_id, module_text)
+        # print(module_id, module_text)
         if module_id == -9:
             page = self.to_data_manage_page(module_text)
         else:

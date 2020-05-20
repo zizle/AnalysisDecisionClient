@@ -8,7 +8,7 @@ import re
 import json
 import requests
 from urllib3 import encode_multipart_formdata
-from PyQt5.QtWidgets import QWidget, QListWidget, QHBoxLayout, QVBoxLayout,QMessageBox, QTabWidget, QLabel, QComboBox, QGridLayout, \
+from PyQt5.QtWidgets import qApp,QWidget, QListWidget, QHBoxLayout, QVBoxLayout,QMessageBox, QTabWidget, QLabel, QComboBox, QGridLayout, \
     QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame
 from PyQt5.QtCore import Qt, QPoint, QMargins
 from PyQt5.QtGui import QCursor, QIcon, QColor, QBrush, QPixmap, QImage
@@ -132,6 +132,134 @@ class VarietyAuthDialog(QDialog):
             current_item.setText("点击关闭" if is_active else "点击开启")
 
 
+class ClientAccessDialog(QDialog):
+    def __init__(self, user_id, *args):
+        super(ClientAccessDialog, self).__init__(*args)
+        self.user_id = user_id
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.resize(800, 500)
+        self.setWindowIcon(QIcon('media/logo.png'))
+        self.setWindowTitle("管理用户可登录客户端")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(QMargins(0, 1, 0, 1))
+        opts_layout = QHBoxLayout(self)
+        opts_layout.addWidget(QLabel('类型:', self))
+        self.client_combobox = QComboBox(self)
+        self.client_combobox.addItem('管理客户端', 1)
+        self.client_combobox.addItem('普通客户端', 0)
+        self.client_combobox.currentIndexChanged.connect(self.get_clients_information)
+        opts_layout.addWidget(self.client_combobox)
+        opts_layout.addStretch()
+        layout.addLayout(opts_layout)
+
+        self.config_table = QTableWidget(self)
+        self.config_table.verticalHeader().hide()
+        self.config_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.config_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.config_table.setFrameShape(QFrame.NoFrame)
+        self.config_table.setAlternatingRowColors(True)
+        self.config_table.cellChanged.connect(self.config_table_checked_changed)
+        layout.addWidget(self.config_table)
+        self.setLayout(layout)
+
+        self.config_table.setObjectName('configTable')
+        self.setStyleSheet("""
+        #configTable{
+            background-color:rgb(240,240,240);
+            alternate-background-color:rgb(245, 250, 248);
+        }
+        """)
+
+    # 获取当前类型的客户端、当前用户是否可登录
+    def get_clients_information(self):
+        t_client = self.client_combobox.currentData()
+        try:
+            r = requests.get(
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/access_clients/?t=' + str(t_client),
+                headers={'User-Agent': settings.USER_AGENT}
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            pass
+        else:
+            self.show_configs(response['information'])
+
+    def show_configs(self, records):
+        self.config_table.cellChanged.disconnect()
+        self.config_table.clear()
+        table_headers = ['序号', '客户端名称', '客户端ID', '可登录', '截止日期']
+        self.config_table.setColumnCount(len(table_headers))
+        self.config_table.setHorizontalHeaderLabels(table_headers)
+        self.config_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.config_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.config_table.setRowCount(len(records))
+        for row, row_item in enumerate(records):
+            item0 = QTableWidgetItem(str(row + 1))
+            item0.setTextAlignment(Qt.AlignCenter)
+            item0.id = row_item['id']
+            self.config_table.setItem(row, 0, item0)
+            item1 = QTableWidgetItem(row_item['name'])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.config_table.setItem(row, 1, item1)
+            item2 = QTableWidgetItem(row_item['machine_code'])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.config_table.setItem(row, 2, item2)
+            if row_item['accessed']:
+                item3 = QTableWidgetItem('允许登录')
+                item3.setCheckState(Qt.Checked)
+                item3.setForeground(QBrush(QColor(100,200,180)))
+                item4 = QTableWidgetItem(row_item['expire_time'])
+            else:
+                item3 = QTableWidgetItem('不能登录')
+                item3.setCheckState(Qt.Unchecked)
+                item3.setForeground(QBrush(QColor(200, 100, 80)))
+                item4 = QTableWidgetItem('')
+            item3.setTextAlignment(Qt.AlignCenter)
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.config_table.setItem(row, 3, item3)
+            self.config_table.setItem(row, 4, item4)
+        self.config_table.cellChanged.connect(self.config_table_checked_changed)  # 恢复信号
+
+    def config_table_checked_changed(self, row, col):
+        if col != 3:
+            return
+        client_id = self.config_table.item(row, 0).id
+        check_item = self.config_table.item(row, col)
+        checked = 0
+        if check_item.checkState() == Qt.Checked:  # 当前的选中状态(目标状态)
+            checked = 1
+        try:
+            r = requests.post(
+                url=settings.SERVER_ADDR + 'user/' + str(self.user_id) + '/access_clients/',
+                headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': settings.USER_AGENT},
+                data=json.dumps({
+                    'utoken': settings.app_dawn.value('AUTHORIZATION'),
+                    'client_id': client_id,
+                    'user_id': self.user_id,
+                    'accessed': checked
+                })
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            QMessageBox.information(self, '错误', str(e))
+        else:
+            self.config_table.cellChanged.disconnect()
+            QMessageBox.information(self, '成功', response['message'])
+            if checked:
+                check_item.setText('允许登录')
+                check_item.setForeground(QBrush(QColor(100, 200, 180)))
+                self.config_table.item(row, 4).setText(response['expire_time'])
+            else:
+                check_item.setText('不能登录')
+                check_item.setForeground(QBrush(QColor(200, 100, 80)))
+                self.config_table.item(row, 4).setText('')
+            self.config_table.cellChanged.connect(self.config_table_checked_changed)  # 恢复信号
+
+
 # 显示用户表格
 class UsersTable(QTableWidget):
     def __init__(self, *args, **kwargs):
@@ -144,8 +272,9 @@ class UsersTable(QTableWidget):
         self.setFrameShape(QFrame.NoFrame)
 
     def setRowContents(self, row_contents):
+        print(row_contents)
         self.clear()
-        table_headers = ["序号", "用户名","手机", "加入时间", "最近登录", "邮箱","角色"]
+        table_headers = ["序号", "用户名","手机", "加入时间", "最近登录", "邮箱","角色","备注名"]
         self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -155,6 +284,7 @@ class UsersTable(QTableWidget):
             item0 = QTableWidgetItem(str(row + 1))
             item0.setTextAlignment(Qt.AlignCenter)
             item0.id = row_item['id']
+            item0.role_num = row_item['role_num']
             self.setItem(row, 0, item0)
             item1 = QTableWidgetItem(row_item['username'])
             item1.setTextAlignment(Qt.AlignCenter)
@@ -174,6 +304,9 @@ class UsersTable(QTableWidget):
             item6 = QTableWidgetItem(row_item["role_text"])
             item6.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 6, item6)
+            item7 = QTableWidgetItem(row_item["note"])
+            item7.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 7, item7)
 
     def mousePressEvent(self, event):
         super(UsersTable, self).mousePressEvent(event)
@@ -184,12 +317,24 @@ class UsersTable(QTableWidget):
         self.setCurrentIndex(index)
         if current_row < 0:
             return
+        user_role = self.item(current_row, 0).role_num
         menu = QMenu()
         variety_auth_action = menu.addAction("品种权限")
         variety_auth_action.triggered.connect(self.setUserVarietyAuth)
-        role_modify_action = menu.addAction("角色设置")
-        role_modify_action.triggered.connect(self.modifyUserRole)
+        if user_role > 2:
+            client_auth_action = menu.addAction("登录权限")
+            client_auth_action.triggered.connect(self.set_user_client_accessed)
+
+        role_modify_action = menu.addAction("信息设置")
+        role_modify_action.triggered.connect(self.modifyUserInfo)
         menu.exec_(QCursor.pos())
+
+    # 设置用户可登录的客户端
+    def set_user_client_accessed(self):
+        user_id = self.item(self.currentRow(), 0).id
+        access_popup = ClientAccessDialog(user_id=user_id)
+        access_popup.get_clients_information()
+        access_popup.exec_()
 
     def setUserVarietyAuth(self):
         current_row = self.currentRow()
@@ -200,7 +345,7 @@ class UsersTable(QTableWidget):
         popup.getCurrentUserAccessVariety()
         popup.exec_()
 
-    def modifyUserRole(self):
+    def modifyUserInfo(self):
         def commit():
             role_num = role_combobox.currentData()
             try:
@@ -209,7 +354,8 @@ class UsersTable(QTableWidget):
                     headers={"Content-Type": "application/json;charset=utf8"},
                     data=json.dumps({
                         'utoken': settings.app_dawn.value("AUTHORIZATION"),
-                        'role_to': role_num
+                        'role_num': role_num,
+                        'note': note_edit.text().strip()
                     })
                 )
                 response = json.loads(r.content.decode('utf8'))
@@ -218,21 +364,24 @@ class UsersTable(QTableWidget):
             except Exception as e:
                 QMessageBox.information(popup, '错误', '修改错误{}'.format(e))
             else:
-                QMessageBox.information(popup, '成功', "修改用户角色成功")
+                QMessageBox.information(popup, '成功', "修改用户信息成功")
                 self.item(current_row, 6).setText(response['role_text'])
+                self.item(current_row, 7).setText(response['note'])
             finally:
                 popup.close()
         current_row = self.currentRow()
         username = self.item(current_row, 1).text()
         user_id = self.item(current_row, 0).id
         role_text = self.item(current_row, 6).text()
+        note_name = self.item(current_row, 7).text()
         popup = QDialog(parent=self)
-        popup.setFixedSize(250, 80)
+        popup.setWindowTitle("【" + username + "】角色设置")
+        popup.setFixedSize(320, 150)
         popup.setAttribute(Qt.WA_DeleteOnClose)
-        mainlayout = QVBoxLayout()
-        layout = QHBoxLayout()
-        popup.setWindowTitle("【"+ username+"】角色设置")
-        layout.addStretch()
+        mainlayout = QVBoxLayout(self)
+
+        layout = QHBoxLayout(self)
+
         layout.addWidget(QLabel("角色:", popup))
         role_combobox = QComboBox(popup)
         role_combobox.setFixedWidth(150)
@@ -241,10 +390,19 @@ class UsersTable(QTableWidget):
         role_combobox.setCurrentText(role_text)
         layout.addWidget(role_combobox)
         layout.addStretch()
+        mainlayout.addLayout(layout)
+
+        note_layout = QHBoxLayout(self)
+        note_layout.addWidget(QLabel("备注:", popup))
+        note_edit = QLineEdit(popup)
+        note_edit.setText(note_name)
+        note_layout.addWidget(note_edit)
+        mainlayout.addLayout(note_layout)
+
         commit_button = QPushButton("确定")
         commit_button.clicked.connect(commit)
-        mainlayout.addLayout(layout)
-        mainlayout.addWidget(commit_button, alignment=Qt.AlignHCenter | Qt.AlignVCenter)
+
+        mainlayout.addWidget(commit_button)
         popup.setLayout(mainlayout)
         popup.exec_()
 
@@ -264,8 +422,7 @@ class UserManagePage(QWidget):
         combo_message_layout.addStretch()
         layout.addLayout(combo_message_layout)
         # 用户表显示
-        self.users_table = UsersTable()
-        # self.users_table.network_result.connect(self.network_message.setText)
+        self.users_table = UsersTable(self)
         layout.addWidget(self.users_table)
         self.setLayout(layout)
         self._addRoleComboItems()
@@ -809,14 +966,11 @@ class OperatorMaintain(QWidget):
 
     # 加入运营管理菜单
     def addOperatorItem(self):
-        # u'运营数据', u'用户管理', u'客户端管理',
         self.operate_list.addItems([u'用户管理', u'功能管理', u'品种管理', u'广告管理'])
 
     # 点击左侧管理菜单
     def operate_list_clicked(self):
         text = self.operate_list.currentItem().text()
-        # if text == u'运营数据':
-        #     tab = OperateManagePage(parent=self)
         if text == u'用户管理':
             tab = UserManagePage(parent=self)
             tab.getCurrentUsers()

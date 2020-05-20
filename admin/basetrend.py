@@ -148,7 +148,7 @@ class DrawChartsDialog(QDialog):
         self.chart_widget = QWebEngineView()
         self.chart_widget.setParent(self)
         self.table_widget = QTableWidget(self)
-        self.table_widget.setMinimumHeight(220)
+        self.table_widget.setFixedHeight(220)
         right_layout.addWidget(self.chart_widget)
 
         self.save_config = QPushButton('保存配置',self)
@@ -167,13 +167,13 @@ class DrawChartsDialog(QDialog):
             # 水印
             has_graphic = self.has_graphic.isChecked()
             graphic_text = self.water_graphic.text()
-            print("解读:", decipherment)
-            print("标题:", title)
-            print("水印:", has_graphic, graphic_text)
-            print('左轴参数:', left_axis)
-            print('右轴参数:', right_axis)
-            print('横轴参数:', bottom)
-            print('数据表:', self.table_id)
+            # print("解读:", decipherment)
+            # print("标题:", title)
+            # print("水印:", has_graphic, graphic_text)
+            # print('左轴参数:', left_axis)
+            # print('右轴参数:', right_axis)
+            # print('横轴参数:', bottom)
+            # print('数据表:', self.table_id)
             # 整理参数提交
             try:
                 user_id = pickle.loads(settings.app_dawn.value('UKEY'))
@@ -724,11 +724,14 @@ class InformationTable(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)  # 选中时为一行
         self.setSelectionMode(QAbstractItemView.SingleSelection)  # 只能选中一行
         self.setFrameShape(QFrame.NoFrame)
+        self.setObjectName('informationTable')
         self.setStyleSheet("""
+        #informationTable{
             background-color:rgb(240,240,240);
             font-size: 13px;
             selection-color: rgb(250,250,250);
             alternate-background-color: rgb(245, 250, 248);
+        }
         """)
 
     def mousePressEvent(self, event):
@@ -836,6 +839,7 @@ class UpdateTrendTablePage(QWidget):
         self.trend_table = InformationTable(self)
         layout.addWidget(self.trend_table)
         self.setLayout(layout)
+
         self._get_access_varieties()
 
     def _get_access_varieties(self):
@@ -891,7 +895,7 @@ class UpdateTrendTablePage(QWidget):
 
 # 更新数据组的线程
 class UpdateVarietyTableGroupThread(QThread):
-    process_finished = pyqtSignal(bool)
+    process_finished = pyqtSignal(int, int)
     updating = pyqtSignal(int)
 
     def __init__(self, variety_id,group_id,file_folder, *args,**kwargs):
@@ -957,7 +961,7 @@ class UpdateVarietyTableGroupThread(QThread):
             del file
         # 全部完成执行完成后，发出完成的信号True
         # self.timer.stop()
-        self.process_finished.emit(True)
+        self.process_finished.emit(self.variety_id, self.group_id)
 
     def send_data_to_server(self, variety_id, group_id, title, table_values):
         try:
@@ -1075,21 +1079,9 @@ class UpdateTableConfigPage(QWidget):
         self.config_table.setHorizontalHeaderLabels(['品种', '数据组', '数据文件夹', '上次更新',''])
         self.config_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.config_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-
-        db_path = os.path.join(BASE_DIR, 'dawn/tupdate.db')
-        # 不存在就连接创建数据库
-        if not os.path.exists(db_path):
-            self.create_update_configs_db(db_path)
-            return
-        connection = sqlite3.connect(db_path)
-        connection.row_factory = dict_factory
-        cursor = connection.cursor()
-        cursor.execute("SELECT * FROM `table_update_config`;")
-        fetch_all = cursor.fetchall()
-        cursor.close()
-        connection.close()
-        self.config_table.setRowCount(len(fetch_all))
-        for row,item in enumerate(fetch_all):
+        configs = self.get_current_configs()
+        self.config_table.setRowCount(len(configs))
+        for row,item in enumerate(configs):
             item0 = QTableWidgetItem(item['variety_name'])
             item0.variety_id = item['variety_id']
             item0.setTextAlignment(Qt.AlignCenter)
@@ -1100,15 +1092,35 @@ class UpdateTableConfigPage(QWidget):
             self.config_table.setItem(row, 1, item1)
             item2 = QTableWidgetItem(item['file_folder'])
             item2.setTextAlignment(Qt.AlignCenter)
+            item2.setToolTip(item['file_folder'])
             self.config_table.setItem(row, 2, item2)
-            item3 = QTableWidgetItem()
-            if item['update_time']:
-                item3.setText(item['update_time'])
+            item3 = QTableWidgetItem(item['update_time'])
             item3.setTextAlignment(Qt.AlignCenter)
             self.config_table.setItem(row, 3, item3)
             item4 = QTableWidgetItem('点击更新')
             item4.setTextAlignment(Qt.AlignCenter)
             self.config_table.setItem(row, 4, item4)
+
+    # 获取当前的配置
+    def get_current_configs(self):
+        current_variety = self.variety_combobox.currentData()
+        try:
+            r = requests.get(
+                url=settings.SERVER_ADDR + 'user/data_configs/',
+                headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': settings.USER_AGENT},
+                data=json.dumps({
+                    'utoken': settings.app_dawn.value('AUTHORIZATION'),
+                    'machine_code': settings.app_dawn.value('machine'),
+                    'variety_id': current_variety
+                })
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            return []
+        else:
+            return response['configs']
 
     def create_new_group(self):
         current_variety_name = self.variety_combobox.currentText()
@@ -1168,30 +1180,29 @@ class UpdateTableConfigPage(QWidget):
             current_folder = folder_path.text()
             if not current_folder:
                 return
-            new_config = [current_vname, current_vid,current_gname, current_gid, current_folder]
-            db_path = os.path.join(BASE_DIR, 'dawn/tupdate.db')
-            connection = sqlite3.connect(db_path)
-            connection.row_factory = dict_factory
-            cursor = connection.cursor()
-            # 查询当前品种是否配置了
-            exist_record = "SELECT `id` FROM `table_update_config` WHERE `variety_id`=? AND `group_id`=?;"
-            cursor.execute(exist_record, (current_vid, current_gid))
-            fetch_ret = cursor.fetchone()
-            if fetch_ret:  # 更新
-                update_record = "UPDATE `table_update_config` SET `file_folder`=? " \
-                                "WHERE `variety_id`=? AND `group_id`=?;"
-                cursor.execute(update_record, (current_folder, current_vid, current_gid))
-                connection.commit()
-            else:  # 添加
-                insert_statement = "INSERT INTO `table_update_config` " \
-                                   "(`variety_name`,`variety_id`,`group_name`,`group_id`, `file_folder`) " \
-                                   "VALUES (?,?,?,?,?);"
-                cursor.execute(insert_statement, new_config)
-                connection.commit()
-            cursor.close()
-            connection.close()
-            QMessageBox.information(popup, '成功', '配置成功.')
-            popup.close()
+            new_config = {
+                'machine_code': settings.app_dawn.value('machine'),
+                'utoken': settings.app_dawn.value('AUTHORIZATION'),
+                'variety_name': current_vname,
+                'variety_id': current_vid,
+                'group_name': current_gname,
+                'group_id': current_gid,
+                'file_folder': current_folder
+            }
+            try:
+                r = requests.post(
+                    url=settings.SERVER_ADDR + 'user/data_configs/',
+                    headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': settings.USER_AGENT},
+                    data=json.dumps(new_config)
+                )
+                response = json.loads(r.content.decode('utf8'))
+                if r.status_code != 200:
+                    raise ValueError(response['message'])
+            except Exception as e:
+                QMessageBox.information(popup, '错误', str(e))
+            else:
+                QMessageBox.information(popup, '成功', response['message'])
+                popup.close()
 
         def get_current_trend_group():
             # 获取当前品种数据组
@@ -1243,23 +1254,27 @@ class UpdateTableConfigPage(QWidget):
         if col != 4 or current_text != '点击更新':
             return
 
-        def process_finished(ret):  # 更新结束
+        def process_finished(variety_id, group_id):  # 更新结束
             self.update_thread.timer.stop()
             self.config_table.item(row, 4).setText('更新完成')
             self.update_thread.deleteLater()
             del self.update_thread
             # 更新时间修改
-            db_path = os.path.join(BASE_DIR, 'dawn/tupdate.db')
-            connection = sqlite3.connect(db_path)
-            connection.row_factory = dict_factory
-            cursor = connection.cursor()
-            today = datetime.datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-            update_statement = "UPDATE `table_update_config` SET " \
-                               "`update_time`=? WHERE `variety_id`=? AND `group_id`=?;"
-            cursor.execute(update_statement, (today, variety_id, group_id))
-            connection.commit()
-            cursor.close()
-            connection.close()
+            try:
+                requests.patch(
+                    url=settings.SERVER_ADDR + 'user/data_configs/',
+                    headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': settings.USER_AGENT},
+                    data=json.dumps({
+                        'utoken': settings.app_dawn.value('AUTHORIZATION'),
+                        'machine_code': settings.app_dawn.value('machine'),
+                        'variety_id': variety_id,
+                        'group_id': group_id
+                    })
+                )
+            except Exception:
+                pass
+            else:
+                self.config_table.item(row, 3).setText(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
         def updating_show(index):  # 提示正在更新
             self.config_table.item(row, 4).setText(updating_text[index])
@@ -1289,7 +1304,6 @@ class MyTrendChartTableManage(QTableWidget):
         alternate-background-color: rgb(245, 250, 248);
         }
         """)
-
 
     def mousePressEvent(self, event):
         if event.buttons() == Qt.RightButton:
