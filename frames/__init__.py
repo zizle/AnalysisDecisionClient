@@ -6,12 +6,13 @@
 # ---------------------------
 
 import os
+import sys
 import json
 import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen
+from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox
 from PyQt5.QtGui import QPixmap, QFont, QImage
 from PyQt5.QtCore import Qt, QSize
 
@@ -56,6 +57,7 @@ class WelcomePage(QSplashScreen):
         try:
             r = requests.post(
                 url=settings.SERVER_ADDR + 'client/',
+                timeout=(2, 5),
                 headers={'Content-Type': 'application/json; charset=utf-8'},
                 data=json.dumps({
                     'machine_code': machine_code,
@@ -68,7 +70,8 @@ class WelcomePage(QSplashScreen):
         except Exception as e:
             settings.app_dawn.remove('machine')
             self.showMessage("欢迎使用分析决策系统\n获取数据失败...\n" + str(e), Qt.AlignCenter, Qt.red)
-            time.sleep(1.5)
+            QMessageBox.information(self, '错误', '连接服务器失败!')
+            sys.exit(0)
         else:
             # 写入配置
             settings.app_dawn.setValue('machine', response['machine_code'])

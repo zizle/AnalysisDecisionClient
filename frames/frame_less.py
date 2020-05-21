@@ -13,6 +13,7 @@ from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkRe
 from widgets import LoadedPage
 import settings
 
+
 class CAvatar(QWidget):
     Circle = 0              # 圆圈
     Rectangle = 1           # 圆角矩形

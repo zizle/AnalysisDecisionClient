@@ -10,27 +10,18 @@ import time
 import datetime
 import requests
 import pickle
-import sqlite3
 import pandas as pd
 import pyecharts.options as opts
 from pyecharts.charts import Line, Bar, Page
 from PyQt5.QtWidgets import QApplication,QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
-    QGroupBox, QCheckBox, QTextEdit, QGridLayout, QTabWidget
+    QGroupBox, QCheckBox, QTextEdit, QGridLayout
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
-from PyQt5.QtGui import QCursor,QIcon
+from PyQt5.QtGui import QCursor, QIcon
 import settings
 from widgets import LoadedPage
 from settings import BASE_DIR
-
-
-# sqlite3查询结果转为字典
-def dict_factory(cursor, row):
-    d = {}
-    for idx, col in enumerate(cursor.description):
-        d[col[0]] = row[idx]
-    return d
 
 
 # 数据图列配置的按钮
@@ -200,7 +191,6 @@ class DrawChartsDialog(QDialog):
                 QMessageBox.information(self, '成功', '保存图表成功')
                 chart_decipher.close()
 
-
         # 图表解读
         chart_decipher = QDialog(self)
         chart_decipher.setWindowTitle("解读")
@@ -324,10 +314,10 @@ class DrawChartsDialog(QDialog):
         if not all([bottom, left_axis]):
             QMessageBox.information(self, '错误', '请至少设置一个左轴指标再进行绘制')
             return
-        print('标题:\n', title)
-        print('左轴参数:\n', left_axis)
-        print('右轴参数:\n', right_axis)
-        print('横轴参数:\n', bottom)
+        # print('标题:\n', title)
+        # print('左轴参数:\n', left_axis)
+        # print('右轴参数:\n', right_axis)
+        # print('横轴参数:\n', bottom)
         source_df = pd.DataFrame(self.table_sources)
         if bottom == 'column_0':
             source_df[bottom] = pd.to_datetime(source_df[bottom], format='%Y-%m-%d')
@@ -336,13 +326,13 @@ class DrawChartsDialog(QDialog):
         sort_df = source_df.sort_values(by=bottom)
         # print('排序前:\n', source_df)
         # print('排序后:\n', sort_df)
-        print("显示图形的空间:", self.chart_widget.width(), self.chart_widget.height())
+        # print("显示图形的空间:", self.chart_widget.width(), self.chart_widget.height())
         try:
             # 进行画图
             x_axis_data = sort_df[bottom].values.tolist()
             # 由于pyecharts改变了overlap方法,读取左轴第一个数据类型进行绘制
             left_axis_copy = {key: val for key, val in left_axis.items()}
-            print("复制后的左轴参数:", left_axis_copy)
+            # print("复制后的左轴参数:", left_axis_copy)
             first_key = list(left_axis_copy.keys())[0]
             first_datacol, first_type = first_key, left_axis_copy[first_key]
             del left_axis_copy[first_key]
@@ -724,6 +714,7 @@ class InformationTable(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)  # 选中时为一行
         self.setSelectionMode(QAbstractItemView.SingleSelection)  # 只能选中一行
         self.setFrameShape(QFrame.NoFrame)
+        self.doubleClicked.connect(self.enter_draw_charts)
         self.setObjectName('informationTable')
         self.setStyleSheet("""
         #informationTable{
@@ -1056,22 +1047,6 @@ class UpdateTableConfigPage(QWidget):
             for group_item in response['groups']:
                 self.vtable_group.addItem(group_item['name'], group_item['id'])
 
-    def create_update_configs_db(self, db_path):
-        connection = sqlite3.connect(db_path)
-        cursor = connection.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS `table_update_config`("
-                       "`id` INTEGER PRIMARY KEY AUTOINCREMENT,"
-                       "`update_time` VARCHAR(32) DEFAULT NULL,"
-                       "`variety_name` VARCHAR(128) NOT NULL,"
-                       "`variety_id` INTEGER NOT NULL,"
-                       "`group_name` VARCHAR(128) NOT NULL,"
-                       "`group_id` INTEGER NOT NULL,"
-                       "`file_folder` VARCHAR (1024) NOT NULL"
-                       ");")
-        connection.commit()
-        cursor.close()
-        connection.close()
-
     # 读取当前的配置
     def _read_configs(self):
         self.config_table.clear()
@@ -1289,7 +1264,7 @@ class UpdateTableConfigPage(QWidget):
         self.update_thread.start()
 
 
-# 管理我的数据表
+# 管理我的数据图
 class MyTrendChartTableManage(QTableWidget):
     def __init__(self, *args, **kwargs):
         super(MyTrendChartTableManage, self).__init__(*args)
@@ -1522,7 +1497,7 @@ class MyTrendTableChartPage(QWidget):
                 response = json.loads(r.content.decode('utf8'))
                 if r.status_code != 200:
                     raise ValueError(response['message'])
-            except Exception:
+            except Exception as e:
                 pass
             else:
                 self.manage_table.show_charts_info(response['charts_info'])
