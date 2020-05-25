@@ -787,8 +787,9 @@ class InformationTable(QTableWidget):
                 self.removeRow(self.currentRow())
 
     def show_contents(self, row_contents):
+
         self.clear()
-        table_headers = ["序号", '标题', '创建日期', '最近更新']
+        table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者']
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(row_contents))
         self.setHorizontalHeaderLabels(table_headers)
@@ -805,9 +806,15 @@ class InformationTable(QTableWidget):
             item2 = QTableWidgetItem(row_item['create_time'])
             item2.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 2, item2)
-            item3 = QTableWidgetItem(row_item['update_time'])
+            item3 = QTableWidgetItem(row_item['author'])
             item3.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 3, item3)
+            item4 = QTableWidgetItem(row_item['update_time'])
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 4, item4)
+            item5 = QTableWidgetItem(row_item['updater'])
+            item5.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 5, item5)
 
 
 # 管理我的数据表
@@ -871,14 +878,13 @@ class UpdateTrendTablePage(QWidget):
         if current_group_id is None or current_variety_id is None:
             return
         try:
-            user_id = int(pickle.loads(settings.app_dawn.value('UKEY')))
             r = requests.get(
-                url=settings.SERVER_ADDR + 'user/' + str(user_id) + '/trend/table/?variety='+str(current_variety_id)+'&group=' + str(current_group_id)
+                url=settings.SERVER_ADDR + 'variety/' + str(current_variety_id) + '/trend/table/?group=' + str(current_group_id)
             )
             response = json.loads(r.content.decode('utf8'))
             if r.status_code != 200:
                 raise ValueError(response['message'])
-        except Exception as e:
+        except Exception:
             pass
         else:
             self.trend_table.show_contents(response['tables'])
@@ -982,7 +988,7 @@ class UpdateTableConfigPage(QWidget):
         options_layout = QHBoxLayout(self)
         options_layout.addWidget(QLabel("品种:", self))
         self.variety_combobox = QComboBox(self)
-        self.variety_combobox.currentTextChanged.connect(self._get_current_v_group)
+        self.variety_combobox.currentTextChanged.connect(self._read_configs)
         options_layout.addWidget(self.variety_combobox)
         options_layout.addWidget(QLabel("数据组:", self))
         self.vtable_group = QComboBox(self)
@@ -1014,7 +1020,6 @@ class UpdateTableConfigPage(QWidget):
         }
         """)
         self._get_access_variety()
-        self._read_configs()
 
     def _get_access_variety(self):
         try:
@@ -1537,12 +1542,12 @@ class BaseTrendAdmin(QWidget):
         """)
 
     def add_left_menus(self):
-        for item in [u'数据源配置', u'我的数据表', u'我的数据图']:
+        for item in [u'数据源配置', u'品种数据表', u'我的数据图']:
             self.left_list.addItem(QListWidgetItem(item))
 
     def left_list_clicked(self):
         text = self.left_list.currentItem().text()
-        if text == u'我的数据表':
+        if text == u'品种数据表':
             frame_page = UpdateTrendTablePage(parent=self)
         elif text == u'数据源配置':
             frame_page = UpdateTableConfigPage(parent=self)
