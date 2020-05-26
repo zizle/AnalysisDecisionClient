@@ -272,7 +272,6 @@ class UsersTable(QTableWidget):
         self.setFrameShape(QFrame.NoFrame)
 
     def setRowContents(self, row_contents):
-        print(row_contents)
         self.clear()
         table_headers = ["序号", "用户名","手机", "加入时间", "最近登录", "邮箱","角色","备注名"]
         self.setColumnCount(len(table_headers))

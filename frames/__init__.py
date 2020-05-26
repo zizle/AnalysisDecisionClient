@@ -273,6 +273,9 @@ class ADSClient(FrameLessWindow):
             from admin.basetrend import BaseTrendAdmin
             page = BaseTrendAdmin()
             page.add_left_menus()
+        elif module_text == u'交割服务':
+            from admin.delivery import DeliveryInfoAdmin
+            page = DeliveryInfoAdmin()
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',

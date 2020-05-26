@@ -512,7 +512,7 @@ class ModuleBar(QWidget):
                     if sub_module['name'] == "数据管理":
                         sub_module_menu = DropdownMenu()
                         # sub_module_menu.triggered.connect(self.module_action_selected)
-                        for sub_action in ["首页管理", "产品服务", '基本分析']:
+                        for sub_action in ["首页管理", "产品服务", '基本分析','交割服务']:
                             sub_action = sub_module_menu.addAction(sub_action)
                             sub_action.aid = -9
                         drop_action.setMenu(sub_module_menu)
