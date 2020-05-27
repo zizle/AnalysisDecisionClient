@@ -1,0 +1,87 @@
+body{
+    margin: 0 0 2px 2px;
+}
+.house-leader{
+    border-bottom: 1px solid #CDCDB4;
+    color: #8DB6CD;
+    font-weight: bold;
+}
+.house-leader:hover{
+    cursor: pointer;
+}
+
+.house-list li:hover{
+    background-color: #EDEDED;
+    cursor: pointer;
+}
+
+.daily-report table{
+    /*表格线的颜色*/
+    background: rgb(150,150,150);
+    width: 90%;
+    table-layout: fixed;
+    margin-left: 15px;
+}
+.daily-report table td{
+    background:rgb(250,250,250);
+    text-align: center;
+}
+.daily-report table th{
+    background: #CDCDB4;
+}
+.daily-report .tablesName{
+    margin-top: 15px;
+}
+.backward{
+    display: block;
+    margin: 50px auto;
+}
+.clickDetail{
+    margin-top: 15px;
+}
+.clickDetail span{
+    display: block;
+    font-size: 16px;
+    color: #104E8B;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+.shDetail span{
+    display: block;
+    font-size: 16px;
+    color: #104E8B;
+    margin-top: 10px;
+    margin-left: 0;
+}
+.house-leader{
+    border-bottom: 1px solid #CDCDB4;
+    color: #696969;
+    font-weight: bold;
+    padding-bottom: 4px;
+    font-size: 17px;
+    margin-left: 10px;
+}
+.house-leader:hover{
+    cursor: pointer;
+}
+.house-list ul{
+    margin: 0 0 5px 0;
+    padding-left: 15px;
+}
+.house-list li{
+    list-style: none;
+    padding: 3px 0 3px 5px;
+
+}
+.house-list li:hover{
+    background-color: #EDEDED;
+    cursor: pointer;
+}
+.shDetail ul{
+    padding: 0;
+    margin: 0 0 0 15px;
+}
+.shDetail li{
+    list-style: none;
+    padding: 3px;
+}

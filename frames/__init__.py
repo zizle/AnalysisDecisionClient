@@ -14,7 +14,7 @@ import shutil
 import requests
 from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox
 from PyQt5.QtGui import QPixmap, QFont, QImage
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QUrl
 
 from utils.machine import get_machine_code
 from popup import InformationPopup
@@ -308,6 +308,9 @@ class ADSClient(FrameLessWindow):
             from frames.formulas import FormulasCalculate
             page = FormulasCalculate()
             page.getGroupVarieties()
+        elif module_text == "交割服务":
+            from frames.delivery import DeliveryPage
+            page = DeliveryPage()
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
