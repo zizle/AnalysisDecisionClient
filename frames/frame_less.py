@@ -267,6 +267,7 @@ class CAvatar(QWidget):
         else:
             self.onError('')
 
+
 # 标题栏
 class TitleBar(QWidget):
     HEIGHT = settings.TITLE_BAR_HEIGHT

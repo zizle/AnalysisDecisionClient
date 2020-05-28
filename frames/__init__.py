@@ -310,7 +310,15 @@ class ADSClient(FrameLessWindow):
             page.getGroupVarieties()
         elif module_text == "交割服务":
             from frames.delivery import DeliveryPage
-            page = DeliveryPage()
+            try:
+                page = DeliveryPage(self.page_container)
+                page.get_hot_discuss()
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(
+                    e
+                )
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',

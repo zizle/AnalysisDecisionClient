@@ -72,7 +72,7 @@ class CreateNewWarehouse(QWidget):
         area = self.area_edit.text().strip()
         name = self.name_edit.text().strip()
         short_name = self.short_name_edit.text().strip()
-        addr = self.area_edit.text().strip()
+        addr = self.addr_edit.text().strip()
         longitude = self.lng_edit.text().strip()
         latitude = self.lat_edit.text().strip()
         if not all([area, name,short_name, addr, longitude, latitude]):

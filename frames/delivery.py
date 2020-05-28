@@ -5,13 +5,15 @@
 import os
 import json
 import requests
+from collections import OrderedDict
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QLabel,QGridLayout, QFrame, QTableWidget, \
-    QTableWidgetItem, QHeaderView
-from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint
+    QTableWidgetItem, QHeaderView, QMessageBox
+from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint, QSize, QTimer
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
+from widgets import CAvatar
 from settings import BASE_DIR, SERVER_ADDR, USER_AGENT
 
 
@@ -196,6 +198,265 @@ class AreaButton(QPushButton):
         self.select_area_menu.emit(self.text())
 
 
+""" 交流与讨论相关 """
+
+
+# 回复的项目
+class ReplyItem(QWidget):
+    def __init__(self,reply_item, *args, **kwargs):
+        super(ReplyItem, self).__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        reply_layout = QVBoxLayout(self)
+        user_layout = QHBoxLayout(self)
+        avatar = CAvatar(size=QSize(20, 20), parent=self)
+        user_layout.addWidget(avatar)
+        user_layout.addWidget(QLabel(reply_item['username'], self))
+        user_layout.addStretch()
+        user_layout.addWidget(QLabel("2020-05-28", self))
+        reply_layout.addLayout(user_layout)
+        text_label = QLabel(self)
+        text_label.setText(reply_item['text'])
+        reply_layout.addWidget(text_label)
+        self.setLayout(reply_layout)
+
+# 讨论的项目
+class DiscussItem(QWidget):
+    def __init__(self, discuss,*args, **kwargs):
+        super(DiscussItem, self).__init__(*args, **kwargs)
+        self.replies = discuss['replies']
+        self.is_show_replies = False  # 记录是否已经展开了回复
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(QMargins(0,0,0,0))
+        layout.setSpacing(1)
+
+        discuss_title = QWidget(self)
+        discuss_title.setFixedHeight(22)
+        username_layout = QHBoxLayout(self)
+        username_layout.setContentsMargins(QMargins(2,1,1,1))
+        self.avatar = CAvatar(url=discuss['avatar'],size=QSize(20,20), parent=self)
+        username_layout.addWidget(self.avatar)
+        self.username = QLabel(discuss['username'])
+        username_layout.addWidget(self.username)
+        username_layout.addStretch()
+        self.dis_time = QLabel(discuss['create_time'])
+        username_layout.addWidget(self.dis_time)
+        discuss_title.setLayout(username_layout)
+        layout.addWidget(discuss_title)
+
+        self.text_show = QLabel(self)
+        self.text_show.setWordWrap(True)  # 自动换行
+        self.text_show.setText(self.get_style_text(discuss['text']))
+        layout.addWidget(self.text_show)
+        self.reply_button = QPushButton('讨论(' + str(len(self.replies)) + ')', self)
+        self.reply_button.setCursor(Qt.PointingHandCursor)
+        self.reply_button.clicked.connect(self.show_replies)
+        layout.addWidget(self.reply_button, alignment=Qt.AlignRight)
+        self.setLayout(layout)
+
+        self.reply_button.setObjectName('replyBtn')
+        self.text_show.setObjectName('textLable')
+        discuss_title.setObjectName('disTitle')
+        self.setStyleSheet("""
+        #disTitle{background-color:rgb(150,200,210)}
+        #textLable{background-color:rgb(240,240,240);}
+        #replyBtn{border:none}
+        """)
+
+    def get_style_text(self, text):
+        # 设置文字显示风格
+        return "<div style='font-size:13px;text-indent:26px;line-height:20px'>" + text + "</div>"
+
+    def show_replies(self):
+        if self.is_show_replies:  # 已经展开的要关闭
+            self.close_replies()
+            return
+        for reply_item in self.replies:
+            reply_item['text'] = self.get_style_text(reply_item['text'])
+            reply_widget = ReplyItem(reply_item)
+            self.layout().insertWidget(self.layout().count(), reply_widget)
+        self.is_show_replies = True
+
+    # 关闭回复
+    def close_replies(self):
+        for index in range(self.layout().count()):
+            widget = self.layout().itemAt(index).widget()
+            if isinstance(widget, ReplyItem):
+                widget.close()
+                widget.deleteLater()
+                del widget
+        self.is_show_replies = False
+
+
+# 交流与讨论的控件
+class DiscussWidget(QScrollArea):
+    def __init__(self, *args, **kwargs):
+        super(DiscussWidget, self).__init__(*args, **kwargs)
+        self.dis_container = QWidget(self)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(QMargins(0,0,0,0))
+        # 具体交流与讨论的项目
+        self.dis_container.setLayout(layout)
+        self.setWidget(self.dis_container)
+        self.setWidgetResizable(True)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.dis_container.setLayout(layout)
+        self.setObjectName("disScroll")
+        self.setStyleSheet("""
+        #disScroll{border:none}
+        """)
+
+    def add_discuss_item(self, item):
+        item.setParent(self)
+        self.dis_container.layout().addWidget(item)
+
+
+# 显示仓库的表格
+class WarehouseTable(QTableWidget):
+    def __init__(self, *args):
+        super(WarehouseTable, self).__init__(*args)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setSelectionBehavior(QHeaderView.SelectRows)
+        self.setEditTriggers(QHeaderView.NoEditTriggers)
+
+    # 以地区获取仓库信息的显示方式
+    def area_warehouse_show(self, warehouses):
+        table_headers = ["地区", "交割仓库", "地址", "交割品种", "查看"]
+        self.clear()
+        self.setColumnCount(len(table_headers))
+        self.setRowCount(len(warehouses))
+        self.setHorizontalHeaderLabels(table_headers)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
+        for row, row_item in enumerate(warehouses):
+            self.setRowHeight(row, 30)
+            item0 = QTableWidgetItem(row_item['area'])
+            item0.id = row_item['id']
+            item0.variety_en = None
+            item0.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 0, item0)
+            item1 = QTableWidgetItem(row_item['name'])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 1, item1)
+            item2 = QTableWidgetItem(row_item['addr'])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 2, item2)
+            item3 = QTableWidgetItem(row_item['delivery_varieties'])
+            item3.setToolTip(row_item['delivery_varieties'])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 3, item3)
+            item4 = QTableWidgetItem('详情')
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 4, item4)
+        self.setFixedHeight(self.rowCount() * 30 + 35)
+
+    # 以品种获取仓库的显示方式
+    def variety_warehouse_show(self, warehouses):
+        self.clear()
+        table_headers = ["品种", "交割仓库", "地址", "联系人", "联系方式", "升贴水", "查看"]
+        self.setColumnCount(len(table_headers))
+        self.setRowCount(len(warehouses))
+        self.setHorizontalHeaderLabels(table_headers)
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
+        for row, row_item in enumerate(warehouses):
+            self.setRowHeight(row,30)
+            item0 = QTableWidgetItem(row_item['variety'])
+            item0.setTextAlignment(Qt.AlignCenter)
+            item0.id = row_item['id']
+            item0.variety_en = row_item['variety_en']
+            self.setItem(row, 0, item0)
+            item1 = QTableWidgetItem(row_item['name'])
+            item1.setToolTip(row_item['name'])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 1, item1)
+            item2 = QTableWidgetItem(row_item['addr'])
+            item2.setToolTip(row_item['addr'])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 2, item2)
+            item3 = QTableWidgetItem(row_item['linkman'])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 3, item3)
+            item4 = QTableWidgetItem(row_item['links'])
+            item4.setToolTip(row_item['links'])
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 4, item4)
+            item5 = QTableWidgetItem(row_item['premium'])
+            item5.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 5, item5)
+            item6 = QTableWidgetItem('仓单')
+            item6.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 6, item6)
+        self.setFixedHeight(self.rowCount() * 30 + 35)
+
+
+class DetailWarehouseReceipts(QWidget):
+    def __init__(self, warehouses_receipts, *args, **kwargs):
+        super(DetailWarehouseReceipts, self).__init__(*args, **kwargs)
+        print(warehouses_receipts)
+        layout = QVBoxLayout(self)
+        info_layout = QHBoxLayout(self)
+        info_layout.addStretch()
+        info_layout.addWidget(QLabel('仓库名称:', self), alignment=Qt.AlignLeft)
+        info_layout.addWidget(QLabel(warehouses_receipts['warehouse']))
+        info_layout.addStretch()
+        layout.addLayout(info_layout)
+        for variety_item in warehouses_receipts['varieties']:
+            info_layout = QHBoxLayout(self)
+
+            info_layout.addWidget(QLabel('<div>品&nbsp;&nbsp;种:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
+            info_layout.addWidget(QLabel(variety_item['name'], self, objectName='infoMsg'))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>联 系 人:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
+            info_layout.addWidget(QLabel(variety_item['linkman'], self, objectName='infoMsg'))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>联系方式:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft)
+            info_layout.addWidget(QLabel(variety_item['links'], self, objectName='infoMsg'))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>升 贴 水:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
+            info_layout.addWidget(QLabel(variety_item['premium'], self, objectName='infoMsg'))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            layout.addWidget(QLabel('【仓单信息】', self, objectName='receiptLabel'))
+            receipt_table = QTableWidget(self)
+            receipt_table.setColumnCount(3)
+            receipt_table.setHorizontalHeaderLabels(['日期', '仓单', '增减'])
+
+            for row, receipt_item in enumerate(variety_item['receipts']):
+                receipt_table.insertRow(row)
+                item0 = QTableWidgetItem(receipt_item['date'])
+                item0.setTextAlignment(Qt.AlignCenter)
+                receipt_table.setItem(row, 0, item0)
+                item1 = QTableWidgetItem(str(receipt_item['receipt']))
+                item1.setTextAlignment(Qt.AlignCenter)
+                receipt_table.setItem(row, 1, item1)
+                item2 = QTableWidgetItem(str(receipt_item['increase']))
+                item2.setTextAlignment(Qt.AlignCenter)
+                receipt_table.setItem(row, 2, item2)
+
+            layout.addWidget(receipt_table)
+
+        layout.addStretch()
+
+        self.setLayout(layout)
+
+        self.setStyleSheet("""
+        #infoLabel{font-size:14px;font-weight:bold}
+        #infoMsg{font-size:14px}
+        """)
+
+
 class DeliveryPage(QScrollArea):
     def __init__(self, *args, **kwargs):
         super(DeliveryPage, self).__init__(*args, *kwargs)
@@ -204,44 +465,115 @@ class DeliveryPage(QScrollArea):
         layout.setContentsMargins(QMargins(0, 0, 0, 0))
         layout.setSpacing(1)
         map_discuss_layout = QHBoxLayout(self)
-        map_discuss_layout.setContentsMargins(QMargins(0,0,0,0))
+        map_discuss_layout.setContentsMargins(QMargins(0,0,4,0))
+        map_discuss_layout.setSpacing(5)
         self.menu_bar = MenuBar(self)
         self.menu_bar.set_parent(self)
         layout.addWidget(self.menu_bar, alignment=Qt.AlignTop)
 
         self.map_view = QWebEngineView(self)
+        self.map_view.loadFinished.connect(self.resize_widgets)  # 加载结束调整地图和控件的大小
         self.map_view.load(QUrl("file:///pages/delivery/map.html"))
 
         channel_qt_obj = QWebChannel(self.map_view.page())  # 实例化qt信道对象,必须传入页面参数
         self.contact_channel = WarehouseMapChannel()  # 页面信息交互通道
         self.contact_channel.request_province_warehouses.connect(self.get_province_warehouses)
         self.contact_channel.request_warehouse_detail.connect(self.get_warehouse_receipts)
-        # self.contact_channel.receivedUserTokenBack.connect(self.web_has_received_token)  # 收到token的回馈
-        # self.contact_channel.moreCommunicationSig.connect(self.more_communication)  # 更多讨论交流页面
-        # self.contact_channel.linkUsPageSig.connect(self.to_link_us_page)  # 关于我们的界面
-        # self.contact_channel.getInfoFile.connect(self.get_information_file)  # 弹窗显示品种的相关PDF文件
         self.map_view.page().setWebChannel(channel_qt_obj)
         channel_qt_obj.registerObject("pageContactChannel", self.contact_channel)  # 信道对象注册信道，只能注册一个
 
         map_discuss_layout.addWidget(self.map_view, alignment=Qt.AlignTop)
 
-        map_discuss_layout.addWidget(QLabel('交流与讨论区'))
+        # 讨论与交流
+        dis_layout = QVBoxLayout(self)
+        dis_layout.setContentsMargins(QMargins(0,0,0,0))
+        dis_layout.setSpacing(1)
+        dis_title_layout = QHBoxLayout(self)
+        dis_title_layout.setContentsMargins(QMargins(0,0,0,0))
+        self.dis_label = QLabel('【最新讨论】', self)
+        dis_title_layout.addWidget(self.dis_label, alignment=Qt.AlignLeft)
+        self.more_dis_button = QPushButton('更多>>', self)
+        self.more_dis_button.setCursor(Qt.PointingHandCursor)
+        dis_title_layout.addWidget(self.more_dis_button, alignment=Qt.AlignRight)
+        dis_layout.addLayout(dis_title_layout)
+
+        self.discuss_show = DiscussWidget(self)
+        dis_layout.addWidget(self.discuss_show)
+
+        map_discuss_layout.addLayout(dis_layout)
 
         layout.addLayout(map_discuss_layout)
 
-        self.warehouse_table = QTableWidget(self)
-
+        self.warehouse_table = WarehouseTable(self)
+        self.warehouse_table.cellClicked.connect(self.warehouse_table_cell_clicked)
         layout.addWidget(self.warehouse_table)
+
+        self.no_data_label = QLabel('没有数据', self)
+        # layout.addWidget(self.no_data_label)
+        # 显示仓库详情的控件
+        self.detail_warehouse = None
+        layout.addStretch()
+
         self.container.setLayout(layout)
         self.setWidget(self.container)
         self.setWidgetResizable(True)
+
+        self.more_dis_button.setObjectName('moreDisBtn')
+        self.setStyleSheet("""
+        #moreDisBtn{border:none}
+        """)
+
         self.menu_bar.set_menus(self.get_menus())
 
     def resizeEvent(self, event):
-        width = int(self.width() * 0.618)
-        height = int(self.height() * 0.72)
-        self.map_view.setFixedSize(width, height)
-        self.contact_channel.resize_map.emit(width, height)
+        self.resize_widgets(True)
+
+    def resize_widgets(self, is_loaded):
+        if is_loaded:
+            width = int(self.parent().width() * 0.618)
+            height = int(self.parent().height() * 0.72)
+            self.map_view.setFixedSize(width, height)
+            self.discuss_show.setFixedHeight(height - self.more_dis_button.height() - 5)  # 减去更多按钮的高度和QFrame横线的高度
+            self.contact_channel.resize_map.emit(width, height)  # 调整界面中地图的大小
+
+    # 获取最新的讨论交流
+    def get_hot_discuss(self):
+        discuss = [
+            {
+                'avatar': '',
+                'username': '用户名',
+                'create_time': '2020-05-28',
+                'text': '这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容',
+                'replies': [
+                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
+                ]
+            },
+            {
+                'avatar': '',
+                'username': '用户名',
+                'create_time': '2020-05-29',
+                'text': '这是内容2，这是内容2，这是内容2，这是内容2，',
+                'replies': [
+                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'},
+                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'},
+                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
+                ]
+            },
+            {
+                'avatar': '',
+                'username': '用户名',
+                'create_time': '2020-05-29',
+                'text': '这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，',
+                'replies': [
+                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
+                ]
+            },
+
+
+        ]
+        for item_json in discuss:
+            item = DiscussItem(item_json)
+            self.discuss_show.add_discuss_item(item)
 
     def get_menus(self):
         menus = [
@@ -334,49 +666,17 @@ class DeliveryPage(QScrollArea):
             layout = QHBoxLayout()
         return layout
 
-    def warehouse_table_show(self, warehouses):
-        # print(warehouses)
-        table_headers = ["品种", "交割仓库", "地址", "联系人", "联系方式", "升贴水", "查看"]
-        self.warehouse_table.setColumnCount(len(table_headers))
-        self.warehouse_table.setRowCount(len(warehouses))
-        self.warehouse_table.setHorizontalHeaderLabels(table_headers)
-        self.warehouse_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.warehouse_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        for row, row_item in enumerate(warehouses):
-            item0 = QTableWidgetItem(row_item['variety'])
-            item0.setTextAlignment(Qt.AlignCenter)
-            item0.id = row_item['id']
-            item0.v_en = row_item['variety_en']
-            self.warehouse_table.setItem(row, 0, item0)
-            item1 = QTableWidgetItem(row_item['name'])
-            item1.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 1, item1)
-            item2 = QTableWidgetItem(row_item['addr'])
-            item2.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 2, item2)
-            item3 = QTableWidgetItem(row_item['linkman'])
-            item3.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 3, item3)
-            item4 = QTableWidgetItem(row_item['links'])
-            item4.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 4, item4)
-            item5 = QTableWidgetItem(row_item['premium'])
-            item5.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 5, item5)
-            item6 = QTableWidgetItem('仓单')
-            item6.setTextAlignment(Qt.AlignCenter)
-            self.warehouse_table.setItem(row, 6, item6)
-
-    # 品种菜单选择了品种
     def get_variety_warehouses(self, v_id, variety_en):
+        self.hide_detail_warehouse()
         self.menu_bar.child_menus_widget.close()
         # 获取该品种下的所有仓库
         warehouses = self.request_variety_warehouses(variety_en)
         # 数据传入界面
         self.contact_channel.refresh_warehouses.emit(warehouses)
-        # 表格显示数据
-        self.warehouse_table_show(warehouses)
+        # 表格显示数据(数据项必须含id)
+        self.warehouse_table.variety_warehouse_show(warehouses)
 
+    # 获取品种下的仓库
     def request_variety_warehouses(self,variety_en):
         try:
             r = requests.get(
@@ -391,15 +691,16 @@ class DeliveryPage(QScrollArea):
         else:
             return response['warehouses']
 
-    # 地区菜单选择了地区
     def get_province_warehouses(self, area):
+        self.hide_detail_warehouse()
         if not self.menu_bar.child_menus_widget.isHidden():
             self.menu_bar.child_menus_widget.close()
         warehouses = self.request_province_warehouses(area)
         # 数据传入界面
         self.contact_channel.refresh_warehouses.emit(warehouses)
-        print(warehouses)
+        self.warehouse_table.area_warehouse_show(warehouses)
 
+    # 获取省份下的仓库
     def request_province_warehouses(self, area):
         try:
             r = requests.get(
@@ -414,6 +715,68 @@ class DeliveryPage(QScrollArea):
         else:
             return response['warehouses']
 
-    # 获取仓库详情与仓单
+    # 点击显示仓库信息的表格
+    def warehouse_table_cell_clicked(self, row, col):
+        current_item = self.warehouse_table.currentItem()
+        if not current_item:
+            return
+        current_text = current_item.text()
+        if current_text in ['仓单', '详情']:
+            current_id = self.warehouse_table.item(row, 0).id
+            current_variety = self.warehouse_table.item(row, 0).variety_en
+            print(current_id, current_variety)
+            request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
+            if current_variety is not None:
+                request_url += '?v_en=' + str(current_variety)
+
+            warehouses_receipts = self.request_warehouse_receipts(request_url)
+            if not warehouses_receipts:
+                QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')
+                return
+            self.show_warehouse_detail(warehouses_receipts)
+
+    # 获取仓库详情与仓单(交割的品种和品种的近10日仓单)
+    def request_warehouse_receipts(self, url):
+        try:
+            r = requests.get(url=url, headers={'User-Agent': USER_AGENT})
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            print(e)
+            return {}
+        else:
+            return response['warehouses_receipts']
+
+    # 显示仓库详情（品种信息、仓单信息等）
+    def show_warehouse_detail(self, warehouses_receipts):
+        self.show_detail_warehouse(warehouses_receipts)
+
+    def show_detail_warehouse(self, warehouses_receipts):
+        self.detail_warehouse = DetailWarehouseReceipts(warehouses_receipts, self)
+        self.container.layout().insertWidget(self.container.layout().count()-1, self.detail_warehouse)
+        self.map_view.hide()
+        self.discuss_show.hide()
+        self.warehouse_table.hide()
+        self.dis_label.hide()
+        self.more_dis_button.hide()
+        self.no_data_label.hide()
+
+    def hide_detail_warehouse(self):
+        if self.detail_warehouse is not None:
+            self.detail_warehouse.close()
+            self.map_view.show()
+            self.discuss_show.show()
+            if self.warehouse_table.rowCount() == 0:
+                self.no_data_label.show()
+            else:
+                self.warehouse_table.show()
+            self.dis_label.show()
+            self.more_dis_button.show()
+            self.detail_warehouse.deleteLater()
+            self.detail_warehouse = None
+
+
+    # 界面点击仓库点
     def get_warehouse_receipts(self, wh_id):
         print(wh_id)
