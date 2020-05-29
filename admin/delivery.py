@@ -21,30 +21,36 @@ class CreateNewWarehouse(QWidget):
         super(CreateNewWarehouse, self).__init__(*args, **kwargs)
         layout = QVBoxLayout(self)
         edit_layout = QGridLayout(self)
-        edit_layout.addWidget(QLabel('地区:', self), 0, 0)
+
+        edit_layout.addWidget(QLabel('编码:', self), 0, 0)
+        self.fixed_code_edit = QLineEdit(self)
+        self.fixed_code_edit.setPlaceholderText('输入仓库编码,4位数字符串。例如：0001')
+        edit_layout.addWidget(self.fixed_code_edit, 0, 1)
+
+        edit_layout.addWidget(QLabel('地区:', self), 1, 0)
         self.area_edit = QLineEdit(self)
-        edit_layout.addWidget(self.area_edit, 0, 1)
+        edit_layout.addWidget(self.area_edit, 1, 1)
 
-        edit_layout.addWidget(QLabel('名称:', self), 1, 0)
+        edit_layout.addWidget(QLabel('名称:', self), 2, 0)
         self.name_edit = QLineEdit(self)
-        edit_layout.addWidget(self.name_edit, 1, 1)
+        edit_layout.addWidget(self.name_edit, 2, 1)
 
-        edit_layout.addWidget(QLabel('简称:', self), 2, 0)
+        edit_layout.addWidget(QLabel('简称:', self), 3, 0)
         self.short_name_edit = QLineEdit(self)
         self.short_name_edit.setPlaceholderText('简称需与交易所公布的一致!')
-        edit_layout.addWidget(self.short_name_edit, 2, 1)
+        edit_layout.addWidget(self.short_name_edit, 3, 1)
 
-        edit_layout.addWidget(QLabel('地址:', self), 3, 0)
+        edit_layout.addWidget(QLabel('地址:', self), 4, 0)
         self.addr_edit = QLineEdit(self)
-        edit_layout.addWidget(self.addr_edit, 3, 1)
-
-        edit_layout.addWidget(QLabel('经度:', self), 4, 0)
-        self.lng_edit = QLineEdit(self)
-        edit_layout.addWidget(self.lng_edit, 4, 1)
+        edit_layout.addWidget(self.addr_edit, 4, 1)
 
         edit_layout.addWidget(QLabel('经度:', self), 5, 0)
+        self.lng_edit = QLineEdit(self)
+        edit_layout.addWidget(self.lng_edit, 5, 1)
+
+        edit_layout.addWidget(QLabel('经度:', self), 6, 0)
         self.lat_edit = QLineEdit(self)
-        edit_layout.addWidget(self.lat_edit, 5, 1)
+        edit_layout.addWidget(self.lat_edit, 6, 1)
 
         layout.addLayout(edit_layout)
 
@@ -69,13 +75,14 @@ class CreateNewWarehouse(QWidget):
 
     def commit_new_warehouse(self):
         # 整理数据
+        fixed_code = self.fixed_code_edit.text().strip()
         area = self.area_edit.text().strip()
         name = self.name_edit.text().strip()
         short_name = self.short_name_edit.text().strip()
         addr = self.addr_edit.text().strip()
         longitude = self.lng_edit.text().strip()
         latitude = self.lat_edit.text().strip()
-        if not all([area, name,short_name, addr, longitude, latitude]):
+        if not all([fixed_code, area, name,short_name, addr, longitude, latitude]):
             QMessageBox.information(self, '错误', '有字段未填写完整!')
             return
         try:
@@ -83,6 +90,7 @@ class CreateNewWarehouse(QWidget):
                 url=SERVER_ADDR + 'warehouse/',
                 headers={'Content-Type':'application/json;','User-Agent':USER_AGENT},
                 data=json.dumps({
+                    'fixed_code': fixed_code,
                     'area': area,
                     'name': name,
                     'short_name': short_name,

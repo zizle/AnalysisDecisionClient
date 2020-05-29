@@ -2,19 +2,17 @@
 # Author： zizle
 # Created:2020-05-27
 # ------------------------
-import os
 import json
 import requests
-from collections import OrderedDict
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QLabel,QGridLayout, QFrame, QTableWidget, \
     QTableWidgetItem, QHeaderView, QMessageBox
-from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint, QSize, QTimer
-from PyQt5.QtGui import QCursor
+from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint, QSize
+from PyQt5.QtGui import QCursor, QBrush, QColor
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
 from widgets import CAvatar
-from settings import BASE_DIR, SERVER_ADDR, USER_AGENT
+from settings import SERVER_ADDR, USER_AGENT
 
 
 class MenuPushButton(QPushButton):
@@ -317,6 +315,7 @@ class WarehouseTable(QTableWidget):
         self.setFrameShape(QFrame.NoFrame)
         self.setSelectionBehavior(QHeaderView.SelectRows)
         self.setEditTriggers(QHeaderView.NoEditTriggers)
+        self.verticalHeader().hide()
 
     # 以地区获取仓库信息的显示方式
     def area_warehouse_show(self, warehouses):
@@ -325,6 +324,7 @@ class WarehouseTable(QTableWidget):
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(warehouses))
         self.setHorizontalHeaderLabels(table_headers)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
@@ -347,6 +347,7 @@ class WarehouseTable(QTableWidget):
             self.setItem(row, 3, item3)
             item4 = QTableWidgetItem('详情')
             item4.setTextAlignment(Qt.AlignCenter)
+            item4.setForeground(QBrush(QColor(100,150,200)))
             self.setItem(row, 4, item4)
         self.setFixedHeight(self.rowCount() * 30 + 35)
 
@@ -357,6 +358,7 @@ class WarehouseTable(QTableWidget):
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(warehouses))
         self.setHorizontalHeaderLabels(table_headers)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
@@ -386,11 +388,13 @@ class WarehouseTable(QTableWidget):
             item5.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 5, item5)
             item6 = QTableWidgetItem('仓单')
+            item6.setForeground(QBrush(QColor(100, 150, 200)))
             item6.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 6, item6)
         self.setFixedHeight(self.rowCount() * 30 + 35)
 
 
+# 显示详细仓单的控件
 class DetailWarehouseReceipts(QWidget):
     def __init__(self, warehouses_receipts, *args, **kwargs):
         super(DetailWarehouseReceipts, self).__init__(*args, **kwargs)
@@ -398,8 +402,8 @@ class DetailWarehouseReceipts(QWidget):
         layout = QVBoxLayout(self)
         info_layout = QHBoxLayout(self)
         info_layout.addStretch()
-        info_layout.addWidget(QLabel('仓库名称:', self), alignment=Qt.AlignLeft)
-        info_layout.addWidget(QLabel(warehouses_receipts['warehouse']))
+        info_layout.addWidget(QLabel('仓库名称:', self, objectName='titleLabel'), alignment=Qt.AlignLeft)
+        info_layout.addWidget(QLabel(warehouses_receipts['warehouse'], self, objectName='warehouseName'))
         info_layout.addStretch()
         layout.addLayout(info_layout)
         for variety_item in warehouses_receipts['varieties']:
@@ -430,12 +434,19 @@ class DetailWarehouseReceipts(QWidget):
 
             layout.addWidget(QLabel('【仓单信息】', self, objectName='receiptLabel'))
             receipt_table = QTableWidget(self)
+            receipt_table.setObjectName('receiptTable')
+            receipt_table.verticalHeader().hide()
+            receipt_table.setFrameShape(QFrame.NoFrame)
             receipt_table.setColumnCount(3)
             receipt_table.setHorizontalHeaderLabels(['日期', '仓单', '增减'])
-
+            receipt_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            receipt_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
             for row, receipt_item in enumerate(variety_item['receipts']):
                 receipt_table.insertRow(row)
-                item0 = QTableWidgetItem(receipt_item['date'])
+                receipt_table.setRowHeight(row, 30)
+                date = receipt_item['date']
+                date = date[:4] + '-' + date[4:6] + '-' + date[6:]
+                item0 = QTableWidgetItem(date)
                 item0.setTextAlignment(Qt.AlignCenter)
                 receipt_table.setItem(row, 0, item0)
                 item1 = QTableWidgetItem(str(receipt_item['receipt']))
@@ -445,6 +456,7 @@ class DetailWarehouseReceipts(QWidget):
                 item2.setTextAlignment(Qt.AlignCenter)
                 receipt_table.setItem(row, 2, item2)
 
+            receipt_table.setFixedHeight(receipt_table.rowCount() * 30 + 28)
             layout.addWidget(receipt_table)
 
         layout.addStretch()
@@ -452,7 +464,11 @@ class DetailWarehouseReceipts(QWidget):
         self.setLayout(layout)
 
         self.setStyleSheet("""
-        #infoLabel{font-size:14px;font-weight:bold}
+        #titleLabel{font-size:13px;font-weight:bold}
+        #warehouseName{font-size:14px;color:rgb(100,150,220);font-weight:bold}
+        #infoLabel{font-size:13px;font-weight:bold}
+        #receiptLabel{font-size:14px;color:rgb(100,200,220)}
+        #receiptTable{background-color:rgb(240,240,240)}
         #infoMsg{font-size:14px}
         """)
 
@@ -508,7 +524,7 @@ class DeliveryPage(QScrollArea):
         self.warehouse_table.cellClicked.connect(self.warehouse_table_cell_clicked)
         layout.addWidget(self.warehouse_table)
 
-        self.no_data_label = QLabel('没有数据', self)
+        # self.no_data_label = QLabel('没有数据', self)
         # layout.addWidget(self.no_data_label)
         # 显示仓库详情的控件
         self.detail_warehouse = None
@@ -760,23 +776,23 @@ class DeliveryPage(QScrollArea):
         self.warehouse_table.hide()
         self.dis_label.hide()
         self.more_dis_button.hide()
-        self.no_data_label.hide()
 
     def hide_detail_warehouse(self):
         if self.detail_warehouse is not None:
             self.detail_warehouse.close()
             self.map_view.show()
             self.discuss_show.show()
-            if self.warehouse_table.rowCount() == 0:
-                self.no_data_label.show()
-            else:
-                self.warehouse_table.show()
+            self.warehouse_table.show()
             self.dis_label.show()
             self.more_dis_button.show()
             self.detail_warehouse.deleteLater()
             self.detail_warehouse = None
 
-
     # 界面点击仓库点
     def get_warehouse_receipts(self, wh_id):
-        print(wh_id)
+        request_url = SERVER_ADDR + 'warehouse/' + str(wh_id) + '/receipts/'
+        warehouses_receipts = self.request_warehouse_receipts(request_url)
+        if not warehouses_receipts:
+            QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')
+            return
+        self.show_warehouse_detail(warehouses_receipts)
