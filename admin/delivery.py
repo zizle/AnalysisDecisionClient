@@ -110,7 +110,7 @@ class CreateNewWarehouse(QWidget):
 
 
 class WarehouseTable(QTableWidget):
-    action_signal = pyqtSignal(int, str)
+    action_signal = pyqtSignal(str, str)
 
     def __init__(self, *args):
         super(WarehouseTable, self).__init__(*args)
@@ -134,8 +134,8 @@ class WarehouseTable(QTableWidget):
         menu.exec_(QCursor.pos())
 
     def manger_delivery_variety(self):
-        house_id = self.item(self.currentRow(), 0).id
-        self.action_signal.emit(house_id, "交割品种管理")
+        house_code = self.item(self.currentRow(), 0).text()
+        self.action_signal.emit(house_code, "交割品种管理")
 
     def show_warehouses(self, house_list):
         table_headers = ['编号', '地区','名称', '简称', '地址', '增加日期']
@@ -166,9 +166,9 @@ class WarehouseTable(QTableWidget):
 
 
 class WarehouseVarietyManager(QWidget):
-    def __init__(self, house_id, *args, **kwargs):
+    def __init__(self, house_code, *args, **kwargs):
         super(WarehouseVarietyManager, self).__init__(*args, **kwargs)
-        self.house_id = house_id
+        self.house_code = house_code
         layout = QVBoxLayout(self)
         layout.setContentsMargins(QMargins(0,2,1,0))
         layout.setSpacing(2)
@@ -186,14 +186,14 @@ class WarehouseVarietyManager(QWidget):
     # 获取当前仓库的信息和交割品种
     def get_current_house_message(self):
         try:
-            r = requests.get(url=SERVER_ADDR + 'warehouse/' + str(self.house_id) + '/variety/')
+            r = requests.get(url=SERVER_ADDR + 'warehouse/' + str(self.house_code) + '/variety/')
             response = json.loads(r.content.decode('utf8'))
             if r.status_code != 200:
                 raise ValueError(response['message'])
         except Exception as e:
             self.house_msg.setText(str(e))
         else:
-            print(response)
+            # print(response)
             self.house_msg.setText("仓库:【" + response['name'] + "】 简称:" + response['short_name'])
             self.table_show_content(response['result'])
 
@@ -225,15 +225,13 @@ class WarehouseVarietyManager(QWidget):
 
     def manager_table_checked_changed(self, row, col):
         def commit_new_delivery_variety():
-            print('新增交割品种')
-            print(self.house_id, variety_en, checked)
             delivery_msg = {
                 "linkman": popup.linkman_edit.text().strip(),
                 "links": popup.links_edit.text().strip(),
                 "premium": popup.premium_edit.text().strip()
             }
             request_d = {
-                "house_id": self.house_id,
+                "house_code": self.house_code,
                 "variety_text": variety_text,
                 "variety_en": variety_en,
                 "is_delivery": checked,
@@ -244,7 +242,7 @@ class WarehouseVarietyManager(QWidget):
         def send_request(data):
             try:
                 r = requests.post(
-                    url=SERVER_ADDR + 'warehouse/' + str(data['house_id']) + '/variety/',
+                    url=SERVER_ADDR + 'warehouse/' + str(data['house_code']) + '/variety/',
                     headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': USER_AGENT},
                     data=json.dumps(data)
                 )
@@ -290,7 +288,7 @@ class WarehouseVarietyManager(QWidget):
 
         else:
             send_request({
-                "house_id": self.house_id,
+                "house_code": self.house_code,
                 "variety_text": variety_text,
                 "variety_en": variety_en,
                 "is_delivery": checked,
@@ -299,7 +297,7 @@ class WarehouseVarietyManager(QWidget):
 
 
 class WarehouseAdmin(QWidget):
-    table_actions_signal = pyqtSignal(int, str)
+    table_actions_signal = pyqtSignal(str, str)
 
     def __init__(self, *args, **kwargs):
         super(WarehouseAdmin, self).__init__(*args, **kwargs)
@@ -341,6 +339,95 @@ class WarehouseAdmin(QWidget):
             self.warehouse_table.show_warehouses(response['warehouses'])
 
 
+"""仓库编号管理"""
+
+
+class HouseNumberTable(QTableWidget):
+    def __init__(self,*args):
+        super(HouseNumberTable, self).__init__(*args)
+        self.setEditTriggers(QHeaderView.NoEditTriggers)
+        self.setSelectionBehavior(QHeaderView.SelectRows)
+        self.setFrameShape(QFrame.NoFrame)
+
+    def show_houses(self, warehouses):
+        self.clear()
+        table_headers = ['序号','仓库编号', '仓库名称']
+        self.setColumnCount(len(table_headers))
+        self.setHorizontalHeaderLabels(table_headers)
+        self.setRowCount(len(warehouses))
+        for row,row_item in enumerate(warehouses):
+            item0 = QTableWidgetItem(str(row + 1))
+            item0.setTextAlignment(Qt.AlignCenter)
+            item0.id = row_item['id']
+            self.setItem(row, 0, item0)
+            item1 = QTableWidgetItem(row_item['fixed_code'])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 1, item1)
+            item2 = QTableWidgetItem(row_item['name'])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 2, item2)
+
+
+class HouseNumberAdmin(QWidget):
+    def __init__(self, *args, **kwargs):
+        super(HouseNumberAdmin, self).__init__(*args, **kwargs)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(QMargins(0,0,0,0))
+        layout.setSpacing(1)
+        opts_layout = QHBoxLayout(self)
+        self.new_number = QPushButton('新增', self)
+        self.new_number.clicked.connect(self.add_new_house)
+        opts_layout.addWidget(self.new_number, alignment=Qt.AlignLeft)
+
+        opts_layout.addStretch()
+
+        layout.addLayout(opts_layout)
+
+        self.house_table = HouseNumberTable(self)
+        layout.addWidget(self.house_table)
+        self.setLayout(layout)
+
+        self.get_all_warehouse()
+
+    def get_all_warehouse(self):
+        # 获取所有仓库编号信息
+        try:
+            r = requests.get(url=SERVER_ADDR + 'house_number/', headers={'User-Agent': USER_AGENT})
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code !=200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            pass
+        else:
+            self.house_table.show_houses(response['warehouses'])
+
+    def add_new_house(self):
+        def commit_new():
+            try:
+                r = requests.post(url=SERVER_ADDR + 'house_number/', headers={'Content-Type':'application/json;charset=utf8','User-Agent': USER_AGENT},
+                                  data=json.dumps({'name':popup.name_edit.text().strip()}))
+                response = json.loads(r.content.decode('utf8'))
+                if r.status_code != 201:
+                    raise ValueError(response['message'])
+            except Exception as e:
+                QMessageBox.information(popup, '失败', str(e))
+            else:
+                QMessageBox.information(popup, '成功','新增成功!')
+                popup.close()
+
+        popup = QDialog(self)
+        popup.setWindowTitle('新仓库')
+        popup.setAttribute(Qt.WA_DeleteOnClose)
+        layout = QVBoxLayout(self)
+        popup.name_edit = QLineEdit(self)
+        popup.commit = QPushButton('确定', self)
+        popup.commit.clicked.connect(commit_new)
+        layout.addWidget(popup.name_edit, alignment=Qt.AlignCenter)
+        layout.addWidget(popup.commit, alignment=Qt.AlignRight)
+        popup.setLayout(layout)
+        popup.exec_()
+
+
 # 交割服务维护主页
 class DeliveryInfoAdmin(QWidget):
     def __init__(self, *args, **kwargs):
@@ -349,7 +436,7 @@ class DeliveryInfoAdmin(QWidget):
         layout.setContentsMargins(QMargins(0, 0, 1, 0))
         layout.setSpacing(0)
         self.menu_list = QListWidget(self)
-        self.menu_list.addItems(["仓库管理"])
+        self.menu_list.addItems(["仓库编号", "仓库管理"])
         self.menu_list.clicked.connect(self.clicked_left_menu)
         layout.addWidget(self.menu_list, alignment=Qt.AlignLeft)
 
@@ -384,16 +471,18 @@ class DeliveryInfoAdmin(QWidget):
             page = WarehouseAdmin()
             page.table_actions_signal.connect(self.sub_actions_go)
             page.get_warehouses()
+        elif menu == '仓库编号':
+            page = HouseNumberAdmin()
         else:
             page = QLabel('【' + menu + '】正在加紧开发中...')
 
         self.right_frame.clear()
         self.right_frame.addWidget(page)
 
-    def sub_actions_go(self, item_id, action_text):
-        print(item_id, action_text)
+    def sub_actions_go(self, house_code, action_text):
+        print(house_code, action_text)
         if action_text == '交割品种管理':
-            page = WarehouseVarietyManager(item_id)
+            page = WarehouseVarietyManager(house_code)
             page.get_current_house_message()
         else:
             page = QLabel('【' + action_text + '】没有此项功能...')
