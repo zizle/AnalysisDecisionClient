@@ -312,7 +312,7 @@ class ADSClient(FrameLessWindow):
             from frames.delivery import DeliveryPage
             try:
                 page = DeliveryPage(self.page_container)
-                page.get_hot_discuss()
+                page.get_latest_discuss()
             except Exception as e:
                 import traceback
                 traceback.print_exc()

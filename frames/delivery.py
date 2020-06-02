@@ -3,16 +3,17 @@
 # Created:2020-05-27
 # ------------------------
 import json
+import chardet
 import requests
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QLabel,QGridLayout, QFrame, QTableWidget, \
-    QTableWidgetItem, QHeaderView, QMessageBox
-from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint, QSize
-from PyQt5.QtGui import QCursor, QBrush, QColor
+    QTableWidgetItem, QHeaderView, QMessageBox, QLineEdit, QDialog, QTextEdit, QScrollBar
+from PyQt5.QtCore import QMargins, QUrl, Qt, pyqtSignal, QPoint, QSize, QPropertyAnimation, QRect
+from PyQt5.QtGui import QCursor, QBrush, QColor, QFont
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
-from widgets import CAvatar
-from settings import SERVER_ADDR, USER_AGENT
+from widgets import CAvatar, Paginator
+from settings import SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
 
 
 class MenuPushButton(QPushButton):
@@ -51,7 +52,7 @@ class ChildrenMenuWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super(ChildrenMenuWidget, self).__init__(*args, **kwargs)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setWindowOpacity(0.8)
+        self.setWindowOpacity(0.9)
         self.setObjectName('childrenMenu')
         self.setStyleSheet("""
         #childrenMenu{
@@ -201,37 +202,42 @@ class AreaButton(QPushButton):
 
 # 回复的项目
 class ReplyItem(QWidget):
-    def __init__(self,reply_item, *args, **kwargs):
+    def __init__(self, reply_item, *args, **kwargs):
         super(ReplyItem, self).__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_DeleteOnClose)
         reply_layout = QVBoxLayout(self)
         user_layout = QHBoxLayout(self)
-        avatar = CAvatar(size=QSize(20, 20), parent=self)
+        avatar_url = STATIC_PREFIX + reply_item['avatar']
+        avatar = CAvatar(url=avatar_url,size=QSize(20, 20), parent=self)
         user_layout.addWidget(avatar)
         user_layout.addWidget(QLabel(reply_item['username'], self))
         user_layout.addStretch()
-        user_layout.addWidget(QLabel("2020-05-28", self))
+        user_layout.addWidget(QLabel(reply_item['create_time'], self))
         reply_layout.addLayout(user_layout)
         text_label = QLabel(self)
         text_label.setText(reply_item['text'])
         reply_layout.addWidget(text_label)
         self.setLayout(reply_layout)
 
+
 # 讨论的项目
 class DiscussItem(QWidget):
+    reply_discussion = pyqtSignal(int)
+
     def __init__(self, discuss,*args, **kwargs):
         super(DiscussItem, self).__init__(*args, **kwargs)
         self.replies = discuss['replies']
-        self.is_show_replies = False  # 记录是否已经展开了回复
+        self.is_show_replies = False  # 标记是否已经展开了回复
+        self.dis_id = discuss['id']
         layout = QVBoxLayout(self)
         layout.setContentsMargins(QMargins(0,0,0,0))
         layout.setSpacing(1)
-
         discuss_title = QWidget(self)
         discuss_title.setFixedHeight(22)
         username_layout = QHBoxLayout(self)
         username_layout.setContentsMargins(QMargins(2,1,1,1))
-        self.avatar = CAvatar(url=discuss['avatar'],size=QSize(20,20), parent=self)
+        avatar_url = STATIC_PREFIX + discuss['avatar']
+        self.avatar = CAvatar(url=avatar_url,size=QSize(20,20), parent=self)
         username_layout.addWidget(self.avatar)
         self.username = QLabel(discuss['username'])
         username_layout.addWidget(self.username)
@@ -245,20 +251,28 @@ class DiscussItem(QWidget):
         self.text_show.setWordWrap(True)  # 自动换行
         self.text_show.setText(self.get_style_text(discuss['text']))
         layout.addWidget(self.text_show)
+
+        reply_layout = QHBoxLayout(self)
+        reply_layout.addStretch()
+        self.discuss_button = QPushButton('我来答', self)
+        self.discuss_button.setCursor(Qt.PointingHandCursor)
+        self.discuss_button.clicked.connect(self.user_reply_discussion)
+        reply_layout.addWidget(self.discuss_button)
+        line = QFrame()
+        line.setFrameShape(QFrame.VLine)
+        reply_layout.addWidget(line)
         self.reply_button = QPushButton('讨论(' + str(len(self.replies)) + ')', self)
         self.reply_button.setCursor(Qt.PointingHandCursor)
         self.reply_button.clicked.connect(self.show_replies)
-        layout.addWidget(self.reply_button, alignment=Qt.AlignRight)
+        reply_layout.addWidget(self.reply_button)
+
+        layout.addLayout(reply_layout)
         self.setLayout(layout)
 
+        self.discuss_button.setObjectName('discussBtn')
         self.reply_button.setObjectName('replyBtn')
         self.text_show.setObjectName('textLable')
         discuss_title.setObjectName('disTitle')
-        self.setStyleSheet("""
-        #disTitle{background-color:rgb(150,200,210)}
-        #textLable{background-color:rgb(240,240,240);}
-        #replyBtn{border:none}
-        """)
 
     def get_style_text(self, text):
         # 设置文字显示风格
@@ -274,6 +288,13 @@ class DiscussItem(QWidget):
             self.layout().insertWidget(self.layout().count(), reply_widget)
         self.is_show_replies = True
 
+    def reset_replies(self):
+        self.close_replies()
+        self.show_replies()
+
+    def user_reply_discussion(self):
+        self.reply_discussion.emit(self.dis_id)
+
     # 关闭回复
     def close_replies(self):
         for index in range(self.layout().count()):
@@ -284,19 +305,32 @@ class DiscussItem(QWidget):
                 del widget
         self.is_show_replies = False
 
+    def set_replies(self, replies, reply_id):
+        if reply_id == self.dis_id:
+            self.replies = replies
+            self.reply_button.setText('讨论(' + str(len(self.replies)) + ')')
+            if self.is_show_replies:
+                self.reset_replies()
+            return True
+        else:
+            return False
 
-# 交流与讨论的控件
+
+# 最新交流与讨论的控件
 class DiscussWidget(QScrollArea):
+    reply_discussion = pyqtSignal(int)
+
     def __init__(self, *args, **kwargs):
         super(DiscussWidget, self).__init__(*args, **kwargs)
         self.dis_container = QWidget(self)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(QMargins(0,0,0,0))
+        layout.setContentsMargins(QMargins(0,0,0,5))
         # 具体交流与讨论的项目
         self.dis_container.setLayout(layout)
         self.setWidget(self.dis_container)
         self.setWidgetResizable(True)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        layout.addStretch()
         self.dis_container.setLayout(layout)
         self.setObjectName("disScroll")
         self.setStyleSheet("""
@@ -305,7 +339,61 @@ class DiscussWidget(QScrollArea):
 
     def add_discuss_item(self, item):
         item.setParent(self)
-        self.dis_container.layout().addWidget(item)
+        item.setStyleSheet("""
+        #disTitle{background-color:rgb(150,200,210)}
+        #textLable{background-color:rgb(240,240,240);}
+        #discussBtn,#replyBtn{border:none;color:rgb(100,150,200)}
+        """)
+        item.reply_discussion.connect(self.reply_discussion)
+        self.dis_container.layout().insertWidget(self.dis_container.layout().count() - 1, item)
+
+    def set_replies(self, replies, reply_id):
+        for index in range(self.dis_container.layout().count()):
+            widget = self.dis_container.layout().itemAt(index).widget()
+            if isinstance(widget, DiscussItem):
+                if widget.set_replies(replies, reply_id):
+                    break
+
+
+# 更多讨论交流页面的讨论控件
+class MoreDiscussPageWidget(QWidget):
+    reply_discussion = pyqtSignal(int)
+
+    def __init__(self, *args, **kwargs):
+        super(MoreDiscussPageWidget, self).__init__(*args, **kwargs)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(QMargins(0,0,0,0))
+        # 具体交流与讨论的项目
+        layout.addStretch()
+        self.setLayout(layout)
+        self.setObjectName("disScroll")
+        self.setStyleSheet("""
+        #disScroll{border:none}
+        """)
+
+    def add_discuss_item(self, item):
+        item.setParent(self)
+        item.setStyleSheet("""
+        #disTitle{background-color:rgb(200,230,230)}
+        #textLable{background-color:rgb(240,240,240);}
+        #discussBtn,#replyBtn{border:none;color:rgb(100,150,200)}
+        """)
+        item.reply_discussion.connect(self.reply_discussion)
+        self.layout().insertWidget(self.layout().count() - 1, item)
+
+    def clear_discuss_items(self):
+        for index in range(self.layout().count()):
+            widget = self.layout().itemAt(index).widget()
+            if isinstance(widget, DiscussItem):
+                widget.deleteLater()
+                del widget
+
+    def set_replies(self, replies, reply_id):
+        for index in range(self.layout().count()):
+            widget = self.layout().itemAt(index).widget()
+            if isinstance(widget, DiscussItem):
+                if widget.set_replies(replies, reply_id):
+                    break
 
 
 # 显示仓库的表格
@@ -395,16 +483,29 @@ class WarehouseTable(QTableWidget):
 
 
 # 显示详细仓单的控件
-class DetailWarehouseReceipts(QWidget):
+class DetailWarehouseReceipts(QScrollArea):
+    closed_signal = pyqtSignal()
+
     def __init__(self, warehouses_receipts, *args, **kwargs):
         super(DetailWarehouseReceipts, self).__init__(*args, **kwargs)
-        print(warehouses_receipts)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setAutoFillBackground(True)
+        self.container = QWidget(self)
         layout = QVBoxLayout(self)
         info_layout = QHBoxLayout(self)
         info_layout.addStretch()
         info_layout.addWidget(QLabel('仓库名称:', self, objectName='titleLabel'), alignment=Qt.AlignLeft)
         info_layout.addWidget(QLabel(warehouses_receipts['warehouse'], self, objectName='warehouseName'))
         info_layout.addStretch()
+        font = QFont()
+        font.setFamily('webdings')
+        self.close_button = QPushButton('r', self)
+        self.close_button.setFont(font)
+        self.close_button.setCursor(Qt.PointingHandCursor)
+        self.close_button.setObjectName('closeButton')
+        self.close_button.clicked.connect(self.close_widget)
+        info_layout.addWidget(self.close_button)
         layout.addLayout(info_layout)
         for variety_item in warehouses_receipts['varieties']:
             info_layout = QHBoxLayout(self)
@@ -461,10 +562,20 @@ class DetailWarehouseReceipts(QWidget):
 
         layout.addStretch()
 
-        self.setLayout(layout)
+        self.container.setLayout(layout)
+        self.setWidget(self.container)
+        self.setWidgetResizable(True)
 
-        self.setStyleSheet("""
-        #titleLabel{font-size:13px;font-weight:bold}
+        # 详情信息显示动画
+        self.detail_animation = QPropertyAnimation(self, b'geometry')
+        self.detail_animation.setParent(self)
+        self.detail_animation.setDuration(300)
+
+        self.setObjectName('detailReceipt')
+        self.container.setStyleSheet("""
+        #detailReceipt{background-color:rgb(240,240,240)}
+        #titleLabel{font-size:13px;font-weight:bold;}
+        #closeButton{border:none;color:rgb(200,100,100)}
         #warehouseName{font-size:14px;color:rgb(100,150,220);font-weight:bold}
         #infoLabel{font-size:13px;font-weight:bold}
         #receiptLabel{font-size:14px;color:rgb(100,200,220)}
@@ -472,10 +583,114 @@ class DetailWarehouseReceipts(QWidget):
         #infoMsg{font-size:14px}
         """)
 
+    def close_widget(self):
+        self.closed_signal.emit()
+
+
+# 重写事件，防止滚动地图大小时整个页面滚动
+class WebEngineView(QWebEngineView):
+    def wheelEvent(self, event):
+        super(WebEngineView, self).wheelEvent(event)
+        event.accept()
+
+
+# 更多讨论交流
+class MoreDiscussWidget(QWidget):
+    reply_discussion = pyqtSignal(int)
+
+    def __init__(self, *args, **kwargs):
+        super(MoreDiscussWidget, self).__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        layout = QVBoxLayout(self)
+        opts_layout = QHBoxLayout(self)
+        self.search_edit = QLineEdit(self)
+        self.search_button = QPushButton('搜索', self)
+
+        opts_layout.addWidget(self.search_edit)
+        opts_layout.addWidget(self.search_button)
+        # 页码控制器
+        self.paginator = Paginator(parent=self)
+        self.paginator.clicked.connect(self._get_discuss_message)
+        opts_layout.addWidget(self.paginator)
+        opts_layout.addStretch()
+        self.myself_button = QPushButton('我的问题', self)
+        self.question_button = QPushButton('我要提问', self)
+        self.question_button.clicked.connect(self.new_question)
+        opts_layout.addWidget(self.myself_button)
+        opts_layout.addWidget(self.question_button)
+        layout.addLayout(opts_layout)
+        # 显示具体条目的widget
+        self.discuss_widget = MoreDiscussPageWidget(self)
+        self.discuss_widget.reply_discussion.connect(self.reply_discussion)
+        layout.addWidget(self.discuss_widget)
+        self.setLayout(layout)
+
+        self._get_discuss_message()
+
+    def set_replies(self, replies, reply_id):
+        self.discuss_widget.set_replies(replies, reply_id)
+
+    def _get_discuss_message(self):
+        current_page = self.paginator.current_page
+        # 获取第一页交流与讨论的内容
+        try:
+            r = requests.get(SERVER_ADDR + 'discussion/?page=' + str(current_page))
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError('获取讨论数据失败')
+        except Exception:
+            discuss = []
+            total_page = 1
+        else:
+            discuss = response['discussions']
+            total_page = response['total_page']
+        # 清除当前所有讨论数据
+        self.discuss_widget.clear_discuss_items()
+
+        self.paginator.setTotalPages(total_page)
+        for item_json in discuss:
+            item = DiscussItem(item_json)
+            self.discuss_widget.add_discuss_item(item)
+
+    def new_question(self):
+        # 提交新的问题
+        def commit_question():
+            content = popup.text_edit.toPlainText().strip()
+            utoken = app_dawn.value('AUTHORIZATION')
+            try:
+                r = requests.post(
+                    url=SERVER_ADDR + 'discussion/',
+                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
+                    data=json.dumps({'utoken': utoken, 'content': content})
+                )
+                response = json.loads(r.content.decode('utf8'))
+                if r.status_code != 201:
+                    raise ValueError(response['message'])
+            except Exception as e:
+                QMessageBox.information(popup, '错误', str(e))
+            else:
+                QMessageBox.information(popup, '成功', response['message'])
+                popup.close()
+
+        popup = QDialog(self)
+        popup.resize(350,180)
+        popup.setWindowTitle('新的讨论')
+        popup.setAttribute(Qt.WA_DeleteOnClose)
+        layout = QVBoxLayout(popup)
+        popup.text_edit = QTextEdit(popup)
+        layout.addWidget(popup.text_edit)
+        popup.commit_button = QPushButton('提交', popup)
+        popup.commit_button.clicked.connect(commit_question)
+        layout.addWidget(popup.commit_button, alignment=Qt.AlignRight)
+        popup.setLayout(layout)
+        if not popup.exec_():
+            self._get_discuss_message()
+
 
 class DeliveryPage(QScrollArea):
     def __init__(self, *args, **kwargs):
         super(DeliveryPage, self).__init__(*args, *kwargs)
+        self.setAttribute(Qt.WA_StyleSheet, True)
         self.container = QWidget(self)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(QMargins(0, 0, 0, 0))
@@ -487,7 +702,7 @@ class DeliveryPage(QScrollArea):
         self.menu_bar.set_parent(self)
         layout.addWidget(self.menu_bar, alignment=Qt.AlignTop)
 
-        self.map_view = QWebEngineView(self)
+        self.map_view = WebEngineView(self)
         self.map_view.loadFinished.connect(self.resize_widgets)  # 加载结束调整地图和控件的大小
         self.map_view.load(QUrl("file:///pages/delivery/map.html"))
 
@@ -503,17 +718,19 @@ class DeliveryPage(QScrollArea):
         # 讨论与交流
         dis_layout = QVBoxLayout(self)
         dis_layout.setContentsMargins(QMargins(0,0,0,0))
-        dis_layout.setSpacing(1)
+        dis_layout.setSpacing(5)
         dis_title_layout = QHBoxLayout(self)
         dis_title_layout.setContentsMargins(QMargins(0,0,0,0))
         self.dis_label = QLabel('【最新讨论】', self)
         dis_title_layout.addWidget(self.dis_label, alignment=Qt.AlignLeft)
         self.more_dis_button = QPushButton('更多>>', self)
         self.more_dis_button.setCursor(Qt.PointingHandCursor)
+        self.more_dis_button.clicked.connect(self.more_discussion_widget)
         dis_title_layout.addWidget(self.more_dis_button, alignment=Qt.AlignRight)
         dis_layout.addLayout(dis_title_layout)
 
         self.discuss_show = DiscussWidget(self)
+        self.discuss_show.reply_discussion.connect(self.user_reply_discussion)
         dis_layout.addWidget(self.discuss_show)
 
         map_discuss_layout.addLayout(dis_layout)
@@ -529,20 +746,86 @@ class DeliveryPage(QScrollArea):
         # 显示仓库详情的控件
         self.detail_warehouse = None
         layout.addStretch()
+        # 显示更多讨论交流页面的控件
+        self.more_dis_widget = None
 
         self.container.setLayout(layout)
         self.setWidget(self.container)
         self.setWidgetResizable(True)
-
         self.more_dis_button.setObjectName('moreDisBtn')
-        self.setStyleSheet("""
-        #moreDisBtn{border:none}
+        self.container.setStyleSheet("""
+        #vscrollBar{width:5px;background-color:rgb(100,200,210)}
+        #detailReceipt{border-top:rgb(200,210,230);background-color:rgb(100,120,80)}
+        #moreDisBtn{border:none;color:rgb(100,120,200);}
         """)
 
+        # 设置滚动条样式
+        self.verticalScrollBar().setStyleSheet("""
+        QScrollBar:vertical {
+            background: transparent; 
+            width: 8px; 
+            margin: 0px 0px 0px 0px; 
+            padding-top: 12px; 
+            padding-bottom: 12px;
+        }
+        QScrollBar:vertical:hover{
+            background: rgba(0, 0, 0, 30);
+            border-radius: 8px; 
+        }
+        QScrollBar::handle:vertical {
+            background: rgba(0, 0, 0, 50);
+            width: 8px;
+            border-radius: 8px;
+            border: none;
+        }
+        QScrollBar::handle:vertical:hover{background: rgba(0, 0, 0, 100);}
+        QScrollBar::add-page:vertical {
+            width: 10px;
+            background: transparent;
+        }
+        QScrollBar::sub-page:vertical {
+            width: 10px;
+            background: transparent;
+        }
+        QScrollBar::sub-line:vertical {
+            height: 12px;
+            width: 5px;
+            background: transparent;
+            subcontrol-position: top;
+        }
+        QScrollBar::up-arrow:vertical {
+            image: url(media/scrollbar/scrollbar_arrowup_normal.png);
+        }
+        QScrollBar::up-arrow:vertical:hover {
+            image: url(media/scrollbar/scrollbar_arrowup_down.png);
+        }
+        QScrollBar::up-arrow:vertical:pressed {
+            image: url(media/scrollbar/scrollbar_arrowup_highlight.png);
+        }
+        QScrollBar::add-line:vertical {
+            height: 12px;
+            width: 5px;
+            background: transparent;
+            subcontrol-position: bottom;
+        }
+        QScrollBar::down-arrow:vertical {
+            image: url(media/scrollbar/scrollbar_arrowdown_normal.png);
+        }
+        QScrollBar::down-arrow:vertical:hover {
+            image: url(media/scrollbar/scrollbar_arrowdown_down.png);
+        }
+        QScrollBar::down-arrow:vertical:pressed {
+            image: url(media/scrollbar/scrollbar_arrowdown_highlight.png);
+        }
+        """)
         self.menu_bar.set_menus(self.get_menus())
 
     def resizeEvent(self, event):
         self.resize_widgets(True)
+        if self.detail_warehouse is not None:  # 改变详情控件的大小
+            self.detail_warehouse.resize(self.width(), self.height())
+        if self.more_dis_widget is not None:
+            self.more_dis_widget.setMinimumWidth(self.width() - self.verticalScrollBar().width() - 5)
 
     def resize_widgets(self, is_loaded):
         if is_loaded:
@@ -552,41 +835,84 @@ class DeliveryPage(QScrollArea):
             self.discuss_show.setFixedHeight(height - self.more_dis_button.height() - 5)  # 减去更多按钮的高度和QFrame横线的高度
             self.contact_channel.resize_map.emit(width, height)  # 调整界面中地图的大小
 
+    def user_reply_discussion(self, discuss_id):
+        def commit_discussion():
+            content = popup.text_edit.toPlainText().strip()
+            try:
+                utoken = app_dawn.value('AUTHORIZATION')
+                r = requests.post(
+                    url=SERVER_ADDR + 'discussion/',
+                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
+                    data=json.dumps({'utoken': utoken,'content': content, 'parent_id': discuss_id})
+                )
+                response = json.loads(r.content.decode('utf8'))
+                if r.status_code != 201:
+                    raise ValueError(response['message'])
+            except Exception as e:
+                QMessageBox.information(popup, '错误', str(e))
+            else:
+                QMessageBox.information(popup, '成功', response['message'])
+                replies = response['replies']
+                if self.more_dis_widget is not None:
+                    try:
+                        self.more_dis_widget.set_replies(replies, discuss_id)
+                    except Exception as e:
+                        print(e)
+                else:
+                    self.discuss_show.set_replies(replies, discuss_id)
+                popup.close()
+        popup = QDialog(self)
+        popup.setAttribute(Qt.WA_DeleteOnClose)
+        popup.setWindowTitle('参与讨论')
+        popup.resize(350,180)
+        layout = QVBoxLayout(popup)
+        popup.text_edit = QTextEdit(popup)
+        layout.addWidget(popup.text_edit)
+        popup.commit_button = QPushButton('提交', popup)
+        popup.commit_button.clicked.connect(commit_discussion)
+        layout.addWidget(popup.commit_button, alignment=Qt.AlignRight)
+        popup.setLayout(layout)
+        popup.exec_()
+
+    # 更多讨论交流的页面
+    def more_discussion_widget(self):
+        # 创建出来,加入主layout
+        self.more_dis_widget = MoreDiscussWidget(self)
+        self.more_dis_widget.reply_discussion.connect(self.user_reply_discussion)
+        self.more_dis_widget.resize(self.width(), self.height())
+        # 关闭主layout中的其他控件
+        self.map_view.hide()
+        self.dis_label.hide()
+        self.more_dis_button.hide()
+        self.discuss_show.hide()
+        self.warehouse_table.hide()
+        # 显示更多讨论交流的控件
+        self.container.layout().insertWidget(self.container.layout().count() - 1, self.more_dis_widget)
+        self.more_dis_widget.show()
+
+    # 删除更多页面
+    def delete_more_discussion_widget(self):
+        self.map_view.show()
+        self.dis_label.show()
+        self.more_dis_button.show()
+        self.discuss_show.show()
+        self.warehouse_table.show()
+        if self.more_dis_widget is not None:
+            self.more_dis_widget.deleteLater()
+            del self.more_dis_widget
+            self.more_dis_widget = None
+
     # 获取最新的讨论交流
-    def get_hot_discuss(self):
-        discuss = [
-            {
-                'avatar': '',
-                'username': '用户名',
-                'create_time': '2020-05-28',
-                'text': '这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容，这是内容',
-                'replies': [
-                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
-                ]
-            },
-            {
-                'avatar': '',
-                'username': '用户名',
-                'create_time': '2020-05-29',
-                'text': '这是内容2，这是内容2，这是内容2，这是内容2，',
-                'replies': [
-                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'},
-                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'},
-                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
-                ]
-            },
-            {
-                'avatar': '',
-                'username': '用户名',
-                'create_time': '2020-05-29',
-                'text': '这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，这是内容2，',
-                'replies': [
-                    {'avatar': '', 'username': '用户名', 'text': '回复的内容', 'create_time': '2020-05-28'}
-                ]
-            },
-
-
-        ]
+    def get_latest_discuss(self):
+        try:
+            r = requests.get(SERVER_ADDR + 'discussion/latest/')
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError('获取最新讨论失败')
+        except Exception:
+            discuss = []
+        else:
+            discuss = response['discussions']
         for item_json in discuss:
             item = DiscussItem(item_json)
             self.discuss_show.add_discuss_item(item)
@@ -670,7 +996,7 @@ class DeliveryPage(QScrollArea):
                     for index, variety_item in enumerate(variety_list):
                         v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['name_en'],text=variety_item["name"])
                         v_btn.select_variety_menu.connect(self.get_variety_warehouses)
-                        sub_layout.addWidget(v_btn, index / 2, index % 2, alignment=Qt.AlignLeft)
+                        sub_layout.addWidget(v_btn, index / 5, index % 5, alignment=Qt.AlignLeft)
                     layout.addLayout(sub_layout)
         elif p_id == 2:
             layout = QGridLayout()
@@ -683,8 +1009,8 @@ class DeliveryPage(QScrollArea):
         return layout
 
     def get_variety_warehouses(self, v_id, variety_en):
-        self.hide_detail_warehouse()
         self.menu_bar.child_menus_widget.close()
+        self.delete_more_discussion_widget()
         # 获取该品种下的所有仓库
         warehouses = self.request_variety_warehouses(variety_en)
         # 数据传入界面
@@ -708,9 +1034,9 @@ class DeliveryPage(QScrollArea):
             return response['warehouses']
 
     def get_province_warehouses(self, area):
-        self.hide_detail_warehouse()
         if not self.menu_bar.child_menus_widget.isHidden():
             self.menu_bar.child_menus_widget.close()
+        self.delete_more_discussion_widget()
         warehouses = self.request_province_warehouses(area)
         # 数据传入界面
         self.contact_channel.refresh_warehouses.emit(warehouses)
@@ -740,7 +1066,7 @@ class DeliveryPage(QScrollArea):
         if current_text in ['仓单', '详情']:
             current_id = self.warehouse_table.item(row, 0).id
             current_variety = self.warehouse_table.item(row, 0).variety_en
-            print(current_id, current_variety)
+            # print(current_id, current_variety)
             request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
             if current_variety is not None:
                 request_url += '?v_en=' + str(current_variety)
@@ -759,7 +1085,6 @@ class DeliveryPage(QScrollArea):
             if r.status_code != 200:
                 raise ValueError(response['message'])
         except Exception as e:
-            print(e)
             return {}
         else:
             return response['warehouses_receipts']
@@ -770,23 +1095,32 @@ class DeliveryPage(QScrollArea):
 
     def show_detail_warehouse(self, warehouses_receipts):
         self.detail_warehouse = DetailWarehouseReceipts(warehouses_receipts, self)
-        self.container.layout().insertWidget(self.container.layout().count()-1, self.detail_warehouse)
-        self.map_view.hide()
-        self.discuss_show.hide()
-        self.warehouse_table.hide()
-        self.dis_label.hide()
-        self.more_dis_button.hide()
+        self.detail_warehouse.closed_signal.connect(self.detail_warehouse_widget_closed)
+        self.detail_warehouse.resize(self.width(), self.height())
+        self.verticalScrollBar().hide()
 
-    def hide_detail_warehouse(self):
+        self.detail_warehouse.detail_animation.setStartValue(QRect(0, self.height(), self.width(), self.height()))
+        self.detail_warehouse.detail_animation.setEndValue(QRect(0, 0, self.width(), self.height()))
+        self.detail_warehouse.detail_animation.start()
+        self.detail_warehouse.show()
+
+    def detail_warehouse_widget_closed(self):  # 关闭详情控件
+        self.verticalScrollBar().show()
         if self.detail_warehouse is not None:
-            self.detail_warehouse.close()
-            self.map_view.show()
-            self.discuss_show.show()
-            self.warehouse_table.show()
-            self.dis_label.show()
-            self.more_dis_button.show()
-            self.detail_warehouse.deleteLater()
-            self.detail_warehouse = None
+            # 关闭的动画
+            self.detail_warehouse.detail_animation.setStartValue(QRect(0, 0, self.width(), self.height()))
+            self.detail_warehouse.detail_animation.setEndValue(QRect(0, self.height(), self.width(), self.height()))
+            self.detail_warehouse.detail_animation.start()
+            self.detail_warehouse.show()
+            # 关联动画结束
+            self.detail_warehouse.detail_animation.finished.connect(self.detail_widget_closed_finished)
+
+    def detail_widget_closed_finished(self):
+        # print('关闭动画结束，删除控件，释放内存')
+        self.detail_warehouse.close()
+        self.detail_warehouse.deleteLater()
+        del self.detail_warehouse
+        self.detail_warehouse = None
 
     # 界面点击仓库点
     def get_warehouse_receipts(self, wh_id):
