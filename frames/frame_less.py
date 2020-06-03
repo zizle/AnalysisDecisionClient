@@ -6,6 +6,7 @@
 # ---------------------------
 import os
 import shutil
+import pickle
 from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QStackedWidget, QHBoxLayout, QPushButton, QMenu
 from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QImage, QPainterPath, QMovie
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QPropertyAnimation, QRectF, QPointF, pyqtProperty, QUrl
@@ -513,7 +514,12 @@ class ModuleBar(QWidget):
                     if sub_module['name'] == "数据管理":
                         sub_module_menu = DropdownMenu()
                         # sub_module_menu.triggered.connect(self.module_action_selected)
-                        for sub_action in ["首页管理", "产品服务", '基本分析','交割服务']:
+                        role_num = pickle.loads(settings.app_dawn.value('UROLE'))
+                        if role_num > 3:
+                            sub_actions = ["首页管理", "产品服务", '基本分析']
+                        else:
+                            sub_actions = ["首页管理", "产品服务", '基本分析','交割服务']
+                        for sub_action in sub_actions:
                             sub_action = sub_module_menu.addAction(sub_action)
                             sub_action.aid = -9
                         drop_action.setMenu(sub_module_menu)

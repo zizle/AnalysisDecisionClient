@@ -320,7 +320,7 @@ class UsersTable(QTableWidget):
         menu = QMenu()
         variety_auth_action = menu.addAction("品种权限")
         variety_auth_action.triggered.connect(self.setUserVarietyAuth)
-        if user_role > 2:
+        if user_role > 4:
             client_auth_action = menu.addAction("登录权限")
             client_auth_action.triggered.connect(self.set_user_client_accessed)
 
@@ -384,7 +384,7 @@ class UsersTable(QTableWidget):
         layout.addWidget(QLabel("角色:", popup))
         role_combobox = QComboBox(popup)
         role_combobox.setFixedWidth(150)
-        for role_item in [(1,"超级管理员"),(2,"运营管理员"),(3,"信息管理员"), (4,"研究员"),(5,"普通用户")]:
+        for role_item in [(2,"运营管理员"),(3,"信息管理员"), (4,"研究员"),(5,"普通用户")]:
             role_combobox.addItem(role_item[1], role_item[0])
         role_combobox.setCurrentText(role_text)
         layout.addWidget(role_combobox)

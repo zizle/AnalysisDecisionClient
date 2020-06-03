@@ -1407,12 +1407,11 @@ class MyTrendChartTableManage(QTableWidget):
                 self.removeRow(self.currentRow())
 
     def show_charts_info(self, contents):
-        table_headers = ['标题','创建时间', '更新时间', '图形解说', '']
-        self.setColumnCount(5)
+        table_headers = ['标题','创建时间', '更新时间', '图形解说']
+        self.setColumnCount(4)
         self.setHorizontalHeaderLabels(table_headers)
         self.setRowCount(len(contents))
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         for row, row_item in enumerate(contents):
             item0 = QTableWidgetItem(row_item['title'])
             item0.setTextAlignment(Qt.AlignCenter)
@@ -1429,9 +1428,6 @@ class MyTrendChartTableManage(QTableWidget):
             item3 = QTableWidgetItem(row_item['decipherment'])
             item3.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 3, item3)
-            item4 = QTableWidgetItem("删除")
-            item4.setTextAlignment(Qt.AlignCenter)
-            self.setItem(row, 4, item4)
 
 
 # 显示我的数据图
