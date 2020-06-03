@@ -12,7 +12,7 @@ from frames import WelcomePage, ADSClient
 app = QApplication(sys.argv)
 splash = WelcomePage()
 splash.show()
-# app.processEvents()  # non-blocking
+app.processEvents()  # non-blocking
 splash.import_packages()
 splash.make_client_existed()
 splash.getCurrentAdvertisements()

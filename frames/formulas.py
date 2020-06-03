@@ -95,7 +95,7 @@ class FormulasCalculate(QWidget):
 
     def variety_clicked(self, bid, head_text, v_en):
         # 拼接字符串
-        print(bid, head_text, v_en)
+        # print(bid, head_text, v_en)
         if v_en in ["a", "b"]:
             page_file = "file:///pages/formulas/variety/calculate_beans.html".format(v_en)
         else:

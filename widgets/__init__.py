@@ -25,7 +25,7 @@ class LoadedPage(QStackedWidget):
         self.setAttribute(Qt.WA_StyledBackground, True)  # 支持qss设置背景颜色(受父窗口透明影响qss会透明)
         self.setStyleSheet("""
         #pageContainer{
-            border: 1px solid rgb(130, 130, 130);
+            border: 1px solid rgb(34,102,175);
             border-top:none;
             background-color:rgb(240, 240, 240);
         }

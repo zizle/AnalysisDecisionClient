@@ -6,12 +6,14 @@
 # ---------------------------
 import os
 import shutil
+import pickle
 from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QStackedWidget, QHBoxLayout, QPushButton, QMenu
 from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QImage, QPainterPath, QMovie
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QPropertyAnimation, QRectF, QPointF, pyqtProperty, QUrl
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkRequest
 from widgets import LoadedPage
 import settings
+
 
 class CAvatar(QWidget):
     Circle = 0              # 圆圈
@@ -266,6 +268,7 @@ class CAvatar(QWidget):
         else:
             self.onError('')
 
+
 # 标题栏
 class TitleBar(QWidget):
     HEIGHT = settings.TITLE_BAR_HEIGHT
@@ -511,7 +514,12 @@ class ModuleBar(QWidget):
                     if sub_module['name'] == "数据管理":
                         sub_module_menu = DropdownMenu()
                         # sub_module_menu.triggered.connect(self.module_action_selected)
-                        for sub_action in ["首页管理", "产品服务", '基本分析']:
+                        role_num = pickle.loads(settings.app_dawn.value('UROLE'))
+                        if role_num > 3:
+                            sub_actions = ["首页管理", "产品服务", '基本分析']
+                        else:
+                            sub_actions = ["首页管理", "产品服务", '基本分析','交割服务']
+                        for sub_action in sub_actions:
                             sub_action = sub_module_menu.addAction(sub_action)
                             sub_action.aid = -9
                         drop_action.setMenu(sub_module_menu)

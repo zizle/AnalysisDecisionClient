@@ -4,6 +4,7 @@ import os
 from PyQt5.QtCore import QSettings
 
 SERVER_ADDR = "http://127.0.0.1:5000/"
+# SERVER_ADDR = "http://210.13.218.130:9002/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADMINISTRATOR = True
 USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.0'

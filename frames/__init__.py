@@ -6,14 +6,15 @@
 # ---------------------------
 
 import os
+import sys
 import json
 import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen
+from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox
 from PyQt5.QtGui import QPixmap, QFont, QImage
-from PyQt5.QtCore import Qt, QSize
+from PyQt5.QtCore import Qt, QSize, QUrl
 
 from utils.machine import get_machine_code
 from popup import InformationPopup
@@ -56,6 +57,7 @@ class WelcomePage(QSplashScreen):
         try:
             r = requests.post(
                 url=settings.SERVER_ADDR + 'client/',
+                timeout=(2, 5),
                 headers={'Content-Type': 'application/json; charset=utf-8'},
                 data=json.dumps({
                     'machine_code': machine_code,
@@ -68,7 +70,8 @@ class WelcomePage(QSplashScreen):
         except Exception as e:
             settings.app_dawn.remove('machine')
             self.showMessage("欢迎使用分析决策系统\n获取数据失败...\n" + str(e), Qt.AlignCenter, Qt.red)
-            time.sleep(1.5)
+            QMessageBox.information(self, '错误', '连接服务器失败!')
+            sys.exit(0)
         else:
             # 写入配置
             settings.app_dawn.setValue('machine', response['machine_code'])
@@ -270,6 +273,9 @@ class ADSClient(FrameLessWindow):
             from admin.basetrend import BaseTrendAdmin
             page = BaseTrendAdmin()
             page.add_left_menus()
+        elif module_text == u'交割服务':
+            from admin.delivery import DeliveryInfoAdmin
+            page = DeliveryInfoAdmin()
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
@@ -302,6 +308,17 @@ class ADSClient(FrameLessWindow):
             from frames.formulas import FormulasCalculate
             page = FormulasCalculate()
             page.getGroupVarieties()
+        elif module_text == "交割服务":
+            from frames.delivery import DeliveryPage
+            try:
+                page = DeliveryPage(self.page_container)
+                page.get_latest_discuss()
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                print(
+                    e
+                )
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
