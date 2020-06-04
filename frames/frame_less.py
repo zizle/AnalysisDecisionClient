@@ -496,9 +496,9 @@ class ModuleBar(QWidget):
     def setMenus(self, menu_obj_list):
         self.clear()
         # print('添加前模块菜单个数%d个 %s' % (self.layout().count(), 'piece.base.ModuleBar.setMenus'))
-        if len(menu_obj_list) > 1:
-            system_menu = menu_obj_list.pop(0)
-            menu_obj_list.append(system_menu)
+        # if len(menu_obj_list) > 1:
+        #     system_menu = menu_obj_list.pop(0)
+        #     menu_obj_list.append(system_menu)
         for menu_dict_item in menu_obj_list:
             menu = ModuleButton(mid=menu_dict_item['id'], text=menu_dict_item['name'])
             sub_module_items = menu_dict_item['subs']
