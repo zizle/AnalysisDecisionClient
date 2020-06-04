@@ -985,7 +985,7 @@ class DeliveryPage(QScrollArea):
         if p_id == 1:
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange == "中国金融期货交易所":
+                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
                     continue
                 layout.addWidget(QLabel(exchange))
                 if len(variety_list) > 0:
@@ -996,7 +996,7 @@ class DeliveryPage(QScrollArea):
                     for index, variety_item in enumerate(variety_list):
                         v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['name_en'],text=variety_item["name"])
                         v_btn.select_variety_menu.connect(self.get_variety_warehouses)
-                        sub_layout.addWidget(v_btn, index / 5, index % 5, alignment=Qt.AlignLeft)
+                        sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
                     layout.addLayout(sub_layout)
         elif p_id == 2:
             layout = QGridLayout()

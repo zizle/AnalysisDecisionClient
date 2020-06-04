@@ -326,7 +326,26 @@ class UsersTable(QTableWidget):
 
         role_modify_action = menu.addAction("信息设置")
         role_modify_action.triggered.connect(self.modifyUserInfo)
+        reset_password_action = menu.addAction("重置密码")
+        reset_password_action.triggered.connect(self.reset_user_password)
         menu.exec_(QCursor.pos())
+
+    def reset_user_password(self):
+        if QMessageBox.Yes == QMessageBox.warning(self, '提示','确定重置该用户密码为:123456吗?',QMessageBox.Yes|QMessageBox.No):
+            user_id = self.item(self.currentRow(), 0).id
+            # 发起重置密码请求
+            try:
+                r = requests.post(
+                    url=settings.SERVER_ADDR + 'user/' + str(user_id) + '/',
+                    headers={'Content-Type':'application/json;charset=utf8','User-Agent':settings.USER_AGENT},
+                    data=json.dumps({'utoken':settings.app_dawn.value('AUTHORIZATION')})
+                )
+                if r.status_code != 200:
+                    raise ValueError('重置密码失败!')
+            except Exception as e:
+                QMessageBox.information(self, '失败', str(e))
+            else:
+                QMessageBox.information(self, '成功', '用户密码重置成功!\n新密码为:123456')
 
     # 设置用户可登录的客户端
     def set_user_client_accessed(self):
@@ -519,6 +538,7 @@ class ModulesTable(QTableWidget):
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setFrameShape(QFrame.NoFrame)
         self.module_data = None
+        self.cellClicked.connect(self.mouse_clicked_cell)
 
     # 设置表格数据
     def setRowContents(self, row_list):
@@ -535,6 +555,7 @@ class ModulesTable(QTableWidget):
             self.insertRow(current_row)
             table_item0 = QTableWidgetItem(str(current_row + 1))
             table_item0.id = module_item['id']
+            table_item0.is_sub = False
             table_item0.setTextAlignment(Qt.AlignCenter)
             table_item0.setBackground(QBrush(QColor(218,233,231)))
             self.setItem(current_row, 0, table_item0)
@@ -542,7 +563,7 @@ class ModulesTable(QTableWidget):
             table_item1.setTextAlignment(Qt.AlignCenter)
             table_item1.setBackground(QBrush(QColor(218,233,231)))
             self.setItem(current_row, 1, table_item1)
-            table_item2 = QTableWidgetItem('')
+            table_item2 = QTableWidgetItem('↑')
             table_item2.setTextAlignment(Qt.AlignCenter)
             table_item2.setBackground(QBrush(QColor(218, 233, 231)))
             self.setItem(current_row, 2, table_item2)
@@ -552,11 +573,150 @@ class ModulesTable(QTableWidget):
                 table_item0 = QTableWidgetItem(str(current_row + 1))
                 table_item0.setTextAlignment(Qt.AlignCenter)
                 table_item0.id = sub_module['id']
+                table_item0.is_sub = True
                 self.setItem(current_row, 0, table_item0)
                 table_item1 = QTableWidgetItem(sub_module['name'])
                 table_item1.setTextAlignment(Qt.AlignCenter)
                 self.setItem(current_row, 1, table_item1)
+                table_item2 = QTableWidgetItem('↑')
+                table_item2.setTextAlignment(Qt.AlignCenter)
+                self.setItem(current_row, 2, table_item2)
                 current_row += 1
+    # 点击移动排序
+    def mouse_clicked_cell(self, row, col):
+        if col != 2 or row == 0:
+            return
+        current_is_sub = self.item(row, 0).is_sub
+        current_id = self.item(row, 0).id
+        print(current_is_sub, current_id)
+        if current_is_sub:  # 子项目移动
+            pre_item = self.item(row - 1, 0)
+            if not pre_item.is_sub:  # 上一项不是子项
+                return
+            current_id = self.item(row, 0).id
+            current_is_sub = self.item(row, 0).is_sub
+            current_text = self.item(row, 1).text()
+
+            print('请求交换的id:', (current_id, pre_item.id))
+            if not self.request_reverse_module_sort(current_id, pre_item.id):
+                return
+            # 上一项序号+1
+            pre_index = int(pre_item.text()) + 1
+            pre_item.setText(str(pre_index))
+            self.removeRow(row)
+            self.insertRow(row - 1)
+            table_item0 = QTableWidgetItem(str(row))
+            table_item0.setTextAlignment(Qt.AlignCenter)
+            table_item0.id = current_id
+            table_item0.is_sub = current_is_sub
+            self.setItem(row - 1, 0, table_item0)
+            table_item1 = QTableWidgetItem(current_text)
+            table_item1.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row - 1, 1, table_item1)
+            table_item2 = QTableWidgetItem('↑')
+            table_item2.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row - 1, 2, table_item2)
+        else:  # 父项目移动
+
+            # 往上找，找到主级菜单
+            index_insert = row
+            while index_insert > 0:
+                pre_item = self.item(index_insert - 1, 0)
+                index_insert -= 1
+                if not pre_item or not pre_item.is_sub:
+                    break
+            print(index_insert)
+
+            # 保存要移动的菜单
+            move_module = {'id': self.item(row, 0).id, 'is_sub': self.item(row, 0).is_sub, 'text': self.item(row, 1).text()}
+
+            # 要删除的行
+            remove_row = [row]
+
+            sub_modules = list()  # 要移动的菜单列表
+
+            # 往下找，找到主级菜单
+            next_row = row + 1
+            next_item = self.item(next_row, 0)
+            while next_item is not None:
+                next_item = self.item(next_row, 0)
+                if next_item is None or not next_item.is_sub:
+                    break
+                sub_modules.append({
+                    'id': next_item.id,
+                    'is_sub': next_item.is_sub,
+                    'text': self.item(next_row, 1).text()
+                })
+                remove_row.append(next_row)
+                next_row += 1
+                if not next_item or not next_item.is_sub:
+                    break
+            move_module['subs'] = sub_modules
+
+            reverse_id = (self.item(index_insert, 0).id, self.item(row, 0).id)
+            print('请求交换id的sort', reverse_id)
+            if not self.request_reverse_module_sort(self.item(index_insert, 0).id, self.item(row, 0).id):
+                return
+
+            # 移除行
+            print(remove_row)
+            for _ in remove_row:
+                self.removeRow(remove_row[0])  # 只要移除一行，索引就变化，所以移除第一个索引值的即可
+            print(move_module)
+
+            # 插入数据
+            self.insertRow(index_insert)
+            table_item0 = QTableWidgetItem(str(index_insert + 1))
+            table_item0.id = move_module['id']
+            table_item0.is_sub = move_module['is_sub']
+            table_item0.setTextAlignment(Qt.AlignCenter)
+            table_item0.setBackground(QBrush(QColor(218, 233, 231)))
+            self.setItem(index_insert, 0, table_item0)
+            table_item1 = QTableWidgetItem(move_module['text'])
+            table_item1.setTextAlignment(Qt.AlignCenter)
+            table_item1.setBackground(QBrush(QColor(218, 233, 231)))
+            self.setItem(index_insert, 1, table_item1)
+            table_item2 = QTableWidgetItem('↑')
+            table_item2.setTextAlignment(Qt.AlignCenter)
+            table_item2.setBackground(QBrush(QColor(218, 233, 231)))
+            self.setItem(index_insert, 2, table_item2)
+            index_insert += 1
+            for sub_module in move_module['subs']:
+                self.insertRow(index_insert)
+                table_item0 = QTableWidgetItem(str(index_insert + 1))
+                table_item0.setTextAlignment(Qt.AlignCenter)
+                table_item0.id = sub_module['id']
+                table_item0.is_sub = sub_module['is_sub']
+                self.setItem(index_insert, 0, table_item0)
+                table_item1 = QTableWidgetItem(sub_module['text'])
+                table_item1.setTextAlignment(Qt.AlignCenter)
+                self.setItem(index_insert, 1, table_item1)
+                table_item2 = QTableWidgetItem('↑')
+                table_item2.setTextAlignment(Qt.AlignCenter)
+                self.setItem(index_insert, 2, table_item2)
+                index_insert += 1
+
+            # 重新调整序号
+            for row in range(self.rowCount()):
+                self.item(row, 0).setText(str(row + 1))
+
+    # 请求交换菜单的排序
+    def request_reverse_module_sort(self, current_id, target_id):
+        try:
+            r = requests.post(
+                url=settings.SERVER_ADDR + 'module/sort/',
+                headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': settings.USER_AGENT},
+                data=json.dumps({'utoken':settings.app_dawn.value('AUTHORIZATION'),'c_id': current_id, 't_id': target_id})
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            QMessageBox.information(self, '失败',str(e))
+            return False
+        else:
+            QMessageBox.information(self, '成功', response['message'])
+            return True
 
 
 # 功能模块管理页面
