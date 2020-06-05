@@ -915,7 +915,7 @@ class UpdateVarietyTableGroupThread(QThread):
         # 读取文件夹内所有文件
         file_path_list = list()
         for file_path in os.listdir(self.file_folder):
-            if os.path.splitext(file_path)[1] == '.xlsx':
+            if os.path.splitext(file_path)[1] in ['.xlsx', '.xls']:
                 file_path_list.append(os.path.join(self.file_folder, file_path))
         # 遍历将每个文件和文件内的sheet，读取，发起更新或创建，提交后发出一个信号
         for file_path in file_path_list:
