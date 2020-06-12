@@ -507,6 +507,9 @@ class DetailWarehouseReceipts(QScrollArea):
         self.close_button.clicked.connect(self.close_widget)
         info_layout.addWidget(self.close_button)
         layout.addLayout(info_layout)
+
+        layout.addWidget(QLabel(warehouses_receipts['short_name'], self), alignment=Qt.AlignCenter)
+
         for variety_item in warehouses_receipts['varieties']:
             info_layout = QHBoxLayout(self)
 
@@ -530,6 +533,12 @@ class DetailWarehouseReceipts(QScrollArea):
             info_layout = QHBoxLayout(self)
             info_layout.addWidget(QLabel('<div>升 贴 水:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
             info_layout.addWidget(QLabel(variety_item['premium'], self, objectName='infoMsg'))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>单&nbsp;&nbsp;位:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft)
+            info_layout.addWidget(QLabel(variety_item['receipt_unit'], self, objectName='infoMsg'))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 

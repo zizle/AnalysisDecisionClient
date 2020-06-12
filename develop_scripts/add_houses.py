@@ -9,6 +9,7 @@ import requests
 import pandas as pd
 from settings import SERVER_ADDR
 
+
 """批量上传仓库编号数据"""
 def many_house_number():
     house_df = pd.read_excel('./品种交割仓库编号及信息表.xlsx', sheet_name='仓库编号表')
@@ -59,16 +60,15 @@ def add_houses_message():
 
 def delivery_variety_house():
     variety_df = pd.read_excel('./品种交割仓库编号及信息表.xlsx', sheet_name='郑商所品种信息表')
-    useful_df = variety_df[['品种','代码','简称','联系人','联系方式','升贴水']]
-    useful_df.columns = ['name','name_en', 'short_name','linkman','links','premium']
+    useful_df = variety_df[['品种','代码','简称','联系人','联系方式','升贴水','仓单单位']]
+    useful_df.columns = ['name','name_en', 'short_name','linkman','links','premium','receipt_unit']
     print(useful_df)
     useful_df = useful_df.fillna('')
     record_dict = useful_df.to_dict(orient='record')
 
-
     try:
         r = requests.post(
-            url=SERVER_ADDR + 'warehouse/1/variety/',
+            url=SERVER_ADDR + 'warehouse/0001/variety/',
             headers={'Content-Type': 'application/json;charset=utf8'},
             data=json.dumps({'variety_record': record_dict})
         )

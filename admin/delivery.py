@@ -22,33 +22,33 @@ class CreateNewWarehouse(QWidget):
         layout = QVBoxLayout(self)
         edit_layout = QGridLayout(self)
 
-        edit_layout.addWidget(QLabel('编码:', self), 0, 0)
-        self.fixed_code_edit = QLineEdit(self)
-        self.fixed_code_edit.setPlaceholderText('输入仓库编码,4位数字符串。例如：0001')
-        edit_layout.addWidget(self.fixed_code_edit, 0, 1)
-
-        edit_layout.addWidget(QLabel('地区:', self), 1, 0)
+        edit_layout.addWidget(QLabel('所在地区:', self), 0, 0)
         self.area_edit = QLineEdit(self)
-        edit_layout.addWidget(self.area_edit, 1, 1)
+        edit_layout.addWidget(self.area_edit, 0, 1)
 
-        edit_layout.addWidget(QLabel('名称:', self), 2, 0)
+        edit_layout.addWidget(QLabel('仓库名称:', self), 1, 0)
         self.name_edit = QLineEdit(self)
-        edit_layout.addWidget(self.name_edit, 2, 1)
+        edit_layout.addWidget(self.name_edit, 1, 1)
 
-        edit_layout.addWidget(QLabel('简称:', self), 3, 0)
+        edit_layout.addWidget(QLabel('仓库简称:', self), 2, 0)
         self.short_name_edit = QLineEdit(self)
         self.short_name_edit.setPlaceholderText('简称需与交易所公布的一致!')
-        edit_layout.addWidget(self.short_name_edit, 3, 1)
+        edit_layout.addWidget(self.short_name_edit, 2, 1)
 
-        edit_layout.addWidget(QLabel('地址:', self), 4, 0)
+        edit_layout.addWidget(QLabel('仓库地址:', self), 3, 0)
         self.addr_edit = QLineEdit(self)
-        edit_layout.addWidget(self.addr_edit, 4, 1)
+        edit_layout.addWidget(self.addr_edit, 3, 1)
 
-        edit_layout.addWidget(QLabel('经度:', self), 5, 0)
+        edit_layout.addWidget(QLabel('到达站港:', self), 4, 0)
+        self.arrived_edit = QLineEdit(self)
+        self.arrived_edit.setPlaceholderText('若未知可留空')
+        edit_layout.addWidget(self.arrived_edit, 4, 1)
+
+        edit_layout.addWidget(QLabel('所在经度:', self), 5, 0)
         self.lng_edit = QLineEdit(self)
         edit_layout.addWidget(self.lng_edit, 5, 1)
 
-        edit_layout.addWidget(QLabel('经度:', self), 6, 0)
+        edit_layout.addWidget(QLabel('所在纬度:', self), 6, 0)
         self.lat_edit = QLineEdit(self)
         edit_layout.addWidget(self.lat_edit, 6, 1)
 
@@ -75,26 +75,26 @@ class CreateNewWarehouse(QWidget):
 
     def commit_new_warehouse(self):
         # 整理数据
-        fixed_code = self.fixed_code_edit.text().strip()
         area = self.area_edit.text().strip()
         name = self.name_edit.text().strip()
         short_name = self.short_name_edit.text().strip()
         addr = self.addr_edit.text().strip()
+        arrived = self.arrived_edit.text().strip()
         longitude = self.lng_edit.text().strip()
         latitude = self.lat_edit.text().strip()
-        if not all([fixed_code, area, name,short_name, addr, longitude, latitude]):
+        if not all([area, name,short_name, addr,longitude, latitude]):
             QMessageBox.information(self, '错误', '有字段未填写完整!')
             return
         try:
             r = requests.post(
                 url=SERVER_ADDR + 'warehouse/',
-                headers={'Content-Type':'application/json;','User-Agent':USER_AGENT},
+                headers={'Content-Type': 'application/json;', 'User-Agent': USER_AGENT},
                 data=json.dumps({
-                    'fixed_code': fixed_code,
                     'area': area,
                     'name': name,
                     'short_name': short_name,
                     'addr': addr,
+                    'arrived': arrived,
                     'longitude': float(longitude),
                     'latitude': float(latitude)
                 })
@@ -228,7 +228,8 @@ class WarehouseVarietyManager(QWidget):
             delivery_msg = {
                 "linkman": popup.linkman_edit.text().strip(),
                 "links": popup.links_edit.text().strip(),
-                "premium": popup.premium_edit.text().strip()
+                "premium": popup.premium_edit.text().strip(),
+                "receipt_unit": popup.receipt_unit.text().strip()
             }
             request_d = {
                 "house_code": self.house_code,
@@ -243,7 +244,7 @@ class WarehouseVarietyManager(QWidget):
             try:
                 r = requests.post(
                     url=SERVER_ADDR + 'warehouse/' + str(data['house_code']) + '/variety/',
-                    headers={'Content-Type':'application/json;charset=utf8', 'User-Agent': USER_AGENT},
+                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
                     data=json.dumps(data)
                 )
                 response = json.loads(r.content.decode('utf8'))
@@ -263,12 +264,13 @@ class WarehouseVarietyManager(QWidget):
         checked = 0
         if check_item.checkState() == Qt.Checked:  # 当前的选中状态(目标状态)
             checked = 1
-            # 弹窗设置内容(联系人,联系方式,升贴水)
+            # 弹窗设置内容(联系人,联系方式,升贴水,仓单单位)
             popup = QDialog(self)
             popup.setAttribute(Qt.WA_DeleteOnClose)
-            popup.setWindowTitle("交割基础信息")
+            popup.setWindowTitle("交割品种基础信息")
+            popup.resize(400, 250)
             layout = QGridLayout(popup)
-            layout.addWidget(QLabel('联系人:', popup), 0, 0)
+            layout.addWidget(QLabel('联 系 人:', popup), 0, 0)
             popup.linkman_edit = QLineEdit(popup)
             layout.addWidget(popup.linkman_edit, 0, 1)
 
@@ -276,14 +278,18 @@ class WarehouseVarietyManager(QWidget):
             popup.links_edit = QLineEdit(popup)
             layout.addWidget(popup.links_edit, 1, 1)
 
-            layout.addWidget(QLabel('升贴水:', popup), 2, 0)
+            layout.addWidget(QLabel('升 贴 水:', popup), 2, 0)
             popup.premium_edit = QLineEdit(popup)
             layout.addWidget(popup.premium_edit, 2, 1)
+
+            layout.addWidget(QLabel('仓单单位:', popup), 3, 0)
+            popup.receipt_unit = QLineEdit(popup)
+            layout.addWidget(popup.receipt_unit, 3, 1)
             popup.setLayout(layout)
 
             popup.commit_button = QPushButton('确定', popup)
             popup.commit_button.clicked.connect(commit_new_delivery_variety)
-            layout.addWidget(popup.commit_button, 3, 0, 1, 2)
+            layout.addWidget(popup.commit_button, 4, 0, 1, 2)
             popup.exec_()
 
         else:
@@ -348,6 +354,7 @@ class HouseNumberTable(QTableWidget):
         self.setEditTriggers(QHeaderView.NoEditTriggers)
         self.setSelectionBehavior(QHeaderView.SelectRows)
         self.setFrameShape(QFrame.NoFrame)
+        self.verticalHeader().hide()
 
     def show_houses(self, warehouses):
         self.clear()
@@ -466,7 +473,7 @@ class DeliveryInfoAdmin(QWidget):
 
     def clicked_left_menu(self):
         menu = self.menu_list.currentItem().text()
-        print(menu)
+        # print(menu)
         if menu == '仓库管理':
             page = WarehouseAdmin()
             page.table_actions_signal.connect(self.sub_actions_go)
@@ -480,7 +487,7 @@ class DeliveryInfoAdmin(QWidget):
         self.right_frame.addWidget(page)
 
     def sub_actions_go(self, house_code, action_text):
-        print(house_code, action_text)
+        # print(house_code, action_text)
         if action_text == '交割品种管理':
             page = WarehouseVarietyManager(house_code)
             page.get_current_house_message()
