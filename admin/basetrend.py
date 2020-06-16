@@ -1020,6 +1020,7 @@ class UpdateTableConfigPage(QWidget):
         }
         """)
         self._get_access_variety()
+        self._get_current_v_group()
 
     def _get_access_variety(self):
         try:
@@ -1035,6 +1036,7 @@ class UpdateTableConfigPage(QWidget):
             for variety_item in response['variety']:
                 if variety_item['is_active']:
                     self.variety_combobox.addItem(variety_item['name'], variety_item['variety_id'])
+
             return response['variety']
 
     def _get_current_v_group(self):
@@ -1054,6 +1056,7 @@ class UpdateTableConfigPage(QWidget):
 
     # 读取当前的配置
     def _read_configs(self):
+        self._get_current_v_group()
         self.config_table.clear()
         self.config_table.setColumnCount(5)
         self.config_table.setHorizontalHeaderLabels(['品种', '数据组', '数据文件夹', '上次更新',''])
@@ -1125,6 +1128,7 @@ class UpdateTableConfigPage(QWidget):
             else:
                 QMessageBox.information(popup, "成功", "成功添加数据组")
                 popup.close()
+                self._get_current_v_group()  # 动态刷新当前数据组
         if not current_variety_name or not current_variety_id:
             QMessageBox.information(self, "未选择品种", "请选择品种")
             return
