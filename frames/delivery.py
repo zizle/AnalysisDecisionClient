@@ -3,7 +3,6 @@
 # Created:2020-05-27
 # ------------------------
 import json
-import chardet
 import requests
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QScrollArea, QLabel,QGridLayout, QFrame, QTableWidget, \
     QTableWidgetItem, QHeaderView, QMessageBox, QLineEdit, QDialog, QTextEdit, QScrollBar
@@ -12,7 +11,7 @@ from PyQt5.QtGui import QCursor, QBrush, QColor, QFont
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
-from widgets import CAvatar, Paginator
+from widgets import CAvatar, Paginator, PDFContentPopup
 from settings import SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
 
 
@@ -52,7 +51,7 @@ class ChildrenMenuWidget(QWidget):
     def __init__(self, *args, **kwargs):
         super(ChildrenMenuWidget, self).__init__(*args, **kwargs)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setWindowOpacity(0.9)
+        self.setWindowOpacity(0.95)
         self.setObjectName('childrenMenu')
         self.setStyleSheet("""
         #childrenMenu{
@@ -179,7 +178,31 @@ class VarietyButton(QPushButton):
         self.bid = bid
         self.v_en = v_en
         self.setText(text)
+        self.setCursor(Qt.PointingHandCursor)
         self.clicked.connect(self.mouse_clicked)
+        self.setObjectName("button")
+        self.setStyleSheet("""
+        #button{
+            border:1px solid rgb(34,142,125);
+            padding: 2px 0;
+            margin-top:2px;
+            margin-bottom:2px;
+            font-size: 13px;
+            min-width: 65px;
+            max-width: 65px;
+            border-radius:3px;
+        }
+        #button:hover{
+            color:rgb(200,120,200);
+            background-color:rgb(225,225,225);
+            border-radius:3px;
+        }
+        #button:pressed{
+            background-color:rgb(150,150,180);
+            color:rgb(250,250,250);
+            border-radius:3px;
+        }
+        """)
 
     def mouse_clicked(self):
         self.select_variety_menu.emit(self.bid, self.v_en)
@@ -192,9 +215,62 @@ class AreaButton(QPushButton):
     def __init__(self, *args):
         super(AreaButton, self).__init__(*args)
         self.clicked.connect(self.mouse_clicked)
+        self.setObjectName("button")
+        self.setStyleSheet("""
+        #button{
+            border:1px solid rgb(34,142,125);
+            padding: 2px 0;
+            margin-top:2px;
+            margin-bottom:2px;
+            font-size: 13px;
+            min-width: 65px;
+            max-width: 65px;
+            border-radius:3px;
+        }
+        #button:hover{
+            color:rgb(200,120,200);
+            background-color:rgb(225,225,225);
+            border-radius:3px;
+        }
+        #button:pressed{
+            background-color:rgb(150,150,180);
+            color:rgb(250,250,250);
+            border-radius:3px;
+        }
+        """)
 
     def mouse_clicked(self):
         self.select_area_menu.emit(self.text())
+
+
+# 自定义菜单按钮
+class CustomMenuButton(QPushButton):
+    def __init__(self, text, width, *args):
+        super(CustomMenuButton, self).__init__(*args)
+        self.setText(text)
+        self.setFixedWidth(width)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setObjectName("button")
+        self.setStyleSheet("""
+        #button{
+            border:1px solid rgb(34,142,125);
+            padding: 2px 0;
+            margin-top:2px;
+            margin-bottom:2px;
+            font-size: 13px;
+            border-radius:3px;
+        }
+        #button:hover{
+            color:rgb(200,120,200);
+            background-color:rgb(225,225,225);
+            border-radius:3px;
+        }
+        #button:pressed{
+            background-color:rgb(150,150,180);
+            color:rgb(250,250,250);
+            border-radius:3px;
+        }
+        """)
 
 
 """ 交流与讨论相关 """
@@ -401,9 +477,46 @@ class WarehouseTable(QTableWidget):
     def __init__(self, *args):
         super(WarehouseTable, self).__init__(*args)
         self.setFrameShape(QFrame.NoFrame)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setAlternatingRowColors(True)  # 开启交替行颜色
+        self.setMouseTracking(True)
+        self.setShowGrid(False)
         self.setSelectionBehavior(QHeaderView.SelectRows)
         self.setEditTriggers(QHeaderView.NoEditTriggers)
         self.verticalHeader().hide()
+        self.horizontalHeader().setStyleSheet("""
+        QHeaderView::section,
+        QTableCornerButton::section {
+            min-height: 25px;
+            padding: 1px;border: none;
+            border-right: 1px solid rgb(201,202,202);
+            border-bottom: 1px solid rgb(201,202,202);
+            background-color:rgb(150,200,210);
+            font-weight: bold;
+            font-size: 13px;
+            min-width:26px;
+        }""")
+
+        self.setStyleSheet("""
+        QTableWidget{
+            font-size: 13px;
+            alternate-background-color: rgb(245, 250, 248);  /* 设置交替行颜色 */
+        }
+        QTableWidget::item{
+            border-bottom: 1px solid rgb(201,202,202);
+            border-right: 1px solid rgb(201,202,202);
+        }
+        QTableWidget::item:selected{
+            background-color: rgb(215, 215, 215);
+        }
+        """)
+
+    def mouseMoveEvent(self, event):
+        index = self.indexAt(QPoint(event.pos().x(), event.pos().y()))
+        if index.column() == 4:
+            self.setCursor(Qt.PointingHandCursor)
+        else:
+            self.setCursor(Qt.ArrowCursor)
 
     # 以地区获取仓库信息的显示方式
     def area_warehouse_show(self, warehouses):
@@ -414,7 +527,6 @@ class WarehouseTable(QTableWidget):
         self.setHorizontalHeaderLabels(table_headers)
         self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         for row, row_item in enumerate(warehouses):
             self.setRowHeight(row, 30)
@@ -435,7 +547,7 @@ class WarehouseTable(QTableWidget):
             self.setItem(row, 3, item3)
             item4 = QTableWidgetItem('详情')
             item4.setTextAlignment(Qt.AlignCenter)
-            item4.setForeground(QBrush(QColor(100,150,200)))
+            item4.setForeground(QBrush(QColor(100, 150,200)))
             self.setItem(row, 4, item4)
         self.setFixedHeight(self.rowCount() * 30 + 35)
 
@@ -448,7 +560,6 @@ class WarehouseTable(QTableWidget):
         self.setHorizontalHeaderLabels(table_headers)
         self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         for row, row_item in enumerate(warehouses):
             self.setRowHeight(row,30)
@@ -496,7 +607,7 @@ class DetailWarehouseReceipts(QScrollArea):
         info_layout = QHBoxLayout(self)
         info_layout.addStretch()
         info_layout.addWidget(QLabel('仓库名称:', self, objectName='titleLabel'), alignment=Qt.AlignLeft)
-        info_layout.addWidget(QLabel(warehouses_receipts['warehouse'], self, objectName='warehouseName'))
+        info_layout.addWidget(QLabel(warehouses_receipts['warehouse'], self, objectName='warehouseName', textInteractionFlags=Qt.TextSelectableByMouse))
         info_layout.addStretch()
         font = QFont()
         font.setFamily('webdings')
@@ -508,37 +619,72 @@ class DetailWarehouseReceipts(QScrollArea):
         info_layout.addWidget(self.close_button)
         layout.addLayout(info_layout)
 
-        layout.addWidget(QLabel(warehouses_receipts['short_name'], self), alignment=Qt.AlignCenter)
+        layout.addWidget(QLabel(warehouses_receipts['short_name'], self, textInteractionFlags=Qt.TextSelectableByMouse), alignment=Qt.AlignCenter)
+
+        info_layout = QHBoxLayout(self)
+        info_layout.addWidget(QLabel('<div>仓&nbsp;库&nbsp;地&nbsp;址:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+        info_layout.addWidget(QLabel(warehouses_receipts['addr'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
+        info_layout.addStretch()
+        layout.addLayout(info_layout)
 
         for variety_item in warehouses_receipts['varieties']:
             info_layout = QHBoxLayout(self)
-
-            info_layout.addWidget(QLabel('<div>品&nbsp;&nbsp;种:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
-            info_layout.addWidget(QLabel(variety_item['name'], self, objectName='infoMsg'))
+            info_layout.addWidget(QLabel('<div>交&nbsp;割&nbsp;品&nbsp;种:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['name'], self, objectName='infovarietyMsg', textInteractionFlags=Qt.TextSelectableByMouse))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 
             info_layout = QHBoxLayout(self)
-            info_layout.addWidget(QLabel('<div>联 系 人:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
-            info_layout.addWidget(QLabel(variety_item['linkman'], self, objectName='infoMsg'))
+            info_layout.addWidget(QLabel('<div>联&nbsp;&nbsp;系&nbsp;&nbsp;人:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['linkman'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 
             info_layout = QHBoxLayout(self)
-            info_layout.addWidget(QLabel('<div>联系方式:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft)
-            info_layout.addWidget(QLabel(variety_item['links'], self, objectName='infoMsg'))
+            info_layout.addWidget(QLabel('<div>联&nbsp;系&nbsp;方&nbsp;式:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['links'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 
             info_layout = QHBoxLayout(self)
-            info_layout.addWidget(QLabel('<div>升 贴 水:</div>',self, objectName='infoLabel'), alignment=Qt.AlignLeft)
-            info_layout.addWidget(QLabel(variety_item['premium'], self, objectName='infoMsg'))
+            info_layout.addWidget(QLabel('<div>升&nbsp;&nbsp;贴&nbsp;&nbsp;水:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['premium'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 
             info_layout = QHBoxLayout(self)
-            info_layout.addWidget(QLabel('<div>单&nbsp;&nbsp;位:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft)
-            info_layout.addWidget(QLabel(variety_item['receipt_unit'], self, objectName='infoMsg'))
+            info_layout.addWidget(QLabel('<div>仓&nbsp;单&nbsp;有效期:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            l = QLabel(variety_item['receipt_expire'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse)
+            l.setMinimumWidth(500)
+            l.setWordWrap(True)
+            info_layout.addWidget(l)
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>最&nbsp;后&nbsp;交易日:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            label = QLabel(variety_item['last_trade'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse)
+            label.setMinimumWidth(500)
+            label.setWordWrap(True)
+            info_layout.addWidget(label)
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>交&nbsp;割&nbsp;单&nbsp;位:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['delivery_unit'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>仓&nbsp;单&nbsp;单&nbsp;位:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['receipt_unit'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
+            info_layout.addStretch()
+            layout.addLayout(info_layout)
+
+            info_layout = QHBoxLayout(self)
+            info_layout.addWidget(QLabel('<div>交割月投机限仓:</div>', self, objectName='infoLabel'), alignment=Qt.AlignLeft | Qt.AlignTop)
+            info_layout.addWidget(QLabel(variety_item['limit_holding'], self, objectName='infoMsg', textInteractionFlags=Qt.TextSelectableByMouse))
             info_layout.addStretch()
             layout.addLayout(info_layout)
 
@@ -547,10 +693,27 @@ class DetailWarehouseReceipts(QScrollArea):
             receipt_table.setObjectName('receiptTable')
             receipt_table.verticalHeader().hide()
             receipt_table.setFrameShape(QFrame.NoFrame)
+            receipt_table.setAlternatingRowColors(True)
+            receipt_table.setShowGrid(False)
+            receipt_table.setFocusPolicy(Qt.NoFocus)
+            receipt_table.setEditTriggers(QHeaderView.NoEditTriggers)
+            receipt_table.setSelectionBehavior(QHeaderView.SelectRows)
             receipt_table.setColumnCount(3)
             receipt_table.setHorizontalHeaderLabels(['日期', '仓单', '增减'])
             receipt_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
             receipt_table.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            receipt_table.horizontalHeader().setStyleSheet("QHeaderView::section,"
+                                                           "QTableCornerButton::section {"
+                                                           "min-height: 25px;"
+                                                           "padding: 1px;"
+                                                           "border: none;"
+                                                           "border-right: 1px solid rgb(201,202,202);"
+                                                           "border-bottom: 1px solid rgb(201,202,202);"
+                                                           "background-color:rgb(150,200,210);"
+                                                           "font-weight: bold;"
+                                                           "font-size: 13px;"
+                                                           "min-width:26px;}"
+                                                           )
             for row, receipt_item in enumerate(variety_item['receipts']):
                 receipt_table.insertRow(row)
                 receipt_table.setRowHeight(row, 30)
@@ -588,8 +751,69 @@ class DetailWarehouseReceipts(QScrollArea):
         #warehouseName{font-size:14px;color:rgb(100,150,220);font-weight:bold}
         #infoLabel{font-size:13px;font-weight:bold}
         #receiptLabel{font-size:14px;color:rgb(100,200,220)}
-        #receiptTable{background-color:rgb(240,240,240)}
-        #infoMsg{font-size:14px}
+        #infoMsg,#infovarietyMsg{font-size:14px}
+        #infovarietyMsg{color:rgb(200,80,80);font-weight:bold}
+        #receiptTable{font-size: 13px;alternate-background-color: rgb(245, 250, 248);}
+        #receiptTable::item{border-bottom: 1px solid rgb(201,202,202);border-right: 1px solid rgb(201,202,202);}
+        #receiptTable::item:selected{background-color: rgb(215, 215, 215);}
+        """)
+        self.verticalScrollBar().setStyleSheet("""
+        QScrollBar:vertical {
+            background: transparent; 
+            width: 8px; 
+            margin: 0px 0px 0px 0px; 
+            padding-top: 12px; 
+            padding-bottom: 12px;
+        }
+        QScrollBar:vertical:hover{
+            background: rgba(0, 0, 0, 30);
+            border-radius: 8px; 
+        }
+        QScrollBar::handle:vertical {
+            background: rgba(0, 0, 0, 50);
+            width: 8px;
+            border-radius: 8px;
+            border: none;
+        }
+        QScrollBar::handle:vertical:hover{background: rgba(0, 0, 0, 100);}
+        QScrollBar::add-page:vertical {
+            width: 10px;
+            background: transparent;
+        }
+        QScrollBar::sub-page:vertical {
+            width: 10px;
+            background: transparent;
+        }
+        QScrollBar::sub-line:vertical {
+            height: 12px;
+            width: 5px;
+            background: transparent;
+            subcontrol-position: top;
+        }
+        QScrollBar::up-arrow:vertical {
+            image: url(media/scrollbar/scrollbar_arrowup_normal.png);
+        }
+        QScrollBar::up-arrow:vertical:hover {
+            image: url(media/scrollbar/scrollbar_arrowup_down.png);
+        }
+        QScrollBar::up-arrow:vertical:pressed {
+            image: url(media/scrollbar/scrollbar_arrowup_highlight.png);
+        }
+        QScrollBar::add-line:vertical {
+            height: 12px;
+            width: 5px;
+            background: transparent;
+            subcontrol-position: bottom;
+        }
+        QScrollBar::down-arrow:vertical {
+            image: url(media/scrollbar/scrollbar_arrowdown_normal.png);
+        }
+        QScrollBar::down-arrow:vertical:hover {
+            image: url(media/scrollbar/scrollbar_arrowdown_down.png);
+        }
+        QScrollBar::down-arrow:vertical:pressed {
+            image: url(media/scrollbar/scrollbar_arrowdown_highlight.png);
+        }
         """)
 
     def close_widget(self):
@@ -726,10 +950,10 @@ class DeliveryPage(QScrollArea):
 
         # 讨论与交流
         dis_layout = QVBoxLayout(self)
-        dis_layout.setContentsMargins(QMargins(0,0,0,0))
+        dis_layout.setContentsMargins(QMargins(0, 0, 0, 0))
         dis_layout.setSpacing(5)
         dis_title_layout = QHBoxLayout(self)
-        dis_title_layout.setContentsMargins(QMargins(0,0,0,0))
+        dis_title_layout.setContentsMargins(QMargins(0, 0, 0, 0))
         self.dis_label = QLabel('【最新讨论】', self)
         dis_title_layout.addWidget(self.dis_label, alignment=Qt.AlignLeft)
         self.more_dis_button = QPushButton('更多>>', self)
@@ -748,6 +972,7 @@ class DeliveryPage(QScrollArea):
 
         self.warehouse_table = WarehouseTable(self)
         self.warehouse_table.cellClicked.connect(self.warehouse_table_cell_clicked)
+        self.warehouse_table.cellDoubleClicked.connect(self.warehouse_table_double_clicked)
         layout.addWidget(self.warehouse_table)
 
         # self.no_data_label = QLabel('没有数据', self)
@@ -843,6 +1068,7 @@ class DeliveryPage(QScrollArea):
             self.map_view.setFixedSize(width, height)
             self.discuss_show.setFixedHeight(height - self.more_dis_button.height() - 5)  # 减去更多按钮的高度和QFrame横线的高度
             self.contact_channel.resize_map.emit(width, height)  # 调整界面中地图的大小
+            print('发出调整')
 
     def user_reply_discussion(self, discuss_id):
         def commit_discussion():
@@ -970,7 +1196,11 @@ class DeliveryPage(QScrollArea):
             {
                 "id": 3,
                 "text": "服务指引",
-                "children": []
+                "children": {
+                    "仓单流程": [{"name": "仓单注册流程"}, {"name": "仓单注销流程"}, {"name": "厂库仓单注册"}],
+                    "交割流程": [{"name": "上期所交割流程"}, {"name": "郑商所交割流程"}, {"name": "大商所交割流程"}, {"name": "能源中心交割流程"}],
+                    "套期保值": [{"name": "上期所套保业务"}, {"name": "郑商所套保业务"}, {"name": "大商所套保业务"}, {"name": "能源中心套保业务"}]
+                }
             }
         ]
         try:
@@ -984,8 +1214,14 @@ class DeliveryPage(QScrollArea):
         except Exception:
             pass
         else:
-            variety_menus = {"id": 1, "text": "品种", 'children': response['variety']}
+            variety_menus = {"id": 1, "text": "品种仓库", 'children': response['variety']}
             menus.insert(0, variety_menus)
+            brand_menus = {"id": 4, "text": "品牌名录", "children": response['variety']}
+            menus.append(brand_menus)
+            cost_menus = {"id": 5, "text": "交割费用", "children": response['variety']}
+            menus.append(cost_menus)
+            quality_menus = {"id": 6, "text": "质检机构", "children": response['variety']}
+            menus.append(quality_menus)
         finally:
             return menus
 
@@ -993,14 +1229,20 @@ class DeliveryPage(QScrollArea):
         """ 必须重写这个方法，根据id设置子菜单的layout样式 """
         if p_id == 1:
             layout = QVBoxLayout()
+            layout.setSpacing(2)
             for exchange, variety_list in child_menus.items():
                 if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
                     continue
-                layout.addWidget(QLabel(exchange))
+                layout.addWidget(QLabel(exchange,
+                                        styleSheet='font-size:14px;'
+                                                   'font-weight:bold;'
+                                                   'background-color:rgb(180,180,180);'
+                                                   'padding:3px 0;'
+                                                   'border-bottom: 1px solid rgb(30,30,30)'
+                                        )
+                                 )
                 if len(variety_list) > 0:
-                    line = QFrame()
-                    line.setFrameShape(QFrame.HLine)
-                    layout.addWidget(line)
+
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
                         v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['name_en'],text=variety_item["name"])
@@ -1013,9 +1255,119 @@ class DeliveryPage(QScrollArea):
                 area_btn = AreaButton(area_item['name'])
                 area_btn.select_area_menu.connect(self.get_province_warehouses)
                 layout.addWidget(area_btn, index / 5, index % 5)
+        elif p_id == 3:
+            layout = QVBoxLayout()
+            for header, menu_list in child_menus.items():
+                layout.addWidget(QLabel(header,
+                                        styleSheet='font-size:14px;'
+                                                   'font-weight:bold;'
+                                                   'background-color:rgb(180,180,180);'
+                                                   'padding:3px 0;'
+                                                   'border-bottom: 1px solid rgb(30,30,30)'
+                                        )
+                                 )
+                if len(menu_list) > 0:
+                    sub_layout = QGridLayout()
+                    sub_layout.setAlignment(Qt.AlignLeft)
+                    for index, variety_item in enumerate(menu_list):
+                        m_btn = CustomMenuButton(text=variety_item["name"], width=108)
+                        m_btn.clicked.connect(self.to_show_service)
+                        sub_layout.addWidget(m_btn, index / 3, index % 3)
+                    layout.addLayout(sub_layout)
+        elif p_id == 4:  # 品牌名录
+            layout = QVBoxLayout()
+            for exchange, variety_list in child_menus.items():
+                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                    continue
+                layout.addWidget(QLabel(exchange,
+                                        styleSheet='font-size:14px;'
+                                                   'font-weight:bold;'
+                                                   'background-color:rgb(180,180,180);'
+                                                   'padding:3px 0;'
+                                                   'border-bottom: 1px solid rgb(30,30,30)'
+                                        )
+                                 )
+                if len(variety_list) > 0:
+                    sub_layout = QGridLayout()
+                    for index, variety_item in enumerate(variety_list):
+                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
+                        v_btn.variety_en = variety_item['name_en']
+                        v_btn.category = 'brand'
+                        v_btn.clicked.connect(self.show_target_pdf)
+                        sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
+                    layout.addLayout(sub_layout)
+        elif p_id == 5:  # 交割费用
+            layout = QVBoxLayout()
+            for exchange, variety_list in child_menus.items():
+                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                    continue
+                layout.addWidget(QLabel(exchange,
+                                        styleSheet='font-size:14px;'
+                                                   'font-weight:bold;'
+                                                   'background-color:rgb(180,180,180);'
+                                                   'padding:3px 0;'
+                                                   'border-bottom: 1px solid rgb(30,30,30)'
+                                        )
+                                 )
+                if len(variety_list) > 0:
+                    sub_layout = QGridLayout()
+                    for index, variety_item in enumerate(variety_list):
+                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
+                        v_btn.variety_en = variety_item['name_en']
+                        v_btn.category = 'cost'
+                        v_btn.clicked.connect(self.show_target_pdf)
+                        sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
+                    layout.addLayout(sub_layout)
+
+        elif p_id == 6:  # 质检机构
+            layout = QVBoxLayout()
+            for exchange, variety_list in child_menus.items():
+                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                    continue
+                layout.addWidget(QLabel(exchange,
+                                        styleSheet='font-size:14px;'
+                                                   'font-weight:bold;'
+                                                   'background-color:rgb(180,180,180);'
+                                                   'padding:3px 0;'
+                                                   'border-bottom: 1px solid rgb(30,30,30)'
+                                        )
+                                 )
+                if len(variety_list) > 0:
+                    sub_layout = QGridLayout()
+                    for index, variety_item in enumerate(variety_list):
+                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
+                        v_btn.variety_en = variety_item['name_en']
+                        v_btn.category = 'quality'
+                        v_btn.clicked.connect(self.show_target_pdf)
+                        sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
+                    layout.addLayout(sub_layout)
         else:
             layout = QHBoxLayout()
         return layout
+
+    def show_target_pdf(self):
+        btn = self.sender()
+        if not btn or not isinstance(btn, QPushButton):
+            return
+        menu_text = btn.text()
+        file_url = "{}delivery/{}/{}{}.pdf".format(STATIC_PREFIX, btn.category, menu_text, btn.variety_en)
+        popup = PDFContentPopup(title=menu_text, file=file_url)
+        popup.exec_()
+
+    def to_show_service(self):
+        btn = self.sender()
+        if not btn or not isinstance(btn, QPushButton):
+            return
+        menu_text = btn.text()
+        # 显示各种内容
+        if menu_text in [
+            "仓单注册流程","仓单注销流程", "厂库仓单注册",
+            "上期所交割流程","郑商所交割流程","大商所交割流程","能源中心交割流程",
+            "上期所套保业务","郑商所套保业务","大商所套保业务","能源中心套保业务"
+        ]:
+            file_url = STATIC_PREFIX + 'delivery/' + menu_text + '.pdf'
+            popup = PDFContentPopup(title=menu_text, file=file_url)
+            popup.exec_()
 
     def get_variety_warehouses(self, v_id, variety_en):
         self.menu_bar.child_menus_widget.close()
@@ -1066,6 +1418,12 @@ class DeliveryPage(QScrollArea):
         else:
             return response['warehouses']
 
+    # 双击进入仓库详情
+    def warehouse_table_double_clicked(self, row, col):
+        current_id = self.warehouse_table.item(row, 0).id
+        current_variety = self.warehouse_table.item(row, 0).variety_en
+        self.get_detail_receipts_and_show(current_id, current_variety)
+
     # 点击显示仓库信息的表格
     def warehouse_table_cell_clicked(self, row, col):
         current_item = self.warehouse_table.currentItem()
@@ -1075,16 +1433,19 @@ class DeliveryPage(QScrollArea):
         if current_text in ['仓单', '详情']:
             current_id = self.warehouse_table.item(row, 0).id
             current_variety = self.warehouse_table.item(row, 0).variety_en
-            # print(current_id, current_variety)
-            request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
-            if current_variety is not None:
-                request_url += '?v_en=' + str(current_variety)
+            self.get_detail_receipts_and_show(current_id, current_variety)
 
-            warehouses_receipts = self.request_warehouse_receipts(request_url)
-            if not warehouses_receipts:
-                QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')
-                return
-            self.show_warehouse_detail(warehouses_receipts)
+    def get_detail_receipts_and_show(self, current_id, current_variety):
+        # print(current_id, current_variety)
+        request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
+        if current_variety is not None:
+            request_url += '?v_en=' + str(current_variety)
+
+        warehouses_receipts = self.request_warehouse_receipts(request_url)
+        if not warehouses_receipts:
+            QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')
+            return
+        self.show_warehouse_detail(warehouses_receipts)
 
     # 获取仓库详情与仓单(交割的品种和品种的近10日仓单)
     def request_warehouse_receipts(self, url):
