@@ -10,7 +10,6 @@ from PyQt5.QtCore import QObject, pyqtSignal, pyqtSlot
 class ReviewChartChannel(QObject):
     reset_options = pyqtSignal(str)
     resize_chart = pyqtSignal(int, int)
-    show_watermark = pyqtSignal(bool, str)
 
     # @pyqtSlot(str)
     # def get_province_warehouses(self, province):

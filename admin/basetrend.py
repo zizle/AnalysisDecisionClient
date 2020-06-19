@@ -11,11 +11,12 @@ import datetime
 import requests
 import pickle
 import pandas as pd
+import math
 import pyecharts.options as opts
 from pyecharts.charts import Line, Bar, Page
 from PyQt5.QtWidgets import QApplication,QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
-    QGroupBox, QCheckBox, QTextEdit, QGridLayout
+    QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
@@ -67,10 +68,6 @@ class WebEngineView(QWebEngineView):
         self.resize_page_chart(True)
         self.contact_channel.reset_options.emit(json.dumps(options))
 
-    def set_watermark(self, state, text):
-        state = True if state else False
-        self.contact_channel.show_watermark.emit(state, text)
-
 
 # 根据表数据画图界面
 class DrawChartsDialog(QDialog):
@@ -85,6 +82,7 @@ class DrawChartsDialog(QDialog):
         self.resize(1080, 660)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.table_headers = []
+        self.headers_indexes = dict()
         # self.table_sources = None
         self.source_data_frame = None
         self.sorted_data = None
@@ -102,6 +100,14 @@ class DrawChartsDialog(QDialog):
         title_layout.addWidget(QLabel('标题:',self))
         self.title_edit = QLineEdit(self)
         title_layout.addWidget(self.title_edit)
+        title_layout.addWidget(QLabel('大小:', self))
+        self.title_size_edit = QSpinBox(self)
+        self.title_size_edit.setMaximum(100)
+        self.title_size_edit.setMinimum(10)
+        self.title_size_edit.setValue(22)
+
+        title_layout.addWidget(self.title_size_edit, alignment=Qt.AlignRight)
+
         target_layout.addLayout(title_layout)
 
         x_axis_layout = QHBoxLayout(self)
@@ -120,6 +126,7 @@ class DrawChartsDialog(QDialog):
         self.date_format.addItem('年', '%Y')
         self.date_format.currentIndexChanged.connect(self.x_axis_changed)
         x_format_layout.addWidget(self.date_format)
+        x_format_layout.addStretch()
         target_layout.addLayout(x_format_layout)
 
         add_target = QGroupBox("添加指标", self)
@@ -155,7 +162,6 @@ class DrawChartsDialog(QDialog):
         graphic_layout = QHBoxLayout(self)
         graphic_layout.setSpacing(1)
         self.has_graphic = QCheckBox(self)
-        self.has_graphic.stateChanged.connect(self.is_show_watermark)
         self.has_graphic.setText("添加水印")
         self.water_graphic = QLineEdit(self)
         self.water_graphic.setText("瑞达期货研究院")
@@ -168,10 +174,15 @@ class DrawChartsDialog(QDialog):
         target_layout.addStretch()
         left_layout.addWidget(self.target_widget)
 
+        draw_layout = QHBoxLayout(self)
         self.confirm_to_draw = QPushButton('确认绘制', self)
         self.confirm_to_draw.clicked.connect(self.draw_chart)
-        left_layout.addWidget(self.confirm_to_draw)
+        draw_layout.addWidget(self.confirm_to_draw)
+        self.season_draw = QPushButton('季节图表', self)
+        self.season_draw.clicked.connect(self.draw_season_chart)
+        draw_layout.addWidget(self.season_draw)
 
+        left_layout.addLayout(draw_layout)
         # 右侧显示图形和数据表格
 
         # # 图形参数设置
@@ -196,11 +207,6 @@ class DrawChartsDialog(QDialog):
         layout.addLayout(right_layout)
         self.setLayout(layout)
         self._get_detail_table_data()
-
-    def is_show_watermark(self, state):
-        text = self.water_graphic.text()
-        print(state)
-        self.chart_widget.set_watermark(state, text)
 
     # 重置图表配置传入界面显示
     def reset_chart_options(self, option):
@@ -338,14 +344,14 @@ class DrawChartsDialog(QDialog):
             del table_headers['id']
             del table_headers['create_time']
             del table_headers['update_time']
-            table_headers = [header for header in table_headers.values()]
-            self.table_headers = dict()
-            for index, header_text in enumerate(table_headers):
+            self.table_headers = [header for header in table_headers.values()]
+            self.headers_indexes = dict()
+            for index, header_text in enumerate(self.table_headers):
                 self.x_axis_combobox.addItem(header_text, "column_{}".format(index))
                 item = QListWidgetItem(header_text)
                 item.index = "column_{}".format(index)
                 self.target_list.addItem(item)
-                self.table_headers["column_{}".format(index)] = header_text
+                self.headers_indexes["column_{}".format(index)] = header_text
             # 表格展示数据
             self.table_show_data(self.table_headers, table_records)
 
@@ -438,19 +444,19 @@ class DrawChartsDialog(QDialog):
         for col_key, chart_type in left_axis.items():
             left_series = dict()
             left_series['type'] = chart_type
-            left_series['name'] = self.table_headers[col_key]
+            left_series['name'] = self.headers_indexes[col_key]
             left_series['yAxisIndex'] = 0
             left_series['data'] = self.sorted_data[col_key].values.tolist()
             series.append(left_series)
-            legend_data.append(self.table_headers[col_key])
+            legend_data.append(self.headers_indexes[col_key])
         for col_key, chart_type in right_axis.items():
             right_series = dict()
             right_series['type'] = chart_type
-            right_series['name'] = self.table_headers[col_key]
+            right_series['name'] = self.headers_indexes[col_key]
             right_series['yAxisIndex'] = 1
             right_series['data'] = self.sorted_data[col_key].values.tolist()
             series.append(right_series)
-            legend_data.append(self.table_headers[col_key])
+            legend_data.append(self.headers_indexes[col_key])
         return y_axis, series, legend_data
 
     # 生成当前要求的图表配置项
@@ -461,14 +467,49 @@ class DrawChartsDialog(QDialog):
         # print(y_axis)
         # print(series)
         # print(legend_data)
+        graphic = {
+            'type': 'group',
+            'rotation': math.pi / 4,
+            'bounding': 'raw',
+            'right': 110,
+            'bottom': 110,
+            'z': 100,
+            'children': [
+                {
+                    'type': 'rect',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'shape': {
+                        'width': 400,
+                        'height': 50
+                    },
+                    'style': {
+                        'fill': 'rgba(0,0,0,0.3)'
+                    }
+                },
+                {
+                    'type': 'text',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'style': {
+                        'fill': '#fff',
+                        'text': self.water_graphic.text(),
+                        'font': 'bold 26px Microsoft YaHei'
+                    }
+                }
+            ]
+        }
         option = {
-            'title': {'text': title,'left': 'center'},
-            'legend': {'data': legend_data, 'bottom': 0},
+            'title': {'text': title,'left': 'center','textStyle':{'fontSize':self.title_size_edit.value()}},
+            'legend': {'data': legend_data, 'bottom': 13},
             'tooltip':{'axisPointer':{'type':'cross'}},
             'grid': {
-                'left': '0',
-                'right': '0',
-                'bottom': 20 * (len(legend_data) / 3 + 1),
+                'top': self.title_size_edit.value() + 15,
+                'left': 5,
+                'right': 5,
+                'bottom': 20 * (len(legend_data) / 3 + 1) + 13,
                 'show':False,
                 'containLabel': True,
             },
@@ -477,8 +518,26 @@ class DrawChartsDialog(QDialog):
                 'data': x_axis
             },
             'yAxis': y_axis,
-            'series': series
+            'series': series,
+            'dataZoom': [{
+                'type': 'slider',
+                'start': 0,
+                'end': 100,
+                'bottom': 0,
+                'height': 15,
+                'handleIcon': 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                'handleSize': '80%',
+                'handleStyle': {
+                    'color': '#fff',
+                    'shadowBlur': 3,
+                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                    'shadowOffsetX': 2,
+                    'shadowOffsetY': 2
+                }
+            }],
         }
+        if self.has_graphic.isChecked():
+            option['graphic'] = graphic
         return option
 
     def draw_chart(self):
@@ -703,6 +762,9 @@ class DrawChartsDialog(QDialog):
         #     self.chart_widget.page().load(QUrl("file:///cache/chars_stacked_drawer.html"))
         # except Exception as e:
         #     pass
+
+    def draw_season_chart(self):
+        QMessageBox.information(self, '抱歉', '该功能正在开发中..')
 
 
 # 数据表的详情信息
@@ -1216,6 +1278,17 @@ class UpdateTableConfigPage(QWidget):
             alternate-background-color: rgb(245, 250, 248);
         }
         """)
+        tips = "<p>1 点击右上角'配置'按钮，配置数据组文件所在的文件夹.</p>" \
+               "<p>2 '点击更新'让系统读取文件夹内的数据表自动上传.</p>" \
+               "<p>2-1 文件夹内表格格式:</p>" \
+               "<p>第1行：万得导出的表第一行不动;自己创建的表第一行可留空;</p>" \
+               "<p>第2行：数据表表头;</p>" \
+               "<p>第3行：不做限制,可填入单位等,也可直接留空.</p>" \
+               "<p>第4行：数据起始行,第一列为【日期】类型,非日期的行系统不会做读取.</p>"
+        tips_label = QLabel(tips, self)
+        tips_label.setStyleSheet("font-size:15px;color:rgb(180,100,100)")
+        tips_label.setWordWrap(True)
+        layout.addWidget(tips_label)
         self._get_access_variety()
         self._get_current_v_group()
 

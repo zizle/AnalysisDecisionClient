@@ -13,25 +13,8 @@
         height: 300px;
         background-color: #FFFFFF;
     }
-    #watermark{
-        position: absolute;
-        display: none;
-        padding: 0 2px;
-        top: calc(100% - 30px);
-        left: 0;
-        font-size: 20px;
-        height: 30px;
-        line-height: 30px;
-        background-color: #cccccc;
-        opacity: 0.7;
-        z-index: 9;
-        -webkit-text-fill-color: #8DB6CD;
-        -webkit-text-stroke-color: #eeeeee;
-        -webkit-text-stroke-width: 1px;
-    }
 </style>
 <body>
-    <div id="watermark"></div>
     <div id="chartBox"></div>
 </body>
 <script>
@@ -65,10 +48,6 @@ $(function () {
                 // let chartObj = echarts.init(document.getElementById('chartBox'));
                 chartObj.setOption(JSON.parse(op), true);
             });
-            pageContact.show_watermark.connect(function (state, text) {
-                let watermarkDiv = document.getElementById('watermark');
-                if(state){watermarkDiv.style.display='block';watermarkDiv.innerHTML=text}else{watermarkDiv.style.display='none'};
-            })
         }
     );
 })
