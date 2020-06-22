@@ -170,6 +170,16 @@ class DrawChartsDialog(QDialog):
         graphic_layout.addStretch()
         target_layout.addLayout(graphic_layout)
 
+        range_layout = QHBoxLayout(self)
+        self.start_year = QSpinBox(self)
+        self.end_year = QSpinBox(self)
+        range_layout.addWidget(QLabel('取数范围:'))
+        range_layout.addWidget(self.start_year)
+        range_layout.addWidget(QLabel('到', self))
+        range_layout.addWidget(self.end_year)
+        range_layout.addStretch()
+        target_layout.addLayout(range_layout)
+
         self.target_widget.setLayout(target_layout)
         target_layout.addStretch()
         left_layout.addWidget(self.target_widget)
@@ -250,6 +260,10 @@ class DrawChartsDialog(QDialog):
         #     ]
         # }
         self.chart_widget.reset_chart_options(option)
+
+    # 保存当前数据表的设置到服务端存为我的数据表
+    def save_chart_options_to_server(self):
+        pass
 
     def save_charts_config_to_server(self):
         def upload_configs():
@@ -414,18 +428,51 @@ class DrawChartsDialog(QDialog):
             data_frame[bottom] = data_frame[bottom].apply(lambda x: x.strftime(self.date_format.currentData()))
         # 对x轴进行排序
         self.sorted_data = data_frame.sort_values(by=bottom)
+        if bottom == 'column_0':
+            start_date = self.sorted_data.loc[0]['column_0']
+            end_date = self.sorted_data.loc[self.sorted_data.shape[0] - 1]['column_0']
+            self.start_year.setMinimum(int(start_date[:4]))
+            self.start_year.setMaximum(int(end_date[:4]))
+            self.end_year.setMinimum(int(start_date[:4]))
+            self.end_year.setMaximum(int(end_date[:4]))
+            self.end_year.setValue(int(end_date[:4]))
+        else:
+            self.start_year.setMinimum(0)
+            self.start_year.setMaximum(self.sorted_data.shape[0])
+            self.start_year.setValue(0)
+            self.end_year.setMinimum(0)
+            self.end_year.setMinimum(self.sorted_data.shape[0])
+            self.end_year.setValue(self.sorted_data.shape[0])
+
+    # 获取数据范围切片后的数据
+    def get_splice_df(self, bottom):
+        if bottom == 'column_0':
+            start_year = datetime.datetime.strptime(str(self.start_year.value()), '%Y').strftime('%Y-%m-%d')
+            end_year = datetime.datetime.strptime(str(self.end_year.value() + 1), '%Y').strftime("%Y-%m-%d")
+            # print(start_year, end_year)
+            # 取数
+            sourcedf = self.sorted_data[(start_year <= self.sorted_data['column_0']) & (self.sorted_data['column_0'] < end_year)].copy()
+        else:
+            start_row = self.start_year.value()
+            end_row = self.end_year.value()
+            # print(start_row, end_row)
+            sourcedf = self.sorted_data[start_row:end_row].copy()
+        return sourcedf
 
     # 获取x轴的数据
     def get_bottom_x_series(self):
         if self.sorted_data is None:
             return []
         bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
-        return self.sorted_data[bottom].values.tolist()
+        sourcedf = self.get_splice_df(bottom)
+        return sourcedf[bottom].values.tolist()
 
     # 获取Y轴数量及其对应的绘图数据
     def get_y_series(self):
         if self.sorted_data is None:
             return [],[],[]
+        bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
+        sourcedf = self.get_splice_df(bottom)
         left_axis = {}
         right_axis = {}
         y_axis = list()
@@ -446,7 +493,7 @@ class DrawChartsDialog(QDialog):
             left_series['type'] = chart_type
             left_series['name'] = self.headers_indexes[col_key]
             left_series['yAxisIndex'] = 0
-            left_series['data'] = self.sorted_data[col_key].values.tolist()
+            left_series['data'] = sourcedf[col_key].values.tolist()
             series.append(left_series)
             legend_data.append(self.headers_indexes[col_key])
         for col_key, chart_type in right_axis.items():
@@ -454,12 +501,12 @@ class DrawChartsDialog(QDialog):
             right_series['type'] = chart_type
             right_series['name'] = self.headers_indexes[col_key]
             right_series['yAxisIndex'] = 1
-            right_series['data'] = self.sorted_data[col_key].values.tolist()
+            right_series['data'] = sourcedf[col_key].values.tolist()
             series.append(right_series)
             legend_data.append(self.headers_indexes[col_key])
         return y_axis, series, legend_data
 
-    # 生成当前要求的图表配置项
+    # 生成当要求的图表配置项
     def generate_chart_options(self):
         title = self.title_edit.text()
         x_axis = self.get_bottom_x_series()
@@ -541,14 +588,10 @@ class DrawChartsDialog(QDialog):
         return option
 
     def draw_chart(self):
-        print("绘制")
-        try:
-            options = self.generate_chart_options()
-            self.reset_chart_options(options)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print(e)
+        print("普通绘制")
+        options = self.generate_chart_options()
+        self.reset_chart_options(options)
+
         # # 以下是pyecharts的绘制方式
         # title = self.title_edit.text()
         # bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
@@ -763,8 +806,170 @@ class DrawChartsDialog(QDialog):
         # except Exception as e:
         #     pass
 
+    # 当前配置生成季节性图表
     def draw_season_chart(self):
-        QMessageBox.information(self, '抱歉', '该功能正在开发中..')
+        print('绘制季节图表')
+        # 1 判断横轴是日期行
+        x_bottom = self.x_axis_combobox.currentData()
+        if x_bottom != "column_0":
+            QMessageBox.information(self, '错误', '横轴指标类型错误..')
+            return
+        # 2 判断只能有一个左轴或右轴数据
+        left_axis = {}
+        right_axis = {}
+        for index in range(self.params_list.count()):
+            item = self.params_list.item(index)
+            if item.axis_pos == 'left':
+                left_axis[item.column_index] = item.chart_type
+            else:
+                right_axis[item.column_index] = item.chart_type
+        if all([left_axis, right_axis]):
+            QMessageBox.information(self, '错误', '只允许一个轴指标..')
+            return
+        if left_axis and len(left_axis) > 1:
+            QMessageBox.information(self, '错误', '左轴仅允许选中一个指标..')
+            return
+        if right_axis and len(right_axis) > 1:
+            QMessageBox.information(self, '错误', '右轴仅允许选中一个指标..')
+            return
+        # 3 进行数据处理
+        start_date = str(self.start_year.value())
+        end_date = str(self.end_year.value())
+        # 3-1 生成起始日期的年份列表
+        date_list = [datetime.datetime.strptime(str(date), "%Y").strftime('%Y-%m-%d') for date in range(int(start_date[:4]), int(end_date[:4]) + 1)]
+        # 弹窗设置年份参数
+        # print(date_list)
+        # 3-2 取min_index,当min_index+1<=max_index切割数据
+        if len(date_list) <= 0:
+            QMessageBox.information(self, '错误', '作图源数据有误..')
+            return
+        min_index, max_index = 0, len(date_list) - 1
+        split_data_dict = dict()
+        # if len(date_list) > 1:
+        while min_index < max_index:
+            year_data_frame = self.sorted_data[(date_list[min_index] <= self.sorted_data['column_0']) & (self.sorted_data['column_0'] < date_list[min_index + 1])].copy()
+            year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+            split_data_dict[date_list[min_index]] = year_data_frame
+            min_index += 1
+        year_data_frame = self.sorted_data[date_list[max_index] <= self.sorted_data['column_0']].copy()
+        year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+        split_data_dict[date_list[max_index]] = year_data_frame
+        # else:
+        #     year_data_frame = self.sorted_data.copy()
+        #     year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+        #     split_data_dict[date_list[0]] = year_data_frame
+        # 4 生成x横轴信息,获取y轴数据进行绘图
+        x_start, x_end = datetime.datetime.strptime('20200101','%Y%m%d'), datetime.datetime.strptime('20201231','%Y%m%d')
+        x_axis = list()
+        while x_start <= x_end:
+            x_axis.append(x_start.strftime('%m-%d'))
+            x_start += datetime.timedelta(days=1)
+        # print(x_axis)
+        # 4-1 生成y轴的配置
+        # print(split_data_dict)
+        y_axis = [{'type': 'value'}, {'type': 'value'}]
+        series = list()
+        legend_data = list()
+        for col_key, chart_type in left_axis.items():
+            for date_key in date_list:
+                source_df = split_data_dict[date_key]
+                left_series = dict()
+                left_series['type'] = chart_type
+                left_series['name'] = date_key[:4]
+                left_series['yAxisIndex'] = 0
+                a = source_df['column_0'].values.tolist()  # 时间
+                b = source_df[col_key].values.tolist()  # 数值
+                left_series['data'] = [*zip(a, b)]
+                series.append(left_series)
+                legend_data.append(date_key[:4])
+
+        for col_key, chart_type in right_axis.items():
+            for date_key in date_list:
+                source_df = split_data_dict[date_key]
+                right_series = dict()
+                right_series['type'] = chart_type
+                right_series['name'] = date_key[:4]
+                right_series['yAxisIndex'] = 1
+                a = source_df['column_0'].values.tolist()  # 时间
+                b = source_df[col_key].values.tolist()  # 数值
+                right_series['data'] = [*zip(a, b)]
+                series.append(right_series)
+                legend_data.append(date_key[:4])
+
+        # 5 生成配置项进行绘图
+        title = self.title_edit.text()
+        graphic = {
+            'type': 'group',
+            'rotation': math.pi / 4,
+            'bounding': 'raw',
+            'right': 110,
+            'bottom': 110,
+            'z': 100,
+            'children': [
+                {
+                    'type': 'rect',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'shape': {
+                        'width': 400,
+                        'height': 50
+                    },
+                    'style': {
+                        'fill': 'rgba(0,0,0,0.3)'
+                    }
+                },
+                {
+                    'type': 'text',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'style': {
+                        'fill': '#fff',
+                        'text': self.water_graphic.text(),
+                        'font': 'bold 26px Microsoft YaHei'
+                    }
+                }
+            ]
+        }
+        option = {
+            'title': {'text': title, 'left': 'center', 'textStyle': {'fontSize': self.title_size_edit.value()}},
+            'legend': {'data': legend_data, 'bottom': 13},
+            'tooltip': {'axisPointer': {'type': 'cross'}},
+            'grid': {
+                'top': self.title_size_edit.value() + 15,
+                'left': 5,
+                'right': 5,
+                'bottom': 20 * (len(legend_data) / 10 + 1) + 13,
+                'show': False,
+                'containLabel': True,
+            },
+            'xAxis': {
+                'type': 'category',
+                'data': x_axis
+            },
+            'yAxis': y_axis,
+            'series': series,
+            'dataZoom': [{
+                'type': 'slider',
+                'start': 0,
+                'end': 100,
+                'bottom': 0,
+                'height': 15,
+                'handleIcon': 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                'handleSize': '80%',
+                'handleStyle': {
+                    'color': '#fff',
+                    'shadowBlur': 3,
+                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                    'shadowOffsetX': 2,
+                    'shadowOffsetY': 2
+                }
+            }],
+        }
+        if self.has_graphic.isChecked():
+            option['graphic'] = graphic
+        self.reset_chart_options(option)
 
 
 # 数据表的详情信息
