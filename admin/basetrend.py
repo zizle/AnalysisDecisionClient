@@ -11,16 +11,19 @@ import datetime
 import requests
 import pickle
 import pandas as pd
+import math
 import pyecharts.options as opts
 from pyecharts.charts import Line, Bar, Page
 from PyQt5.QtWidgets import QApplication,QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
-    QGroupBox, QCheckBox, QTextEdit, QGridLayout
+    QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
 from PyQt5.QtGui import QCursor, QIcon
 import settings
 from widgets import LoadedPage
+from channels.trend import ReviewChartChannel
 from settings import BASE_DIR
 
 
@@ -38,6 +41,34 @@ class ChartAxisOptionButton(QPushButton):
         self.add_axis_target.emit(self.axis_name, self.axis_type)
 
 
+# 重写事件，防止鼠标滚轮键影响页面整个页面滚动
+class WebEngineView(QWebEngineView):
+    def __init__(self, *args, **kwargs):
+        super(WebEngineView, self).__init__(*args, **kwargs)
+        # self.loadFinished.connect(self.resize_page_chart)
+        self.load(QUrl("file:///pages/trend/review_chart.html"))  # 加载页面
+        # 设置与页面通讯的通道
+        channel_qt_obj = QWebChannel(self.page())  # 实例化qt信道对象,必须传入页面参数
+        self.contact_channel = ReviewChartChannel()  # 页面信息交互通道
+        self.page().setWebChannel(channel_qt_obj)
+        channel_qt_obj.registerObject("pageContactChannel", self.contact_channel)  # 信道对象注册信道，只能注册一个
+
+    def wheelEvent(self, event):
+        super(WebEngineView, self).wheelEvent(event)
+        event.accept()
+
+    def resizeEvent(self, event):
+        self.resize_page_chart(True)
+
+    def resize_page_chart(self, is_loaded):
+        if is_loaded:
+            self.contact_channel.resize_chart.emit(self.width() - 22, self.height() - 11)  # 布局默认的外边距是11px
+
+    def reset_chart_options(self, options):
+        self.resize_page_chart(True)
+        self.contact_channel.reset_options.emit(json.dumps(options))
+
+
 # 根据表数据画图界面
 class DrawChartsDialog(QDialog):
     CHARTS = {
@@ -48,10 +79,13 @@ class DrawChartsDialog(QDialog):
     def __init__(self, table_id, *args,**kwargs):
         super(DrawChartsDialog, self).__init__(*args, **kwargs)
         self.table_id = table_id
-        self.resize(1200, 660)
+        self.resize(1080, 660)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.table_headers = []
-        self.table_sources = None
+        self.headers_indexes = dict()
+        # self.table_sources = None
+        self.source_data_frame = None
+        self.sorted_data = None
         self.has_left_axis = False
 
         layout = QHBoxLayout(self)
@@ -66,6 +100,14 @@ class DrawChartsDialog(QDialog):
         title_layout.addWidget(QLabel('标题:',self))
         self.title_edit = QLineEdit(self)
         title_layout.addWidget(self.title_edit)
+        title_layout.addWidget(QLabel('大小:', self))
+        self.title_size_edit = QSpinBox(self)
+        self.title_size_edit.setMaximum(100)
+        self.title_size_edit.setMinimum(10)
+        self.title_size_edit.setValue(22)
+
+        title_layout.addWidget(self.title_size_edit, alignment=Qt.AlignRight)
+
         target_layout.addLayout(title_layout)
 
         x_axis_layout = QHBoxLayout(self)
@@ -82,7 +124,9 @@ class DrawChartsDialog(QDialog):
         self.date_format.addItem('年-月-日', '%Y-%m-%d')
         self.date_format.addItem('年-月', '%Y-%m')
         self.date_format.addItem('年', '%Y')
+        self.date_format.currentIndexChanged.connect(self.x_axis_changed)
         x_format_layout.addWidget(self.date_format)
+        x_format_layout.addStretch()
         target_layout.addLayout(x_format_layout)
 
         add_target = QGroupBox("添加指标", self)
@@ -126,18 +170,40 @@ class DrawChartsDialog(QDialog):
         graphic_layout.addStretch()
         target_layout.addLayout(graphic_layout)
 
+        range_layout = QHBoxLayout(self)
+        self.start_year = QSpinBox(self)
+        self.end_year = QSpinBox(self)
+        range_layout.addWidget(QLabel('取数范围:'))
+        range_layout.addWidget(self.start_year)
+        range_layout.addWidget(QLabel('到', self))
+        range_layout.addWidget(self.end_year)
+        range_layout.addStretch()
+        target_layout.addLayout(range_layout)
+
         self.target_widget.setLayout(target_layout)
         target_layout.addStretch()
         left_layout.addWidget(self.target_widget)
 
+        draw_layout = QHBoxLayout(self)
         self.confirm_to_draw = QPushButton('确认绘制', self)
         self.confirm_to_draw.clicked.connect(self.draw_chart)
-        left_layout.addWidget(self.confirm_to_draw)
+        draw_layout.addWidget(self.confirm_to_draw)
+        self.season_draw = QPushButton('季节图表', self)
+        self.season_draw.clicked.connect(self.draw_season_chart)
+        draw_layout.addWidget(self.season_draw)
 
+        left_layout.addLayout(draw_layout)
         # 右侧显示图形和数据表格
 
-        self.chart_widget = QWebEngineView()
-        self.chart_widget.setParent(self)
+        # # 图形参数设置
+        # options_layout = QHBoxLayout(self)
+        # reset_btn = QPushButton("图形调整", self)
+        # reset_btn.clicked.connect(self.reset_chart_options)
+        # options_layout.addWidget(reset_btn)
+        # right_layout.addLayout(options_layout)
+
+        self.chart_widget = WebEngineView(self)
+
         self.table_widget = QTableWidget(self)
         self.table_widget.setFixedHeight(220)
         right_layout.addWidget(self.chart_widget)
@@ -151,6 +217,53 @@ class DrawChartsDialog(QDialog):
         layout.addLayout(right_layout)
         self.setLayout(layout)
         self._get_detail_table_data()
+
+    # 重置图表配置传入界面显示
+    def reset_chart_options(self, option):
+        # option = {
+        #     'grid': {
+        #         'left': '0',
+        #         'right': '0',
+        #         'bottom': '1%',
+        #         'containLabel': True,
+        #     },
+        #     'xAxis': {
+        #         'type': 'category',
+        #         'data': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        #     },
+        #     'yAxis': [
+        #         {
+        #             'type': 'value',
+        #             'name': '轴1',
+        #         },
+        #         {
+        #             'type': 'value',
+        #             'name': '轴2',
+        #         },
+        #     ],
+        #     'series': [
+        #         {
+        #             'data': [120, 200, 150, 80, 70, 110, 130],
+        #             'type': 'bar',
+        #             'yAxisIndex':0,
+        #             'showBackground': True,
+        #             'backgroundStyle': {'color': 'rgba(220, 220, 220, 0.8)'}
+        #         },
+        #         {
+        #             'data': [150, 250, 111, 52, 80, 110, 130],
+        #             'type': 'line',
+        #             'yAxisIndex': 1,
+        #             'showBackground': True,
+        #             'backgroundStyle': {'color': 'rgba(220, 220, 220, 0.8)'}
+        #         },
+        #
+        #     ]
+        # }
+        self.chart_widget.reset_chart_options(option)
+
+    # 保存当前数据表的设置到服务端存为我的数据表
+    def save_chart_options_to_server(self):
+        pass
 
     def save_charts_config_to_server(self):
         def upload_configs():
@@ -240,19 +353,25 @@ class DrawChartsDialog(QDialog):
         else:
             table_records = response['records']
             table_headers = table_records.pop(0)
+            table_records.pop(0)
+            self.handle_source_data_frame(table_records)
             del table_headers['id']
             del table_headers['create_time']
             del table_headers['update_time']
-            table_headers = [header for header in table_headers.values()]
-            for index, header_text in enumerate(table_headers):
+            self.table_headers = [header for header in table_headers.values()]
+            self.headers_indexes = dict()
+            for index, header_text in enumerate(self.table_headers):
                 self.x_axis_combobox.addItem(header_text, "column_{}".format(index))
                 item = QListWidgetItem(header_text)
                 item.index = "column_{}".format(index)
                 self.target_list.addItem(item)
+                self.headers_indexes["column_{}".format(index)] = header_text
             # 表格展示数据
-            self.table_show_data(table_headers, table_records)
-            self.table_headers = table_headers
-            self.table_sources = table_records
+            self.table_show_data(self.table_headers, table_records)
+
+    # 处理当前的绘图的源数据,转为DataFrame类型
+    def handle_source_data_frame(self, table_source):
+        self.source_data_frame = pd.DataFrame(table_source)
 
     def table_show_data(self, headers, records):
         self.table_widget.setColumnCount(len(headers))
@@ -296,221 +415,561 @@ class DrawChartsDialog(QDialog):
         # self.params_list.removeItemWidget(self.params_list.currentItem())
 
     def x_axis_changed(self):
-        self.BOTTOM_AXIS = self.x_axis_combobox.currentData()
+        self.sort_source_data()  # 排序数据
 
-    def draw_chart(self):
-        title = self.title_edit.text()
+    # 对数据进行排序
+    def sort_source_data(self):
         bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
+        if not bottom or self.source_data_frame is None:
+            return
+        data_frame = self.source_data_frame.copy()
+        if bottom == 'column_0':
+            data_frame[bottom] = pd.to_datetime(data_frame[bottom], format='%Y-%m-%d')
+            data_frame[bottom] = data_frame[bottom].apply(lambda x: x.strftime(self.date_format.currentData()))
+        # 对x轴进行排序
+        self.sorted_data = data_frame.sort_values(by=bottom)
+        if bottom == 'column_0':
+            start_date = self.sorted_data.loc[0]['column_0']
+            end_date = self.sorted_data.loc[self.sorted_data.shape[0] - 1]['column_0']
+            self.start_year.setMinimum(int(start_date[:4]))
+            self.start_year.setMaximum(int(end_date[:4]))
+            self.end_year.setMinimum(int(start_date[:4]))
+            self.end_year.setMaximum(int(end_date[:4]))
+            self.end_year.setValue(int(end_date[:4]))
+        else:
+            self.start_year.setMinimum(0)
+            self.start_year.setMaximum(self.sorted_data.shape[0])
+            self.start_year.setValue(0)
+            self.end_year.setMinimum(0)
+            self.end_year.setMinimum(self.sorted_data.shape[0])
+            self.end_year.setValue(self.sorted_data.shape[0])
+
+    # 获取数据范围切片后的数据
+    def get_splice_df(self, bottom):
+        if bottom == 'column_0':
+            start_year = datetime.datetime.strptime(str(self.start_year.value()), '%Y').strftime('%Y-%m-%d')
+            end_year = datetime.datetime.strptime(str(self.end_year.value() + 1), '%Y').strftime("%Y-%m-%d")
+            # print(start_year, end_year)
+            # 取数
+            sourcedf = self.sorted_data[(start_year <= self.sorted_data['column_0']) & (self.sorted_data['column_0'] < end_year)].copy()
+        else:
+            start_row = self.start_year.value()
+            end_row = self.end_year.value()
+            # print(start_row, end_row)
+            sourcedf = self.sorted_data[start_row:end_row].copy()
+        return sourcedf
+
+    # 获取x轴的数据
+    def get_bottom_x_series(self):
+        if self.sorted_data is None:
+            return []
+        bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
+        sourcedf = self.get_splice_df(bottom)
+        return sourcedf[bottom].values.tolist()
+
+    # 获取Y轴数量及其对应的绘图数据
+    def get_y_series(self):
+        if self.sorted_data is None:
+            return [],[],[]
+        bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
+        sourcedf = self.get_splice_df(bottom)
         left_axis = {}
         right_axis = {}
-
+        y_axis = list()
         for index in range(self.params_list.count()):
             item = self.params_list.item(index)
             if item.axis_pos == 'left':
                 left_axis[item.column_index] = item.chart_type
             else:
                 right_axis[item.column_index] = item.chart_type
+        if left_axis:
+            y_axis.append({'type': 'value'})
+        if right_axis:
+            y_axis.append({'type': 'value'})
+        series = list()
+        legend_data = list()
+        for col_key, chart_type in left_axis.items():
+            left_series = dict()
+            left_series['type'] = chart_type
+            left_series['name'] = self.headers_indexes[col_key]
+            left_series['yAxisIndex'] = 0
+            left_series['data'] = sourcedf[col_key].values.tolist()
+            series.append(left_series)
+            legend_data.append(self.headers_indexes[col_key])
+        for col_key, chart_type in right_axis.items():
+            right_series = dict()
+            right_series['type'] = chart_type
+            right_series['name'] = self.headers_indexes[col_key]
+            right_series['yAxisIndex'] = 1
+            right_series['data'] = sourcedf[col_key].values.tolist()
+            series.append(right_series)
+            legend_data.append(self.headers_indexes[col_key])
+        return y_axis, series, legend_data
 
-        if not all([bottom, left_axis]):
-            QMessageBox.information(self, '错误', '请至少设置一个左轴指标再进行绘制')
+    # 生成当要求的图表配置项
+    def generate_chart_options(self):
+        title = self.title_edit.text()
+        x_axis = self.get_bottom_x_series()
+        y_axis, series, legend_data = self.get_y_series()
+        # print(y_axis)
+        # print(series)
+        # print(legend_data)
+        graphic = {
+            'type': 'group',
+            'rotation': math.pi / 4,
+            'bounding': 'raw',
+            'right': 110,
+            'bottom': 110,
+            'z': 100,
+            'children': [
+                {
+                    'type': 'rect',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'shape': {
+                        'width': 400,
+                        'height': 50
+                    },
+                    'style': {
+                        'fill': 'rgba(0,0,0,0.3)'
+                    }
+                },
+                {
+                    'type': 'text',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'style': {
+                        'fill': '#fff',
+                        'text': self.water_graphic.text(),
+                        'font': 'bold 26px Microsoft YaHei'
+                    }
+                }
+            ]
+        }
+        option = {
+            'title': {'text': title,'left': 'center','textStyle':{'fontSize':self.title_size_edit.value()}},
+            'legend': {'data': legend_data, 'bottom': 13},
+            'tooltip':{'axisPointer':{'type':'cross'}},
+            'grid': {
+                'top': self.title_size_edit.value() + 15,
+                'left': 5,
+                'right': 5,
+                'bottom': 20 * (len(legend_data) / 3 + 1) + 13,
+                'show':False,
+                'containLabel': True,
+            },
+            'xAxis': {
+                'type': 'category',
+                'data': x_axis
+            },
+            'yAxis': y_axis,
+            'series': series,
+            'dataZoom': [{
+                'type': 'slider',
+                'start': 0,
+                'end': 100,
+                'bottom': 0,
+                'height': 15,
+                'handleIcon': 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                'handleSize': '80%',
+                'handleStyle': {
+                    'color': '#fff',
+                    'shadowBlur': 3,
+                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                    'shadowOffsetX': 2,
+                    'shadowOffsetY': 2
+                }
+            }],
+        }
+        if self.has_graphic.isChecked():
+            option['graphic'] = graphic
+        return option
+
+    def draw_chart(self):
+        print("普通绘制")
+        options = self.generate_chart_options()
+        self.reset_chart_options(options)
+
+        # # 以下是pyecharts的绘制方式
+        # title = self.title_edit.text()
+        # bottom = self.x_axis_combobox.currentData()  # 横轴数据列名
+        # left_axis = {}
+        # right_axis = {}
+        #
+        # for index in range(self.params_list.count()):
+        #     item = self.params_list.item(index)
+        #     if item.axis_pos == 'left':
+        #         left_axis[item.column_index] = item.chart_type
+        #     else:
+        #         right_axis[item.column_index] = item.chart_type
+        #
+        # if not all([bottom, left_axis]):
+        #     QMessageBox.information(self, '错误', '请至少设置一个左轴指标再进行绘制')
+        #     return
+        # # print('标题:\n', title)
+        # # print('左轴参数:\n', left_axis)
+        # # print('右轴参数:\n', right_axis)
+        # # print('横轴参数:\n', bottom)
+        # source_df = pd.DataFrame(self.table_sources)
+        # if bottom == 'column_0':
+        #     source_df[bottom] = pd.to_datetime(source_df[bottom], format='%Y-%m-%d')
+        #     source_df[bottom] = source_df[bottom].apply(lambda x: x.strftime(self.date_format.currentData()))
+        # # 对x轴进行排序
+        # sort_df = source_df.sort_values(by=bottom)
+        # # print('排序前:\n', source_df)
+        # # print('排序后:\n', sort_df)
+        # # print("显示图形的空间:", self.chart_widget.width(), self.chart_widget.height())
+        # try:
+        #     # 进行画图
+        #     x_axis_data = sort_df[bottom].values.tolist()
+        #     # 由于pyecharts改变了overlap方法,读取左轴第一个数据类型进行绘制
+        #     left_axis_copy = {key: val for key, val in left_axis.items()}
+        #     # print("复制后的左轴参数:", left_axis_copy)
+        #     first_key = list(left_axis_copy.keys())[0]
+        #     first_datacol, first_type = first_key, left_axis_copy[first_key]
+        #     del left_axis_copy[first_key]
+        #     init_opts = opts.InitOpts(
+        #         width=str(self.chart_widget.width() - 20) + 'px',
+        #         height=str(self.chart_widget.height() - 25) + 'px'
+        #     )
+        #
+        #     if first_type == 'line':
+        #         chart = Line(
+        #             init_opts=init_opts
+        #         )
+        #         chart.add_xaxis(xaxis_data=x_axis_data)
+        #         chart.add_yaxis(
+        #             series_name=self.table_headers[int(first_key[-1])],
+        #             y_axis=sort_df[first_key].values.tolist(),
+        #             label_opts=opts.LabelOpts(is_show=False),
+        #             # symbol='circle',
+        #             z_level=9,
+        #             is_smooth=True
+        #         )
+        #     elif first_type == 'bar':
+        #         chart = Bar(
+        #             init_opts=init_opts
+        #         )
+        #         chart.add_xaxis(xaxis_data=x_axis_data)
+        #         chart.add_yaxis(
+        #             series_name=self.table_headers[int(first_key[-1])],
+        #             yaxis_data=sort_df[first_key].values.tolist(),
+        #             label_opts=opts.LabelOpts(is_show=False),
+        #         )
+        #     else:
+        #         return
+        #     # 1 绘制其他左轴数据
+        #     # 根据参数画图
+        #     for col_name, chart_type in left_axis_copy.items():
+        #         if chart_type == 'line':
+        #             extra_c = (
+        #                 Line()
+        #                     .add_xaxis(xaxis_data=x_axis_data)
+        #                     .add_yaxis(
+        #                     series_name=self.table_headers[int(col_name[-1])],
+        #                     y_axis=sort_df[col_name].values.tolist(),
+        #                     label_opts=opts.LabelOpts(is_show=False),
+        #                     z_level=9,
+        #                     is_smooth=True
+        #                 )
+        #             )
+        #         elif chart_type == 'bar':
+        #             extra_c = (
+        #                 Bar()
+        #                     .add_xaxis(xaxis_data=x_axis_data)
+        #                     .add_yaxis(
+        #                     series_name=self.table_headers[int(col_name[-1])],
+        #                     yaxis_data=sort_df[col_name].values.tolist(),
+        #                     label_opts=opts.LabelOpts(is_show=False),
+        #                 )
+        #             )
+        #         else:
+        #             continue
+        #         chart.overlap(extra_c)
+        #     # 绘制其他右轴数据
+        #     if right_axis:
+        #         chart.extend_axis(
+        #             yaxis=opts.AxisOpts()
+        #         )
+        #     for col_name, chart_type in right_axis.items():
+        #         if chart_type == 'line':
+        #             extra_c = (
+        #                 Line()
+        #                     .add_xaxis(xaxis_data=x_axis_data)
+        #                     .add_yaxis(
+        #                     series_name=self.table_headers[int(col_name[-1])],
+        #                     y_axis=sort_df[col_name].values.tolist(),
+        #                     label_opts=opts.LabelOpts(is_show=False),
+        #                     z_level=9,
+        #                     is_smooth=True,
+        #                     yaxis_index=1
+        #                 )
+        #             )
+        #         elif chart_type == 'bar':
+        #             extra_c = (
+        #                 Bar()
+        #                     .add_xaxis(xaxis_data=x_axis_data)
+        #                     .add_yaxis(
+        #                     series_name=self.table_headers[int(col_name[-1])],
+        #                     yaxis_data=sort_df[col_name].values.tolist(),
+        #                     label_opts=opts.LabelOpts(is_show=False),
+        #                     yaxis_index=1
+        #                 )
+        #             )
+        #         else:
+        #             continue
+        #         chart.overlap(extra_c)
+        #     image_path = os.path.join(BASE_DIR, 'media/logo.png')
+        #     if self.has_graphic.isChecked():
+        #         water_graphic_opts = opts.GraphicGroup(
+        #             graphic_item=opts.GraphicItem(
+        #                 width=200,
+        #                 left=self.chart_widget.width() / 2 - 150,
+        #                 top='center',
+        #                 bounding='raw',
+        #                 z=-1,
+        #             ),
+        #             children=[
+        #                 opts.GraphicImage(
+        #                     graphic_item=opts.GraphicItem(
+        #                         left=0,
+        #                         top='center',
+        #                     ),
+        #                     graphic_imagestyle_opts=opts.GraphicImageStyleOpts(
+        #                         image=image_path,
+        #                         width=40,
+        #                         height=40,
+        #                         opacity=0.3
+        #                     ),
+        #                 ),
+        #                 opts.GraphicText(
+        #                     graphic_item=opts.GraphicItem(
+        #                         left=42, top="center", z=-1
+        #                     ),
+        #                     graphic_textstyle_opts=opts.GraphicTextStyleOpts(
+        #                         # 要显示的文本
+        #                         text=self.water_graphic.text(),
+        #                         font="bold 35px Microsoft YaHei",
+        #                         graphic_basicstyle_opts=opts.GraphicBasicStyleOpts(
+        #                             fill="rgba(200,200,200,0.5)"
+        #                         ),
+        #                     )
+        #                 )
+        #             ]
+        #         )
+        #     else:
+        #         water_graphic_opts = None
+        #
+        #     chart.set_global_opts(
+        #         title_opts=opts.TitleOpts(
+        #             title=title,
+        #             pos_left='center',
+        #         ),
+        #         tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type='cross'),
+        #         xaxis_opts=opts.AxisOpts(
+        #             type_="category",
+        #             # axislabel_opts=opts.LabelOpts(rotate=-135),
+        #          ),
+        #         yaxis_opts=opts.AxisOpts(type_="value"),
+        #         legend_opts=opts.LegendOpts(
+        #             type_='scroll',
+        #             pos_bottom=0,
+        #             item_gap=25,
+        #             item_width=30,
+        #             align='left',
+        #         ),
+        #         toolbox_opts=opts.ToolboxOpts(
+        #             is_show=True,
+        #             feature=opts.ToolBoxFeatureOpts(
+        #                 save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(is_show=False),
+        #                 data_zoom=opts.ToolBoxFeatureDataZoomOpts(is_show=True),
+        #                 magic_type=opts.ToolBoxFeatureMagicTypeOpts(type_=['line','bar']),
+        #                 brush=opts.ToolBoxFeatureBrushOpts(type_='clear'),
+        #             )
+        #         ),
+        #         graphic_opts=water_graphic_opts,
+        #     )
+        #     file_folder = os.path.join(BASE_DIR, 'cache/')
+        #     if not os.path.exists(file_folder):
+        #         os.mkdir(file_folder)
+        #     file_path = os.path.join(file_folder, 'chars_stacked_drawer.html')
+        #
+        #     page = Page(layout=Page.SimplePageLayout)
+        #     page.add(
+        #         chart,
+        #     )
+        #     file_url = page.render(file_path)
+        #     # print(file_url)
+        #     self.chart_widget.page().load(QUrl("file:///cache/chars_stacked_drawer.html"))
+        # except Exception as e:
+        #     pass
+
+    # 当前配置生成季节性图表
+    def draw_season_chart(self):
+        print('绘制季节图表')
+        # 1 判断横轴是日期行
+        x_bottom = self.x_axis_combobox.currentData()
+        if x_bottom != "column_0":
+            QMessageBox.information(self, '错误', '横轴指标类型错误..')
             return
-        # print('标题:\n', title)
-        # print('左轴参数:\n', left_axis)
-        # print('右轴参数:\n', right_axis)
-        # print('横轴参数:\n', bottom)
-        source_df = pd.DataFrame(self.table_sources)
-        if bottom == 'column_0':
-            source_df[bottom] = pd.to_datetime(source_df[bottom], format='%Y-%m-%d')
-            source_df[bottom] = source_df[bottom].apply(lambda x: x.strftime(self.date_format.currentData()))
-        # 对x轴进行排序
-        sort_df = source_df.sort_values(by=bottom)
-        # print('排序前:\n', source_df)
-        # print('排序后:\n', sort_df)
-        # print("显示图形的空间:", self.chart_widget.width(), self.chart_widget.height())
-        try:
-            # 进行画图
-            x_axis_data = sort_df[bottom].values.tolist()
-            # 由于pyecharts改变了overlap方法,读取左轴第一个数据类型进行绘制
-            left_axis_copy = {key: val for key, val in left_axis.items()}
-            # print("复制后的左轴参数:", left_axis_copy)
-            first_key = list(left_axis_copy.keys())[0]
-            first_datacol, first_type = first_key, left_axis_copy[first_key]
-            del left_axis_copy[first_key]
-            init_opts = opts.InitOpts(
-                width=str(self.chart_widget.width() - 20) + 'px',
-                height=str(self.chart_widget.height() - 25) + 'px'
-            )
-
-            if first_type == 'line':
-                chart = Line(
-                    init_opts=init_opts
-                )
-                chart.add_xaxis(xaxis_data=x_axis_data)
-                chart.add_yaxis(
-                    series_name=self.table_headers[int(first_key[-1])],
-                    y_axis=sort_df[first_key].values.tolist(),
-                    label_opts=opts.LabelOpts(is_show=False),
-                    # symbol='circle',
-                    z_level=9,
-                    is_smooth=True
-                )
-            elif first_type == 'bar':
-                chart = Bar(
-                    init_opts=init_opts
-                )
-                chart.add_xaxis(xaxis_data=x_axis_data)
-                chart.add_yaxis(
-                    series_name=self.table_headers[int(first_key[-1])],
-                    yaxis_data=sort_df[first_key].values.tolist(),
-                    label_opts=opts.LabelOpts(is_show=False),
-                )
+        # 2 判断只能有一个左轴或右轴数据
+        left_axis = {}
+        right_axis = {}
+        for index in range(self.params_list.count()):
+            item = self.params_list.item(index)
+            if item.axis_pos == 'left':
+                left_axis[item.column_index] = item.chart_type
             else:
-                return
-            # 1 绘制其他左轴数据
-            # 根据参数画图
-            for col_name, chart_type in left_axis_copy.items():
-                if chart_type == 'line':
-                    extra_c = (
-                        Line()
-                            .add_xaxis(xaxis_data=x_axis_data)
-                            .add_yaxis(
-                            series_name=self.table_headers[int(col_name[-1])],
-                            y_axis=sort_df[col_name].values.tolist(),
-                            label_opts=opts.LabelOpts(is_show=False),
-                            z_level=9,
-                            is_smooth=True
-                        )
-                    )
-                elif chart_type == 'bar':
-                    extra_c = (
-                        Bar()
-                            .add_xaxis(xaxis_data=x_axis_data)
-                            .add_yaxis(
-                            series_name=self.table_headers[int(col_name[-1])],
-                            yaxis_data=sort_df[col_name].values.tolist(),
-                            label_opts=opts.LabelOpts(is_show=False),
-                        )
-                    )
-                else:
-                    continue
-                chart.overlap(extra_c)
-            # 绘制其他右轴数据
-            if right_axis:
-                chart.extend_axis(
-                    yaxis=opts.AxisOpts()
-                )
-            for col_name, chart_type in right_axis.items():
-                if chart_type == 'line':
-                    extra_c = (
-                        Line()
-                            .add_xaxis(xaxis_data=x_axis_data)
-                            .add_yaxis(
-                            series_name=self.table_headers[int(col_name[-1])],
-                            y_axis=sort_df[col_name].values.tolist(),
-                            label_opts=opts.LabelOpts(is_show=False),
-                            z_level=9,
-                            is_smooth=True,
-                            yaxis_index=1
-                        )
-                    )
-                elif chart_type == 'bar':
-                    extra_c = (
-                        Bar()
-                            .add_xaxis(xaxis_data=x_axis_data)
-                            .add_yaxis(
-                            series_name=self.table_headers[int(col_name[-1])],
-                            yaxis_data=sort_df[col_name].values.tolist(),
-                            label_opts=opts.LabelOpts(is_show=False),
-                            yaxis_index=1
-                        )
-                    )
-                else:
-                    continue
-                chart.overlap(extra_c)
-            image_path = os.path.join(BASE_DIR, 'media/logo.png')
-            if self.has_graphic.isChecked():
-                water_graphic_opts = opts.GraphicGroup(
-                    graphic_item=opts.GraphicItem(
-                        width=200,
-                        left=self.chart_widget.width() / 2 - 150,
-                        top='center',
-                        bounding='raw',
-                        z=-1,
-                    ),
-                    children=[
-                        opts.GraphicImage(
-                            graphic_item=opts.GraphicItem(
-                                left=0,
-                                top='center',
-                            ),
-                            graphic_imagestyle_opts=opts.GraphicImageStyleOpts(
-                                image=image_path,
-                                width=40,
-                                height=40,
-                                opacity=0.3
-                            ),
-                        ),
-                        opts.GraphicText(
-                            graphic_item=opts.GraphicItem(
-                                left=42, top="center", z=-1
-                            ),
-                            graphic_textstyle_opts=opts.GraphicTextStyleOpts(
-                                # 要显示的文本
-                                text=self.water_graphic.text(),
-                                font="bold 35px Microsoft YaHei",
-                                graphic_basicstyle_opts=opts.GraphicBasicStyleOpts(
-                                    fill="rgba(200,200,200,0.5)"
-                                ),
-                            )
-                        )
-                    ]
-                )
-            else:
-                water_graphic_opts = None
+                right_axis[item.column_index] = item.chart_type
+        if all([left_axis, right_axis]):
+            QMessageBox.information(self, '错误', '只允许一个轴指标..')
+            return
+        if left_axis and len(left_axis) > 1:
+            QMessageBox.information(self, '错误', '左轴仅允许选中一个指标..')
+            return
+        if right_axis and len(right_axis) > 1:
+            QMessageBox.information(self, '错误', '右轴仅允许选中一个指标..')
+            return
+        # 3 进行数据处理
+        start_date = str(self.start_year.value())
+        end_date = str(self.end_year.value())
+        # 3-1 生成起始日期的年份列表
+        date_list = [datetime.datetime.strptime(str(date), "%Y").strftime('%Y-%m-%d') for date in range(int(start_date[:4]), int(end_date[:4]) + 1)]
+        # 弹窗设置年份参数
+        # print(date_list)
+        # 3-2 取min_index,当min_index+1<=max_index切割数据
+        if len(date_list) <= 0:
+            QMessageBox.information(self, '错误', '作图源数据有误..')
+            return
+        min_index, max_index = 0, len(date_list) - 1
+        split_data_dict = dict()
+        # if len(date_list) > 1:
+        while min_index < max_index:
+            year_data_frame = self.sorted_data[(date_list[min_index] <= self.sorted_data['column_0']) & (self.sorted_data['column_0'] < date_list[min_index + 1])].copy()
+            year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+            split_data_dict[date_list[min_index]] = year_data_frame
+            min_index += 1
+        year_data_frame = self.sorted_data[date_list[max_index] <= self.sorted_data['column_0']].copy()
+        year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+        split_data_dict[date_list[max_index]] = year_data_frame
+        # else:
+        #     year_data_frame = self.sorted_data.copy()
+        #     year_data_frame['column_0'] = year_data_frame['column_0'].apply(lambda x: x[5:])
+        #     split_data_dict[date_list[0]] = year_data_frame
+        # 4 生成x横轴信息,获取y轴数据进行绘图
+        x_start, x_end = datetime.datetime.strptime('20200101','%Y%m%d'), datetime.datetime.strptime('20201231','%Y%m%d')
+        x_axis = list()
+        while x_start <= x_end:
+            x_axis.append(x_start.strftime('%m-%d'))
+            x_start += datetime.timedelta(days=1)
+        # print(x_axis)
+        # 4-1 生成y轴的配置
+        # print(split_data_dict)
+        y_axis = [{'type': 'value'}, {'type': 'value'}]
+        series = list()
+        legend_data = list()
+        for col_key, chart_type in left_axis.items():
+            for date_key in date_list:
+                source_df = split_data_dict[date_key]
+                left_series = dict()
+                left_series['type'] = chart_type
+                left_series['name'] = date_key[:4]
+                left_series['yAxisIndex'] = 0
+                a = source_df['column_0'].values.tolist()  # 时间
+                b = source_df[col_key].values.tolist()  # 数值
+                left_series['data'] = [*zip(a, b)]
+                series.append(left_series)
+                legend_data.append(date_key[:4])
 
-            chart.set_global_opts(
-                title_opts=opts.TitleOpts(
-                    title=title,
-                    pos_left='center',
-                ),
-                tooltip_opts=opts.TooltipOpts(trigger="axis", axis_pointer_type='cross'),
-                xaxis_opts=opts.AxisOpts(
-                    type_="category",
-                    # axislabel_opts=opts.LabelOpts(rotate=-135),
-                 ),
-                yaxis_opts=opts.AxisOpts(type_="value"),
-                legend_opts=opts.LegendOpts(
-                    type_='scroll',
-                    pos_bottom=0,
-                    item_gap=25,
-                    item_width=30,
-                    align='left',
-                ),
-                toolbox_opts=opts.ToolboxOpts(
-                    is_show=True,
-                    feature=opts.ToolBoxFeatureOpts(
-                        save_as_image=opts.ToolBoxFeatureSaveAsImageOpts(is_show=False),
-                        data_zoom=opts.ToolBoxFeatureDataZoomOpts(is_show=True),
-                        magic_type=opts.ToolBoxFeatureMagicTypeOpts(type_=['line','bar']),
-                        brush=opts.ToolBoxFeatureBrushOpts(type_='clear'),
-                    )
-                ),
-                graphic_opts=water_graphic_opts,
-            )
-            file_folder = os.path.join(BASE_DIR, 'cache/')
-            if not os.path.exists(file_folder):
-                os.mkdir(file_folder)
-            file_path = os.path.join(file_folder, 'chars_stacked_drawer.html')
+        for col_key, chart_type in right_axis.items():
+            for date_key in date_list:
+                source_df = split_data_dict[date_key]
+                right_series = dict()
+                right_series['type'] = chart_type
+                right_series['name'] = date_key[:4]
+                right_series['yAxisIndex'] = 1
+                a = source_df['column_0'].values.tolist()  # 时间
+                b = source_df[col_key].values.tolist()  # 数值
+                right_series['data'] = [*zip(a, b)]
+                series.append(right_series)
+                legend_data.append(date_key[:4])
 
-            page = Page(layout=Page.SimplePageLayout)
-            page.add(
-                chart,
-            )
-            file_url = page.render(file_path)
-            # print(file_url)
-            self.chart_widget.page().load(QUrl("file:///cache/chars_stacked_drawer.html"))
-        except Exception as e:
-            pass
+        # 5 生成配置项进行绘图
+        title = self.title_edit.text()
+        graphic = {
+            'type': 'group',
+            'rotation': math.pi / 4,
+            'bounding': 'raw',
+            'right': 110,
+            'bottom': 110,
+            'z': 100,
+            'children': [
+                {
+                    'type': 'rect',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'shape': {
+                        'width': 400,
+                        'height': 50
+                    },
+                    'style': {
+                        'fill': 'rgba(0,0,0,0.3)'
+                    }
+                },
+                {
+                    'type': 'text',
+                    'left': 'center',
+                    'top': 'center',
+                    'z': 100,
+                    'style': {
+                        'fill': '#fff',
+                        'text': self.water_graphic.text(),
+                        'font': 'bold 26px Microsoft YaHei'
+                    }
+                }
+            ]
+        }
+        option = {
+            'title': {'text': title, 'left': 'center', 'textStyle': {'fontSize': self.title_size_edit.value()}},
+            'legend': {'data': legend_data, 'bottom': 13},
+            'tooltip': {'axisPointer': {'type': 'cross'}},
+            'grid': {
+                'top': self.title_size_edit.value() + 15,
+                'left': 5,
+                'right': 5,
+                'bottom': 20 * (len(legend_data) / 10 + 1) + 13,
+                'show': False,
+                'containLabel': True,
+            },
+            'xAxis': {
+                'type': 'category',
+                'data': x_axis
+            },
+            'yAxis': y_axis,
+            'series': series,
+            'dataZoom': [{
+                'type': 'slider',
+                'start': 0,
+                'end': 100,
+                'bottom': 0,
+                'height': 15,
+                'handleIcon': 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                'handleSize': '80%',
+                'handleStyle': {
+                    'color': '#fff',
+                    'shadowBlur': 3,
+                    'shadowColor': 'rgba(0, 0, 0, 0.6)',
+                    'shadowOffsetX': 2,
+                    'shadowOffsetY': 2
+                }
+            }],
+        }
+        if self.has_graphic.isChecked():
+            option['graphic'] = graphic
+        self.reset_chart_options(option)
 
 
 # 数据表的详情信息
@@ -787,7 +1246,6 @@ class InformationTable(QTableWidget):
                 self.removeRow(self.currentRow())
 
     def show_contents(self, row_contents):
-
         self.clear()
         table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者']
         self.setColumnCount(len(table_headers))
@@ -928,8 +1386,14 @@ class UpdateVarietyTableGroupThread(QThread):
                 headers = sheet.row_values(1)  # 第一行读取，即表格中第二行
                 if len(headers) <= 0:  # 无读到表头，跳过这个sheet
                     continue
-                contents = [headers]
-                for row in range(2, sheet.nrows):  # 读取表格数据
+                unit_row = sheet.row_values(2)  # 表格中第3行,默认为单位行或者其他信息行
+                # 处理与表头格式相同
+                if len(unit_row) <= 0:
+                    unit_row = ['' for _ in range(len(headers))]
+                # print('表名:', sheet_name)
+                # print('读取到表格中第3行的数据:', unit_row)
+                contents = [headers, unit_row]
+                for row in range(3, sheet.nrows):  # 读取表格数据(从第4行开始读取具体信息)
                     row_content = []
                     if sheet.cell(row, 0).ctype == 3 and sheet.cell_value(row, 0) == 0:  # 如果这行是1900年，跳过
                         continue
@@ -1019,7 +1483,19 @@ class UpdateTableConfigPage(QWidget):
             alternate-background-color: rgb(245, 250, 248);
         }
         """)
+        tips = "<p>1 点击右上角'配置'按钮，配置数据组文件所在的文件夹.</p>" \
+               "<p>2 '点击更新'让系统读取文件夹内的数据表自动上传.</p>" \
+               "<p>2-1 文件夹内表格格式:</p>" \
+               "<p>第1行：万得导出的表第一行不动;自己创建的表第一行可留空;</p>" \
+               "<p>第2行：数据表表头;</p>" \
+               "<p>第3行：不做限制,可填入单位等,也可直接留空.</p>" \
+               "<p>第4行：数据起始行,第一列为【日期】类型,非日期的行系统不会做读取.</p>"
+        tips_label = QLabel(tips, self)
+        tips_label.setStyleSheet("font-size:15px;color:rgb(180,100,100)")
+        tips_label.setWordWrap(True)
+        layout.addWidget(tips_label)
         self._get_access_variety()
+        self._get_current_v_group()
 
     def _get_access_variety(self):
         try:
@@ -1035,6 +1511,7 @@ class UpdateTableConfigPage(QWidget):
             for variety_item in response['variety']:
                 if variety_item['is_active']:
                     self.variety_combobox.addItem(variety_item['name'], variety_item['variety_id'])
+
             return response['variety']
 
     def _get_current_v_group(self):
@@ -1054,6 +1531,7 @@ class UpdateTableConfigPage(QWidget):
 
     # 读取当前的配置
     def _read_configs(self):
+        self._get_current_v_group()
         self.config_table.clear()
         self.config_table.setColumnCount(5)
         self.config_table.setHorizontalHeaderLabels(['品种', '数据组', '数据文件夹', '上次更新',''])
@@ -1125,6 +1603,7 @@ class UpdateTableConfigPage(QWidget):
             else:
                 QMessageBox.information(popup, "成功", "成功添加数据组")
                 popup.close()
+                self._get_current_v_group()  # 动态刷新当前数据组
         if not current_variety_name or not current_variety_id:
             QMessageBox.information(self, "未选择品种", "请选择品种")
             return

@@ -169,12 +169,6 @@ $(function () {
         pageContact.resize_map.connect(function (newWidth, newHeight) {
             mapBoxEchart.resize({width: newWidth, height: newHeight});
         })
-
-        // pageContact.senderUserToken.connect(function (userToken) {
-        //     localStorage.token = userToken;  // 设置token，存入本地存储
-        //     token = localStorage.token;
-        //     pageContact.hasReceivedUserToken(true);  // 发消息告诉界面收到了token
-        // });
     });
 
 

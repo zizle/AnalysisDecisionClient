@@ -28,19 +28,19 @@ class FoldedBodyButton(QPushButton):
             padding: 5px 0;
             margin-top:3px;
             margin-bottom:3px;
-            font-size: 14px;
-            min-width: 60px;
-            max-width: 60px;
+            font-size: 13px;
+            min-width: 70px;
+            max-width: 70px;
         }
         #button:hover{
             color:rgb(200,120,200);
             background-color:rgb(200,200,200);
-            border-radius:5px;
+            border-radius:3px;
         }
         #button:pressed{
             background-color:rgb(150,150,180);
             color:rgb(250,250,250);
-            border-radius:5px;
+            border-radius:3px;
         }
         """)
 

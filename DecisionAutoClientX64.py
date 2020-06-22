@@ -16,6 +16,7 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal, QSettings, QTimer
 # HTTP_SERVER = "http://127.0.0.1:5000/"
 HTTP_SERVER = "http://210.13.218.130:9002/"
 ADMINISTRATOR = '1'
+SYSTEM_BIT = "64"
 APP_DAWN = QSettings('dawn/initial.ini', QSettings.IniFormat)
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
@@ -34,7 +35,7 @@ class CheckUpdatingVersion(QThread):
         identify = ADMINISTRATOR
         try:
             r = request_get(
-                url=HTTP_SERVER + 'update/?identify=' + identify + '&version=' + str(version),
+                url=HTTP_SERVER + 'update/?identify=' + identify + '&version=' + str(version) + '&sbit=' + SYSTEM_BIT,
                 headers={'User-Agent': 'RuiDa_ADSClient'}
             )
             if r.status_code != 200:
@@ -65,12 +66,12 @@ class DownloadNewVersion(QThread):
         self.find_local_files(BASE_DIR)
         # print(self.update_file_list)
         for index, file in enumerate(self.file_list):
-            time.sleep(0.000002)
+            time.sleep(0.00000001)
             local_file_md5 = self.update_file_list.get(file, None)
             # print('文件名：',file, 'MD5：',local_file_md5)
             if local_file_md5 is not None:
                 if local_file_md5 == self.file_list[file]:  # 对比MD5的值
-                    print('文件{}MD5相等, 无需下载。'.format(file))
+                    # print('文件{}MD5相等, 无需下载。'.format(file))
                     self.file_downloading.emit(index, self.file_count, str(file))
                     continue
             #     else:
@@ -103,7 +104,7 @@ class DownloadNewVersion(QThread):
         r = request_get(
             url=HTTP_SERVER + 'downloading/',
             headers={'User-Agent': 'RuiDa_ADSClient', 'Content-Type': 'application/json;charset=utf8'},
-            data=json.dumps({'filename': file_name, 'identify': ADMINISTRATOR})
+            data=json.dumps({'filename': file_name, 'identify': ADMINISTRATOR, 'sbit': '64'})
         )
         if r.status_code != 200:
             response = r.content.decode('utf-8')
