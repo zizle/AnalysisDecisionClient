@@ -1377,47 +1377,52 @@ class UpdateVarietyTableGroupThread(QThread):
                 file_path_list.append(os.path.join(self.file_folder, file_path))
         # 遍历将每个文件和文件内的sheet，读取，发起更新或创建，提交后发出一个信号
         for file_path in file_path_list:
-            file = xlrd.open_workbook(file_path)
+            try:
+                file = xlrd.open_workbook(file_path)
+            except Exception as e:
+                settings.logger.error("打开文件:{}失败:{}".format(file_path, e))
+                continue
             for sheet_name in file.sheet_names():
                 time.sleep(0.3)
-                sheet = file.sheet_by_name(sheet_name)
-                if not file.sheet_loaded(sheet_name) or sheet.nrows < 2:  # 读取失败就继续，或是空数据表
-                    continue
-                headers = sheet.row_values(1)  # 第一行读取，即表格中第二行
-                if len(headers) <= 0:  # 无读到表头，跳过这个sheet
-                    continue
-                unit_row = sheet.row_values(2)  # 表格中第3行,默认为单位行或者其他信息行
-                # 处理与表头格式相同
-                if len(unit_row) <= 0:
-                    unit_row = ['' for _ in range(len(headers))]
-                # print('表名:', sheet_name)
-                # print('读取到表格中第3行的数据:', unit_row)
-                contents = [headers, unit_row]
-                for row in range(3, sheet.nrows):  # 读取表格数据(从第4行开始读取具体信息)
-                    row_content = []
-                    if sheet.cell(row, 0).ctype == 3 and sheet.cell_value(row, 0) == 0:  # 如果这行是1900年，跳过
-                        continue
-                    for col in range(sheet.ncols):
-                        cell_type = sheet.cell(row, col).ctype
-                        if col == 0 and cell_type != 3:  # 第一列不是时间类型的，忽略本行数据（非时间行跳过）
-                            break
-                        cell_value = sheet.cell_value(row, col)
-                        if cell_type == 3:  # 时间列数据转为时间格式
-                            cell_value = datetime.datetime(*xlrd.xldate_as_tuple(cell_value, 0)).strftime("%Y-%m-%d")
-                        row_content.append(cell_value)
-                    if len(row_content) == len(headers):  # 与表头同样大小
-                        contents.append(row_content)
-                # 发起请求向服务器增加或更新数据
                 try:
-                    # print('上传或更新数据:',file_path, sheet_name)
-                    self.send_data_to_server(
-                        variety_id=self.variety_id,
-                        group_id=self.group_id,
-                        title=sheet_name,
-                        table_values=contents
-                    )
-                except Exception:
-                    pass
+                    sheet = file.sheet_by_name(sheet_name)
+                    if not file.sheet_loaded(sheet_name) or sheet.nrows < 4:  # 读取失败就继续，或是空数据表
+                        continue
+                    headers = sheet.row_values(1)  # 第一行读取，即表格中第二行
+                    if len(headers) <= 0:  # 无读到表头，跳过这个sheet
+                        continue
+                    unit_row = sheet.row_values(2)  # 表格中第3行,默认为单位行或者其他信息行
+                    # 处理与表头格式相同
+                    if len(unit_row) <= 0:
+                        unit_row = ['' for _ in range(len(headers))]
+                    # print('表名:', sheet_name)
+                    # print('读取到表格中第3行的数据:', unit_row)
+                    contents = [headers, unit_row]
+                    for row in range(3, sheet.nrows):  # 读取表格数据(从第4行开始读取具体信息)
+                        row_content = []
+                        if sheet.cell(row, 0).ctype == 3 and sheet.cell_value(row, 0) == 0:  # 如果这行是1900年，跳过
+                            continue
+                        for col in range(sheet.ncols):
+                            cell_type = sheet.cell(row, col).ctype
+                            if col == 0 and cell_type != 3:  # 第一列不是时间类型的，忽略本行数据（非时间行跳过）
+                                break
+                            cell_value = sheet.cell_value(row, col)
+                            if cell_type == 3:  # 时间列数据转为时间格式
+                                cell_value = datetime.datetime(*xlrd.xldate_as_tuple(cell_value, 0)).strftime("%Y-%m-%d")
+                            row_content.append(cell_value)
+                        if len(row_content) == len(headers):  # 与表头同样大小
+                            contents.append(row_content)
+                except Exception as e:
+                    settings.logger.error("打开'{}'文件下的'{}'表失败:{}".format(os.path.splitext(file_path)[0], sheet_name, e))
+                    continue
+                # 发起请求向服务器增加或更新数据
+                # print('上传或更新数据:',file_path, sheet_name)
+                self.send_data_to_server(
+                    variety_id=self.variety_id,
+                    group_id=self.group_id,
+                    title=sheet_name,
+                    table_values=contents
+                )
             file.release_resources()  # 释放资源
             del file
         # 全部完成执行完成后，发出完成的信号True
@@ -1427,7 +1432,7 @@ class UpdateVarietyTableGroupThread(QThread):
     def send_data_to_server(self, variety_id, group_id, title, table_values):
         try:
             user_id = pickle.loads(settings.app_dawn.value('UKEY'))
-            requests.post(
+            r = requests.post(
                 url=settings.SERVER_ADDR + 'user/' + str(user_id) + '/trend/table/',
                 headers={'Content-type': 'application/json;charset=utf8'},
                 data=json.dumps({
@@ -1438,8 +1443,11 @@ class UpdateVarietyTableGroupThread(QThread):
                     'table_values':table_values
                 })
             )
-        except Exception:
-            pass
+            if r.status_code not in [200, 201]:
+                response = json.loads(r.content.decode('utf8'))
+                raise ValueError(response['message'])
+        except Exception as e:
+            settings.logger.error("上传数据出错:{}".format(e))
 
 
 # 配置数据源、更新数据的窗口
