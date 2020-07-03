@@ -164,7 +164,7 @@ class FoldedBody(QWidget):
 
     def resetHorizationItemCount(self, body_width):
         # 得到控件的大小，计算一列能容下的数量，向下取整
-        horizontal_count = floor(body_width / 65)  # 每个button的宽度是60 + 间距5
+        horizontal_count = floor(body_width / 75)  # 根据button的宽度 + 间距5  来计算
         # 设置填入buttons
         row_index = 0
         col_index = 0

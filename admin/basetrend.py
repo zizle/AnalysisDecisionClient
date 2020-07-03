@@ -428,6 +428,7 @@ class DrawChartsDialog(QDialog):
             data_frame[bottom] = data_frame[bottom].apply(lambda x: x.strftime(self.date_format.currentData()))
         # 对x轴进行排序
         self.sorted_data = data_frame.sort_values(by=bottom)
+        self.sorted_data.reset_index(drop=True,inplace=True)  # 重置数据索引
         if bottom == 'column_0':
             start_date = self.sorted_data.loc[0]['column_0']
             end_date = self.sorted_data.loc[self.sorted_data.shape[0] - 1]['column_0']

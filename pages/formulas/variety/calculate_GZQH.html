@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>国债期货计算公式</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="gzqhapp">
+    <!--可交割国债转换因子-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">可交割国债转换因子</th>
+            </tr>
+            <tr>
+                <td>10年期国债期货合约票面利率3%:</td>
+                <td><input type="number" v-model.number="r_couponRate10"></td>
+                <td rowspan="4" class="resultLabel">转换因子:</td>
+                <td rowspan="4" class="calResult">{{ convertResult }}</td>
+            </tr>
+
+            <tr>
+                <td>交割月到下一付息月的月份数:</td>
+                <td><input type="number" v-model.number="x_monthCount"></td>
+            </tr>
+            <tr>
+                <td>剩余付息次数:</td>
+                <td><input type="number" v-model.number="n_interestCount"></td>
+            </tr>
+            <tr>
+                <td>可交割国债的票面利率:</td>
+                <td><input type="number" v-model.number="c_couponRateGZ"></td>
+            </tr>
+            <tr>
+                <td>可交割国债每年的付息次数:</td>
+                <td><input type="number" v-model.number="f_interestCountGZ"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote"><img src="../img/convert.png" alt="转换因子计算公式"></div>
+        <div class="formalasNote">
+            <p>r：10年期国债期货合约票面利率3%;</p>
+            <p>x：交割月到下一付息月的月份数;</p>
+            <p>n：剩余付息次数;</p>
+            <p>c：可交割国债的票面利率;</p>
+            <p>f：可交割国债每年的付息次数;</p>
+        </div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#gzqhapp",
+    data: {
+        r_couponRate10:0.03,
+        x_monthCount:'',
+        n_interestCount:'',
+        c_couponRateGZ:'',
+        f_interestCountGZ:'',
+        convertResult: 0,
+    },
+    watch: {
+        r_couponRate10(val, oldVal){
+            this.convertResult = this.calculateConvert();
+        },
+        x_monthCount(val, oldVal){
+            this.convertResult = this.calculateConvert();
+        },
+        n_interestCount(val, oldVal){
+            this.convertResult = this.calculateConvert();
+        },
+        c_couponRateGZ(val, oldVal){
+            this.convertResult = this.calculateConvert();
+        },
+        f_interestCountGZ(val, oldVal){
+            this.convertResult = this.calculateConvert();
+        },
+
+    },
+    methods:{
+        // 计算转换因子
+        calculateConvert(){
+            var onePlusRf = 1 + (this.r_couponRate10 / this.f_interestCountGZ);
+            var xfDvt = (this.x_monthCount * this.f_interestCountGZ) / 12;
+            var cf = this.c_couponRateGZ / this.f_interestCountGZ;
+            var cr = this.c_couponRateGZ / this.r_couponRate10;
+            var middle = cf + cr + (1 - cr) * (1 / Math.pow(onePlusRf, this.n_interestCount - 1));
+            var pre = 1 / (Math.pow(onePlusRf, xfDvt));
+            var subfix = cf * (1 - xfDvt);
+            var result = pre * middle - subfix;
+            return Math.round(result * 10000) / 10000
+        }
+    }
+})
+</script>
+</html>
