@@ -1,0 +1,23 @@
+.formalasNote{
+	color: rgb(120,120,110);
+	font-size: 13px;
+}
+.calculateDiv td{
+	line-height: 25px;
+	text-align: center;
+	text-align: justify;
+	text-justify: distribute-all-lines;
+	text-align-last: justify;
+}
+.calculateDiv .calDivHeader{
+	font-size: 20px;
+	font-weight: bold;
+}
+.calculateDiv .calResult{
+	font-size: 18px;
+	color: rgb(210,100,130);
+}
+.calculateDiv .resultLabel{
+	font-weight: bold;
+	padding-left: 15px;
+}

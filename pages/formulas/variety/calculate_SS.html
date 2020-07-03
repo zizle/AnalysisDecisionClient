@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>不锈钢计算公式</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="ssapp">
+<!--不锈钢生产成本-->
+<div class="calculateDiv">
+    <table>
+        <tr>
+            <th colspan="2" class="calDivHeader">不锈钢生产成本</th>
+        </tr>
+        <tr>
+            <td>高镍铁价格:</td>
+            <td><input type="number" v-model.number="niTiePrice"></td>
+            <td rowspan="4" class="resultLabel">生产成本:</td>
+			<td rowspan="4" class="calResult">{{ ssProductCost }}</td>
+        </tr>
+
+        <tr>
+            <td>废不锈钢价格:</td>
+            <td><input type="number" v-model.number="ssPrice"></td>
+        </tr>
+        <tr>
+            <td>镍板价格:</td>
+            <td><input type="number" v-model.number="niBanPrice"></td>
+        </tr>
+        <tr>
+            <td>高碳铬铁价格:</td>
+            <td><input type="number" v-model.number="tanGePrice"></td>
+        </tr>
+    </table>
+    <!-- 公式注解 -->
+    <div class="formalasNote">注1:不锈钢生产成本=(高镍铁价格*70+废不锈钢价格/9*22+镍板价格/100*8)/100*8+高碳铬铁价格*0.36+其他费用</div>
+    <div class="formalasNote">注2:其他费用3350</div>
+    <div class="formalasNote">注3:计算结果四舍五入保留整数</div>
+</div>
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#ssapp",
+    data: {
+        niTiePrice:'',
+        ssPrice:'',
+        niBanPrice: '',
+        tanGePrice: '',
+        ssProductCost: 0
+    },
+    watch: {
+        niTiePrice(val, oldVal){
+            this.ssProductCost = this.ssProCost();
+        },
+        ssPrice(val, oldVal){
+            this.ssProductCost = this.ssProCost();
+        },
+        niBanPrice(val, oldVal){
+            this.ssProductCost = this.ssProCost();
+        },
+        tanGePrice(val, oldVal){
+            this.ssProductCost = this.ssProCost();
+        }
+    },
+    methods:{
+        // 不锈钢生产成本计算
+        // 不锈钢生产成本=(高镍铁价格*70+废不锈钢价格/9*22+镍板价格/100*8)/100*8+高碳铬铁价格*0.36+其他费用
+        ssProCost(){
+            var procost = (this.niTiePrice * 70 + this.ssPrice / 9 * 22 + this.niBanPrice / 100 * 8) / 100 * 8 + this.tanGePrice * 0.36 + 3350;
+            return Math.round(procost);
+        }
+    }
+})
+</script>
+</html>

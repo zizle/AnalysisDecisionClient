@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>铜计算公式</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="cuapp">
+<!--铜进口成本-->
+<div class="calculateDiv">
+    <table>
+        <tr>
+            <th colspan="2" class="calDivHeader">铜进口成本</th>
+        </tr>
+        <tr>
+            <td>LME三月期价格:</td>
+            <td><input type="number" v-model.number="LMEPrice"></td>
+            <td rowspan="4" class="resultLabel">进口成本:</td>
+			<td rowspan="4" class="calResult">{{ importCost }}</td>
+        </tr>
+
+        <tr>
+            <td>对应月份升贴水:</td>
+            <td><input type="number" v-model.number="monthPremium"></td>
+        </tr>
+        <tr>
+            <td>到岸升贴水:</td>
+            <td><input type="number" v-model.number="reachPremium"></td>
+        </tr>
+        <tr>
+            <td>汇率:</td>
+            <td><input type="number" v-model.number="exchangeRate" placeholder="数值,不用输入'%'"></td>
+        </tr>
+    </table>
+    <!-- 公式注解 -->
+    <div class="formalasNote">注1:铜进口成本=(LME三月期价格+对应月份升贴水+到岸升贴水)*汇率*(1+增值税率)*(1+关税税率)+杂费</div>
+    <div class="formalasNote">注2:增值税率13%;关税0%;杂费150</div>
+    <div class="formalasNote">注3:计算结果四舍五入保留整数</div>
+</div>
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#cuapp",
+    data: {
+        LMEPrice:'',
+        monthPremium:'',
+        reachPremium: '',
+        exchangeRate: '',
+        importCost: 0
+    },
+    watch: {
+        LMEPrice(val, oldVal){
+            this.importCost = this.cuImportCost();
+        },
+        monthPremium(val, oldVal){
+            this.importCost = this.cuImportCost();
+        },
+        reachPremium(val, oldVal){
+            this.importCost = this.cuImportCost();
+        },
+        exchangeRate(val, oldVal){
+            this.importCost = this.cuImportCost();
+        }
+    },
+    methods:{
+        // 铜进口成本计算
+        cuImportCost(){
+            var ipcost = (this.LMEPrice + this.monthPremium + this.reachPremium) * this.exchangeRate / 100 * 1.13  + 150;
+            return Math.round(ipcost);
+        }
+    }
+})
+</script>
+</html>

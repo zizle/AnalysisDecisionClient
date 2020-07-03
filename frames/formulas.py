@@ -96,8 +96,12 @@ class FormulasCalculate(QWidget):
     def variety_clicked(self, bid, head_text, v_en):
         # 拼接字符串
         # print(bid, head_text, v_en)
-        if v_en in ["a", "b"]:
-            page_file = "file:///pages/formulas/variety/calculate_beans.html".format(v_en)
+        if v_en in ["A", "B"]:
+            page_file = "file:///pages/formulas/variety/calculate_beans.html"
+        elif v_en in ["CU", "AL", "NI", "SN", "SS"]:
+            page_file = "file:///pages/formulas/variety/calculate_{}.html".format(v_en)
+        elif v_en in ["GZQH"]:
+            page_file = "file:///pages/formulas/variety/calculate_{}.html".format(v_en)
         else:
             page_file = "file:///pages/formulas/variety/no_found.html"
         self.web_browser.load(QUrl(page_file))
