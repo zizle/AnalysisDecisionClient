@@ -88,6 +88,12 @@ class DrawChartsDialog(QDialog):
         self.sorted_data = None
         self.has_left_axis = False
 
+        # 轴标签
+        self.axix_tags = {"left":"", "right":"", "bottom": ""}
+        # 数据起终
+        self.bottom_start = ""
+        self.bottom_end = ""
+
         layout = QHBoxLayout(self)
         left_layout = QVBoxLayout(self)
         right_layout = QVBoxLayout(self)
@@ -177,6 +183,11 @@ class DrawChartsDialog(QDialog):
         range_layout.addWidget(self.start_year)
         range_layout.addWidget(QLabel('到', self))
         range_layout.addWidget(self.end_year)
+
+        # more chart configs
+        self.more_configs_btn = QPushButton("更多配置",self, styleSheet="font-size:11px")
+        self.more_configs_btn.clicked.connect(self.chart_more_config)
+        range_layout.addWidget(self.more_configs_btn)
         range_layout.addStretch()
         target_layout.addLayout(range_layout)
 
@@ -209,7 +220,8 @@ class DrawChartsDialog(QDialog):
         right_layout.addWidget(self.chart_widget)
 
         self.save_config = QPushButton('保存配置',self)
-        self.save_config.clicked.connect(self.save_charts_config_to_server)
+        # self.save_config.clicked.connect(self.save_charts_config_to_server)
+        self.save_config.clicked.connect(self.save_chart_options_to_server)
         right_layout.addWidget(self.save_config, alignment=Qt.AlignRight)
         right_layout.addWidget(self.table_widget)
 
@@ -261,9 +273,134 @@ class DrawChartsDialog(QDialog):
         # }
         self.chart_widget.reset_chart_options(option)
 
+    # 数据去0设置
+    def axis_no_zero_changed(self, state):
+        checked = self.sender()
+        print(checked.checkState(), checked.text())
+        for index in range(self.params_list.count()):
+            item = self.params_list.item(index)
+            if item.text() == checked.text():
+                item.no_zero = checked.checkState()
+                break
+
+    # 更多的配置信息
+    def chart_more_config(self):
+        def set_bottom_start(checked):
+            if checked == 2:
+                self.bottom_start = str(self.start_year.value())
+            else:
+                self.bottom_start = ""
+
+        def set_bottom_end(checked):
+            if checked == 2:
+                self.bottom_end = str(self.end_year.value())
+            else:
+                self.bottom_end = ""
+
+        def change_left_tag(text):
+            self.axix_tags["left"] = text
+
+        def change_right_tag(text):
+            self.axix_tags['right'] = text
+
+        def change_bottom_tag(text):
+            self.axix_tags["bottom"] = text
+
+        popup = QDialog(self)
+        popup.setWindowTitle("更多配置")
+        layout = QVBoxLayout(popup)
+        limit_start = QCheckBox(popup)
+        limit_start.setText("固定起始")
+        if self.bottom_start:
+            limit_start.setCheckState(Qt.Checked)
+        limit_start.stateChanged.connect(set_bottom_start)
+        layout.addWidget(limit_start)
+        limit_end = QCheckBox(popup)
+        limit_end.setText("固定结束")
+        limit_end.stateChanged.connect(set_bottom_end)
+        if self.bottom_end:
+            limit_end.setCheckState(Qt.Checked)
+        layout.addWidget(limit_end)
+
+        layout.addWidget(QLabel("数据是否去 0:",popup))
+        for index in range(self.params_list.count()):
+            item = self.params_list.item(index)
+            no_zero_checked = QCheckBox(popup)
+            no_zero_checked.stateChanged.connect(self.axis_no_zero_changed)
+            no_zero_checked.setText(item.text())
+            no_zero_checked.setCheckState(item.no_zero)  # Qt.Checked,
+            layout.addWidget(no_zero_checked)
+
+        left_unit_layout = QHBoxLayout(popup)
+        l = QLabel("左轴标签:", popup)
+        left_tag = QLineEdit(popup)
+        left_tag.setText(self.axix_tags["left"])
+        left_tag.textChanged.connect(change_left_tag)
+        left_unit_layout.addWidget(l)
+        left_unit_layout.addWidget(left_tag)
+        left_unit_layout.addStretch()
+        layout.addLayout(left_unit_layout)
+
+        l = QLabel("右轴标签:", popup)
+        right_tag = QLineEdit(popup)
+        right_tag.setText(self.axix_tags["right"])
+        right_tag.textChanged.connect(change_right_tag)
+        right_unit_layout = QHBoxLayout(popup)
+        right_unit_layout.addWidget(l)
+        right_unit_layout.addWidget(right_tag)
+        right_unit_layout.addStretch()
+        layout.addLayout(right_unit_layout)
+
+        l = QLabel("横轴标签:", popup)
+        bottom_tag = QLineEdit(popup)
+        bottom_tag.setText(self.axix_tags["bottom"])
+        bottom_tag.textChanged.connect(change_bottom_tag)
+        bottom_unit_layout = QHBoxLayout(popup)
+        bottom_unit_layout.addWidget(l)
+        bottom_unit_layout.addWidget(bottom_tag)
+        bottom_unit_layout.addStretch()
+        layout.addLayout(bottom_unit_layout)
+
+        close_btn = QPushButton("确定", popup)
+        close_btn.clicked.connect(popup.close)
+        layout.addWidget(close_btn)
+        popup.setLayout(layout)
+        popup.exec_()
+
     # 保存当前数据表的设置到服务端存为我的数据表
     def save_chart_options_to_server(self):
-        pass
+        # 获取x轴，左轴和右轴的数据索引轴
+        x_axis = self.x_axis_combobox.currentData()
+        left_axis = list()  # 左轴
+        right_axis = list()  # 右轴
+
+        for index in range(self.params_list.count()):
+            item = self.params_list.item(index)
+            if item.axis_pos == 'left':
+                left_axis.append({"col_index": item.column_index, "chart_type": item.chart_type, "no_zero": item.no_zero})
+                # left_axis[item.column_index] = item.chart_type
+            else:
+                # right_axis[item.column_index] = item.chart_type
+                right_axis.append({"col_index": item.column_index, "chart_type": item.chart_type, "no_zero": item.no_zero})
+        # 标题
+        title = self.title_edit.text()
+        if not title or len(left_axis) <=0:
+            QMessageBox.information(self, "提示", "请设置标题和至少选择一列左轴指标再进行保存...")
+            return
+        options_json = {
+            'table_id': self.table_id,
+            'title': {'text': title, 'left': 'center', 'textStyle': {'fontSize': self.title_size_edit.value()}},
+            'x_axis': [{"col_index": x_axis, "start": self.bottom_start, "end": self.bottom_end, 'date_format': self.date_format.currentData()}],
+            'y_left': left_axis,
+            'y_right': right_axis,
+            'watermark': self.has_graphic.checkState(),
+            'watermark_text': self.water_graphic.text(),
+            'axis_tags': self.axix_tags
+        }
+        # 向后台发起保存json配置数据
+
+
+        print(options_json)
 
     def save_charts_config_to_server(self):
         def upload_configs():
@@ -395,6 +532,7 @@ class DrawChartsDialog(QDialog):
             item.axis_pos = 'left'
             item.column_index = col_index
             item.chart_type = axis_type
+            item.no_zero = Qt.Unchecked
             self.has_left_axis = True
         elif axis_name == 'right':
             if not self.has_left_axis:
@@ -404,6 +542,7 @@ class DrawChartsDialog(QDialog):
             item.axis_pos = 'right'
             item.column_index = col_index
             item.chart_type = axis_type
+            item.no_zero = Qt.Unchecked
         else:
             QMessageBox.information(self, '错误', '内部发生一个未知错误')
             return
@@ -1406,6 +1545,7 @@ class UpdateVarietyTableGroupThread(QThread):
                         for col in range(sheet.ncols):
                             cell_type = sheet.cell(row, col).ctype
                             if col == 0 and cell_type != 3:  # 第一列不是时间类型的，忽略本行数据（非时间行跳过）
+                                # print("读取到非时间数据行:", row, col)
                                 break
                             cell_value = sheet.cell_value(row, col)
                             if cell_type == 3:  # 时间列数据转为时间格式
