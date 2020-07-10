@@ -8,11 +8,11 @@ import json
 import requests
 import pandas as pd
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QTableWidget, QFrame, QHeaderView, QTableWidgetItem, \
-    QLabel, QScrollArea
-from PyQt5.QtGui import QBrush, QColor
+    QLabel, QPushButton
+from PyQt5.QtGui import QBrush, QColor, QIcon
 # from PyQt5.QtWebEngineWidgets import QWebEngineView
-from PyQt5.QtCore import QUrl, QMargins, Qt, QPoint
-from widgets import ScrollFoldedBox
+from PyQt5.QtCore import QUrl, QMargins, Qt, QPoint, QThread, pyqtSignal
+from widgets import ScrollFoldedBox, CircleProgressBar
 import settings
 
 
@@ -24,6 +24,7 @@ class DetailTable(QTableWidget):
         self.setEditTriggers(QHeaderView.NoEditTriggers)
 
     def show_detail_data(self, table_headers, table_records):
+        table_headers = [header for header in table_headers.values()]
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(table_records))
         self.setHorizontalHeaderLabels(table_headers)
@@ -33,77 +34,6 @@ class DetailTable(QTableWidget):
                 item = QTableWidgetItem(row_item[data_key])
                 item.setTextAlignment(Qt.AlignCenter)
                 self.setItem(row, col, item)
-
-
-# 双击进入查看数据和图表弹窗
-class ChartTablePopup(QScrollArea):
-    def __init__(self, tid, sql_table, *args, **kwargs):
-        super(ChartTablePopup, self).__init__(*args, **kwargs)
-        self.setWindowFlags(Qt.Dialog)
-        self.setAttribute(Qt.WA_DeleteOnClose)
-        self.table_id = tid
-        self.sql_table = sql_table
-        self.resize(980, 650)
-        self.sorted_df = None
-        self.table_headers = None
-
-        self.container = QWidget(self)
-        layout = QVBoxLayout(self.container)
-        layout.setContentsMargins(0,0,0,0)
-
-        self.show_table = DetailTable(self)
-        layout.addWidget(self.show_table)
-        self.container.setLayout(layout)
-
-        self.setWidget(self.container)
-        self.setWidgetResizable(True)
-
-        self._get_current_table_data()
-
-    # 请求当前table的源数据
-    def _get_current_table_data(self):
-        try:
-            r = requests.get(
-                url=settings.SERVER_ADDR + 'trend/table/' + str(self.table_id) + '/'
-            )
-            response = json.loads(r.content.decode('utf8'))
-            if r.status_code != 200:
-                raise ValueError(response['message'])
-        except Exception as e:
-            settings.logger.error("请求源数据表错误:{}".format(e))
-        else:
-            table_records = response['records']
-            table_headers_dict = table_records.pop(0)  # 表头
-            if self.table_headers is not None:
-                del self.table_headers
-                self.table_headers = None
-            del table_headers_dict['id']
-            del table_headers_dict['create_time']
-            del table_headers_dict['update_time']
-            self.table_headers = [header for header in table_headers_dict.values()]
-            table_records.pop(0)  # 去掉第3无关紧要(单位等)行
-            # sort data
-            self.sorted_source_data(table_records)
-            # show data
-            self.table_show_detail_data()
-
-    # 显示数据到表格中
-    def table_show_detail_data(self):
-        if self.sorted_df is None or self.table_headers is None:
-            return
-        dict_data = self.sorted_df.to_dict(orient="records")
-        self.show_table.show_detail_data(self.table_headers, dict_data)
-
-    # 根据时间排序数据
-    def sorted_source_data(self, table_records):
-        source_df = pd.DataFrame(table_records)
-        source_df['column_0'] = pd.to_datetime(source_df["column_0"], format='%Y-%m-%d')
-        source_df['column_0'] = source_df["column_0"].apply(lambda x: x.strftime('%Y-%m-%d'))
-        if self.sorted_df is not None:
-            del self.sorted_df
-            self.sorted_df = None
-        self.sorted_df = source_df.sort_values(by='column_0')
-        self.sorted_df.reset_index(drop=True, inplace=True)  # 重置数据索引
 
 
 # 来源与备注的信息弹窗
@@ -117,18 +47,96 @@ class InformationPopup(QLabel):
         self.setFixedSize(200,130)
 
 
+# 请求table源数据的线程
+class GetTableSourceThread(QThread):
+    source_data_signal = pyqtSignal(int, str, list)
+
+    def __init__(self, table_id,title,*args, **kwargs):
+        super(GetTableSourceThread, self).__init__(*args, **kwargs)
+        self.table_id = table_id
+        self.title = title
+
+    def run(self):
+        try:
+            r = requests.get(
+                url=settings.SERVER_ADDR + 'trend/table/' + str(self.table_id) + '/'
+            )
+            response = json.loads(r.content.decode('utf8'))
+            if r.status_code != 200:
+                raise ValueError(response['message'])
+        except Exception as e:
+            settings.logger.error("请求源数据表错误:{}".format(e))
+        else:
+            self.source_data_signal.emit(self.table_id, self.title, response['records'])
+
+
+# 显示图形和数据的弹窗
+class ChartOfTableWidget(QWidget):
+    def __init__(self, table_id, source_data, *args, **kwargs):
+        super(ChartOfTableWidget, self).__init__(*args, **kwargs)
+        self.sorted_df = None
+        self.table_headers_dict = None
+        self.setWindowFlags(Qt.Dialog)
+        self.table_id = table_id
+        self.source_data = source_data
+        self.resize(980, 650)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0,0,0,0)
+        self.detail_table = DetailTable(self)
+        layout.addWidget(self.detail_table)
+        self.setLayout(layout)
+        self._sort_and_show_table_data()
+
+    # 对数据进行时间列column_0的排序
+    def _sort_and_show_table_data(self):
+        table_headers_dict = self.source_data.pop(0)  # 表头
+        free_row = self.source_data.pop(0)  # 第3行
+        del table_headers_dict['id']
+        del table_headers_dict['create_time']
+        del table_headers_dict['update_time']
+        self.table_headers_dict = table_headers_dict
+        source_df = pd.DataFrame(self.source_data)
+        source_df['column_0'] = pd.to_datetime(source_df["column_0"], format='%Y-%m-%d')
+        source_df['column_0'] = source_df["column_0"].apply(lambda x: x.strftime('%Y-%m-%d'))
+        if self.sorted_df is not None:
+            del self.sorted_df
+            self.sorted_df = None
+        self.sorted_df = source_df.sort_values(by='column_0')
+        self.sorted_df.reset_index(drop=True, inplace=True)  # 重置数据索引
+        table_records = self.sorted_df.to_dict(orient='records')
+        table_records.insert(0,free_row)
+        self.detail_table.show_detail_data(self.table_headers_dict, table_records)
+
+
 # 数据表的表格
 class DataTableWidget(QTableWidget):
     def __init__(self, *args, **kwargs):
         super(DataTableWidget, self).__init__(*args)
+        self.is_loading_data = False
         self.setMouseTracking(True)
         self.setFrameShape(QFrame.NoFrame)
+        self.setFocusPolicy(Qt.NoFocus)
         self.setSelectionBehavior(QHeaderView.SelectRows)
+        self.setAlternatingRowColors(True)  # 开启交替行颜色
         self.setEditTriggers(QHeaderView.NoEditTriggers)
         self.verticalHeader().hide()
         self.cellClicked.connect(self.cell_clicked)  # 单击显示来源或者备注
-        self.cellDoubleClicked.connect(self.double_clicked)  # 双击进入详情
+        self.cellDoubleClicked.connect(self.view_chart_of_table)  # 双击进入图表详情
         self.show_information = InformationPopup('', '', self)
+        self.loading_process = CircleProgressBar(self)
+        self.loading_process.hide()
+        self.setObjectName('dataTable')
+        self.setStyleSheet("""
+        #dataTable{
+            background-color:rgb(240,240,240);
+            font-size: 13px;
+            selection-color: rgb(180,60,60);
+            selection-background-color: rgb(220,220,220);
+            alternate-background-color: rgb(245, 250, 248);
+        }
+        """)
+        # 获取数据的线程
+        self.get_source_thread = None
 
     def mouseMoveEvent(self, event):
         index = self.indexAt(QPoint(event.pos().x(), event.pos().y()))
@@ -146,16 +154,8 @@ class DataTableWidget(QTableWidget):
             if self.show_information.isHidden():
                 self.show_information.show()
 
-    def double_clicked(self, row, col):
-        table_id = self.item(row, 0).id
-        sql_table = self.item(row, 0).sql_table
-        title = self.item(row, 1).text()
-        popup = ChartTablePopup(table_id, sql_table, self.parent())
-        popup.setWindowTitle(title)
-        popup.show()
-
     def show_tables(self, table_list):
-        table_headers = ["序号", "标题", "起始时间", "截止时间", "数据来源", "备注"]
+        table_headers = ["序号", "标题", "起始时间", "截止时间", "数据来源", "备注", ""]
         self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.setRowCount(len(table_list))
@@ -186,6 +186,40 @@ class DataTableWidget(QTableWidget):
             item5.setForeground(QBrush(QColor(150, 50, 50)))
             item5.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 5, item5)
+            btn = QPushButton(self)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setIcon(QIcon('media/nor_chart.png'))
+            btn.row = row
+            btn.clicked.connect(self.view_chart_of_table)
+            self.setCellWidget(row, 6, btn)
+
+    def show_loading_bar(self):
+        if self.is_loading_data:
+            self.loading_process.show()
+        else:
+            self.loading_process.hide()
+
+    # 查看当前数据表下的图形
+    def view_chart_of_table(self, row=None, col=None):
+        self.loading_process.move(self.frameGeometry().width() / 2 - 35, self.frameGeometry().height() / 2 - 35)
+        self.loading_process.show()
+        if not row:
+            row = self.sender().row
+        table_id = self.item(row, 0).id
+        title = self.item(row, 1).text()
+        # 线程获取数据
+        if self.get_source_thread is not None:
+            del self.get_source_thread
+        self.get_source_thread = GetTableSourceThread(table_id=table_id, title=title)
+        self.get_source_thread.source_data_signal.connect(self.table_source_back)
+        self.get_source_thread.finished.connect(self.get_source_thread.deleteLater)
+        self.get_source_thread.start()
+
+    def table_source_back(self, table_id, title, table_source_data):
+        popup = ChartOfTableWidget(table_id, table_source_data, self)
+        popup.setWindowTitle(title)
+        self.loading_process.hide()
+        popup.show()
 
 
 # 基本分析主页
@@ -254,11 +288,6 @@ class TrendPage(QWidget):
         box_width = self.parent().width() * 0.228
         self.variety_folded.setFixedWidth(box_width + 8)
         self.variety_folded.setBodyHorizationItemCount()
-        # self.web_charts.setMinimumWidth(self.parent().width() - box_width)  # 设置页面显示的大小
-        # self.web_charts.reload()
-
-    # def _get_all_charts(self, variety_id=0):
-    #     self.web_charts.load(QUrl(settings.SERVER_ADDR + 'trend/charts/?is_render=1' + '&variety=' + str(variety_id)))
 
     # 获取所有品种组和品种
     def getGroupVarieties(self):
@@ -267,8 +296,8 @@ class TrendPage(QWidget):
             if r.status_code != 200:
                 raise ValueError('获取失败!')
             response = json.loads(r.content.decode('utf-8'))
-        except Exception:
-            pass
+        except Exception as e:
+            settings.logger.error("【基本分析】模块获取左侧品种菜单失败:{}".format(e))
         else:
             for group_item in response['variety']:
                 head = self.variety_folded.addHead(group_item['name'])
@@ -285,9 +314,6 @@ class TrendPage(QWidget):
                 raise ValueError("获取品种该数据表失败!")
             response = json.loads(r.content.decode('utf8'))
         except Exception as e:
-            print(e)
+            settings.logger.error("【基本分析】模块获取品种下的数据表失败:{}".format(e))
         else:
-            print(response)
             self.data_table.show_tables(response["tables"])
-        # self._get_all_charts(variety_id=vid)
-

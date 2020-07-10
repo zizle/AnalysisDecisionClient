@@ -10,6 +10,7 @@ from .folded_box import ScrollFoldedBox
 from .paginator import Paginator
 from .pdf_shower import PDFContentPopup, PDFContentShower
 from .path_edit import ImagePathLineEdit, FilePathLineEdit
+from .process_bar import CircleProgressBar
 
 from PyQt5.QtWidgets import QStackedWidget
 from PyQt5.QtCore import Qt
