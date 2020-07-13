@@ -12,18 +12,17 @@ import requests
 import pickle
 import pandas as pd
 import math
-import pyecharts.options as opts
-from pyecharts.charts import Line, Bar, Page
 from PyQt5.QtWidgets import QApplication,QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
     QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
-from PyQt5.QtGui import QCursor, QIcon
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins, QRegExp
+from PyQt5.QtGui import QCursor, QIcon, QDoubleValidator
 import settings
 from widgets import LoadedPage
 from channels.trend import ReviewChartChannel
+from utils.charts import chart_options_handler
 
 
 # 数据图列配置的按钮
@@ -92,6 +91,12 @@ class DrawChartsDialog(QDialog):
         # 数据起终
         self.bottom_start = ""
         self.bottom_end = ""
+        # 左轴数据范围
+        self.left_min = ''
+        self.left_max = ''
+        # 右轴数据范围
+        self.right_min = ''
+        self.right_max = ''
 
         layout = QHBoxLayout(self)
         left_layout = QVBoxLayout(self)
@@ -387,23 +392,115 @@ class DrawChartsDialog(QDialog):
         def change_bottom_tag(text):
             self.axix_tags["bottom"] = text
 
+        def float_validator(vaule):
+            try:
+                float(vaule)
+            except ValueError:
+                return ''
+            else:
+                return vaule
+
+        def change_left_min_value(value):
+            self.left_min = float_validator(value)
+
+        def change_left_max_value(value):
+            self.left_max = float_validator(value)
+
+        def change_right_min_value(value):
+            self.right_min = float_validator(value)
+
+        def change_right_max_value(value):
+            self.right_max = float_validator(value)
+
         popup = QDialog(self)
         popup.setWindowTitle("更多配置")
         layout = QVBoxLayout(popup)
+
+        ######### 左轴参数 ##########
+
+        layout.addWidget(QLabel('左轴调整:', popup, objectName='optsLabel'))
+        left_unit_layout = QHBoxLayout(popup)
+        left_unit_layout.setContentsMargins(7, 0, 0, 0)
+        l = QLabel("名称:", popup)
+        left_tag = QLineEdit(popup)
+        left_tag.setText(self.axix_tags["left"])
+        left_tag.textChanged.connect(change_left_tag)
+        left_unit_layout.addWidget(l)
+        left_unit_layout.addWidget(left_tag)
+
+        lable_ = QLabel("最小值:", popup)
+        left_min = QLineEdit(popup)
+        left_min.setText(self.left_min)
+        left_min.textChanged.connect(change_left_min_value)
+        left_unit_layout.addWidget(lable_)
+        left_unit_layout.addWidget(left_min)
+
+        lable_ = QLabel("最大值:", popup)
+        left_max = QLineEdit(popup)
+        left_max.setText(self.left_max)
+        left_max.textChanged.connect(change_left_max_value)
+        left_unit_layout.addWidget(lable_)
+        left_unit_layout.addWidget(left_max)
+
+        left_unit_layout.addStretch()
+        layout.addLayout(left_unit_layout)
+
+        ######## 右轴参数 ##########
+        layout.addWidget(QLabel('右轴调整:', popup, objectName='optsLabel'))
+        l = QLabel("名称:", popup)
+        right_tag = QLineEdit(popup)
+        right_tag.setText(self.axix_tags["right"])
+        right_tag.textChanged.connect(change_right_tag)
+        right_unit_layout = QHBoxLayout(popup)
+        right_unit_layout.setContentsMargins(7, 0, 0, 0)
+        right_unit_layout.addWidget(l)
+        right_unit_layout.addWidget(right_tag)
+
+        lable_ = QLabel("最小值:", popup)
+        right_min = QLineEdit(popup)
+        right_min.setText(self.right_min)
+        right_min.textChanged.connect(change_right_min_value)
+        right_unit_layout.addWidget(lable_)
+        right_unit_layout.addWidget(right_min)
+
+        lable_ = QLabel("最大值:", popup)
+        right_max = QLineEdit(popup)
+        right_max.setText(self.right_max)
+        right_max.textChanged.connect(change_right_max_value)
+        right_unit_layout.addWidget(lable_)
+        right_unit_layout.addWidget(right_max)
+
+        right_unit_layout.addStretch()
+        layout.addLayout(right_unit_layout)
+
+        ########### 横轴设置 ##########
+
+        layout.addWidget(QLabel('横轴调整:', objectName='optsLabel'))
+        l = QLabel("名称:", popup)
+        bottom_tag = QLineEdit(popup)
+        bottom_tag.setText(self.axix_tags["bottom"])
+        bottom_tag.textChanged.connect(change_bottom_tag)
+        bottom_unit_layout = QHBoxLayout(popup)
+        bottom_unit_layout.setContentsMargins(7, 0, 0, 0)
+        bottom_unit_layout.addWidget(l)
+        bottom_unit_layout.addWidget(bottom_tag)
+
         limit_start = QCheckBox(popup)
         limit_start.setText("固定起始")
         if self.bottom_start:
             limit_start.setCheckState(Qt.Checked)
         limit_start.stateChanged.connect(set_bottom_start)
-        layout.addWidget(limit_start)
+        bottom_unit_layout.addWidget(limit_start)
         limit_end = QCheckBox(popup)
         limit_end.setText("固定结束")
         limit_end.stateChanged.connect(set_bottom_end)
         if self.bottom_end:
             limit_end.setCheckState(Qt.Checked)
-        layout.addWidget(limit_end)
+        bottom_unit_layout.addWidget(limit_end)
+        bottom_unit_layout.addStretch()
+        layout.addLayout(bottom_unit_layout)
 
-        layout.addWidget(QLabel("数据是否去 0:",popup))
+        layout.addWidget(QLabel("数据是否去 0:",popup, objectName='optsLabel'))
         for index in range(self.params_list.count()):
             item = self.params_list.item(index)
             no_zero_checked = QCheckBox(popup)
@@ -412,40 +509,14 @@ class DrawChartsDialog(QDialog):
             no_zero_checked.setCheckState(item.no_zero)  # Qt.Checked,
             layout.addWidget(no_zero_checked)
 
-        left_unit_layout = QHBoxLayout(popup)
-        l = QLabel("左轴标签:", popup)
-        left_tag = QLineEdit(popup)
-        left_tag.setText(self.axix_tags["left"])
-        left_tag.textChanged.connect(change_left_tag)
-        left_unit_layout.addWidget(l)
-        left_unit_layout.addWidget(left_tag)
-        left_unit_layout.addStretch()
-        layout.addLayout(left_unit_layout)
-
-        l = QLabel("右轴标签:", popup)
-        right_tag = QLineEdit(popup)
-        right_tag.setText(self.axix_tags["right"])
-        right_tag.textChanged.connect(change_right_tag)
-        right_unit_layout = QHBoxLayout(popup)
-        right_unit_layout.addWidget(l)
-        right_unit_layout.addWidget(right_tag)
-        right_unit_layout.addStretch()
-        layout.addLayout(right_unit_layout)
-
-        l = QLabel("横轴标签:", popup)
-        bottom_tag = QLineEdit(popup)
-        bottom_tag.setText(self.axix_tags["bottom"])
-        bottom_tag.textChanged.connect(change_bottom_tag)
-        bottom_unit_layout = QHBoxLayout(popup)
-        bottom_unit_layout.addWidget(l)
-        bottom_unit_layout.addWidget(bottom_tag)
-        bottom_unit_layout.addStretch()
-        layout.addLayout(bottom_unit_layout)
-
         close_btn = QPushButton("确定", popup)
         close_btn.clicked.connect(popup.close)
-        layout.addWidget(close_btn)
+        layout.addWidget(close_btn, alignment=Qt.AlignRight)
         popup.setLayout(layout)
+        popup.setMaximumWidth(420)
+        popup.setStyleSheet("""
+        #optsLabel{padding: 3px; font-size:14px;background:rgb(200,220,230);border-radius: 3px}
+        """)
         popup.exec_()
 
     # 数据去0设置
@@ -481,7 +552,11 @@ class DrawChartsDialog(QDialog):
             'title': {'text': title, 'left': 'center', 'textStyle': {'fontSize': self.title_size_edit.value()}},
             'x_axis': [{"col_index": x_axis, "start": self.bottom_start, "end": self.bottom_end, 'date_format': self.date_format.currentData()}],
             'y_left': left_axis,
+            'y_left_min': self.left_min,
+            'y_left_max': self.left_max,
             'y_right': right_axis,
+            'y_right_min': self.right_min,
+            'y_right_max': self.right_max,
             'watermark': self.has_graphic.checkState(),
             'watermark_text': self.water_graphic.text(),
             'axis_tags': self.axix_tags
@@ -545,113 +620,7 @@ class DrawChartsDialog(QDialog):
         x_axis = pretreatment_options['x_axis'][0]
         # 根据x轴转数据格式
         chart_src_data = self.get_splice_df(x_axis['col_index'])
-        if x_axis['col_index'] == "column_0":
-            chart_src_data['column_0'] = chart_src_data['column_0'].apply(lambda x: datetime.datetime.strptime(x, '%Y-%m-%d').strftime(x_axis['date_format']))  # 转为要求的格式
-        # 1 x轴数据
-        option_of_xaxis = {
-            "type": "category",
-            "data": chart_src_data[x_axis["col_index"]].values.tolist(),
-            'axisLabel': {
-                'rotate': -26,
-                'fontSize': 11
-            },
-        }
-        # 2 Y轴数据
-        y_axis = [{'type': 'value', "name": pretreatment_options['axis_tags']['left']}, {'type': 'value',"name": pretreatment_options['axis_tags']['right']}]
-        series = list()
-        legend_data = list()
-        for y_left_opts_item in pretreatment_options['y_left']:  # 左轴数据
-            left_series = dict()  # 左轴系列
-            if y_left_opts_item['no_zero']:  # 本数据去0
-                cache_df = chart_src_data[chart_src_data[y_left_opts_item['col_index']] != '0'].copy()
-            else:
-                cache_df = chart_src_data
-            left_series['type'] = y_left_opts_item['chart_type']
-            left_series['name'] = self.table_headers[y_left_opts_item['col_index']]
-            left_series['yAxisIndex'] = 0
-            a = cache_df[x_axis['col_index']].values.tolist()  # 横轴数据
-            b = cache_df[y_left_opts_item['col_index']].values.tolist()  # 数值
-            left_series['data'] = [*zip(a, b)]
-            series.append(left_series)
-            legend_data.append(self.table_headers[y_left_opts_item['col_index']])
-
-        for y_right_opts_item in pretreatment_options['y_right']:  # 右轴数据
-            right_series = dict()  # 右轴系列
-            if y_right_opts_item['no_zero']:  # 本数据去0
-                cache_df = chart_src_data[chart_src_data[y_right_opts_item['col_index']] != '0'].copy()
-            else:
-                cache_df = chart_src_data
-            right_series['type'] = y_right_opts_item['chart_type']
-            right_series['name'] = self.table_headers[y_right_opts_item['col_index']]
-            right_series['yAxisIndex'] = 1
-            a = cache_df[x_axis['col_index']].values.tolist()  # 横轴数据
-            b = cache_df[y_right_opts_item['col_index']].values.tolist()  # 数值
-            right_series['data'] = [*zip(a, b)]
-            series.append(right_series)
-            legend_data.append(self.table_headers[y_right_opts_item['col_index']])
-        # 标题大小
-        title_size = pretreatment_options['title']['textStyle']['fontSize']
-        # 根据预处理信息绘制图形
-        options = {
-            "title": pretreatment_options["title"],
-            'legend': {'data': legend_data, 'bottom': 13},
-            'tooltip': {'axisPointer': {'type': 'cross'}},
-            'grid': {
-                'top': title_size + 15,
-                'left': 5,
-                'right': 5,
-                'bottom': 20 * (len(legend_data) / 3 + 1) + 22,
-                'show': False,
-                'containLabel': True,
-            },
-            'xAxis': option_of_xaxis,
-            'yAxis': y_axis,
-            'series': series,
-            'dataZoom': [{
-                'type': 'slider',
-                'start': 0,
-                'end': 100,
-                'bottom': 0,
-                'height': 16
-            }]
-        }
-        if pretreatment_options['watermark']:
-            options['graphic'] = {
-                'type': 'group',
-                'rotation': math.pi / 4,
-                'bounding': 'raw',
-                'right': 110,
-                'bottom': 110,
-                'z': 100,
-                'children': [
-                    {
-                        'type': 'rect',
-                        'left': 'center',
-                        'top': 'center',
-                        'z': 100,
-                        'shape': {
-                            'width': 400,
-                            'height': 50
-                        },
-                        'style': {
-                            'fill': 'rgba(0,0,0,0.3)'
-                        }
-                    },
-                    {
-                        'type': 'text',
-                        'left': 'center',
-                        'top': 'center',
-                        'z': 100,
-                        'style': {
-                            'fill': '#fff',
-                            'text': pretreatment_options["watermark_text"],
-                            'font': 'bold 26px Microsoft YaHei'
-                        }
-                    }
-                ]
-            }
-        # 将配置传入界面绘图
-        # print("真正图表配置:\n", options)
+        options = chart_options_handler(chart_src_data, self.table_headers, pretreatment_options)
         self.reset_chart_options(options)
 
     # 根据预处理后的配置项生成季节图形配置并传入绘图

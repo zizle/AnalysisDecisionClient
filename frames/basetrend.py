@@ -10,7 +10,7 @@ import pandas as pd
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QTableWidget, QFrame, QHeaderView, QTableWidgetItem, \
     QLabel, QPushButton
 from PyQt5.QtGui import QBrush, QColor, QIcon
-# from PyQt5.QtWebEngineWidgets import QWebEngineView
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtCore import QUrl, QMargins, Qt, QPoint, QThread, pyqtSignal
 from widgets import ScrollFoldedBox, CircleProgressBar
 import settings
@@ -70,6 +70,12 @@ class GetTableSourceThread(QThread):
             self.source_data_signal.emit(self.table_id, self.title, response['records'])
 
 
+# 显示图形的WebView
+class ChartsWebEngineView(QWebEngineView):
+    def __init__(self, *args, **kwargs):
+        super(ChartsWebEngineView, self).__init__(*args, **kwargs)
+
+
 # 显示图形和数据的弹窗
 class ChartOfTableWidget(QWidget):
     def __init__(self, table_id, source_data, *args, **kwargs):
@@ -79,13 +85,18 @@ class ChartOfTableWidget(QWidget):
         self.setWindowFlags(Qt.Dialog)
         self.table_id = table_id
         self.source_data = source_data
-        self.resize(980, 650)
+        self.resize(960, 650)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0,0,0,0)
         self.detail_table = DetailTable(self)
+        self.detail_table.setMaximumHeight(220)
+        # 显示图形的WebView
+        self.charts_show = ChartsWebEngineView(self)
+        layout.addWidget(self.charts_show)
         layout.addWidget(self.detail_table)
         self.setLayout(layout)
         self._sort_and_show_table_data()
+        self.charts_show.load(QUrl(settings.SERVER_ADDR + 'trend/table/' + str(self.table_id) + '/charts/'))
 
     # 对数据进行时间列column_0的排序
     def _sort_and_show_table_data(self):
@@ -104,8 +115,10 @@ class ChartOfTableWidget(QWidget):
         self.sorted_df = source_df.sort_values(by='column_0')
         self.sorted_df.reset_index(drop=True, inplace=True)  # 重置数据索引
         table_records = self.sorted_df.to_dict(orient='records')
-        table_records.insert(0,free_row)
+        table_records.insert(0, free_row)
         self.detail_table.show_detail_data(self.table_headers_dict, table_records)
+        del self.source_data
+        self.source_data = None
 
 
 # 数据表的表格
@@ -231,17 +244,27 @@ class TrendPage(QWidget):
         layout.setSpacing(0)
         self.variety_folded = ScrollFoldedBox()
         self.variety_folded.left_mouse_clicked.connect(self.variety_clicked)
-        layout.addWidget(self.variety_folded, alignment=Qt.AlignLeft)
+        layout.addWidget(self.variety_folded)
         # 右侧是QTableWidget用于显示数据表信息
-        tableinfo_layout = QVBoxLayout(self)
-        tableinfo_layout.setContentsMargins(1,1,0,1)
-        self.data_table = DataTableWidget(self)
-        tableinfo_layout.addWidget(self.data_table)
-        layout.addLayout(tableinfo_layout)
 
-        # self.web_charts = QWebEngineView(self)
-        #
-        # layout.addWidget(self.web_charts)
+        # tableinfo_layout.addWidget(self.data_table)
+        # layout.addLayout(tableinfo_layout)
+        # 右侧是webView
+        r_layout = QVBoxLayout(self)
+        self.table_lib_btn = QPushButton("数据库", self, objectName='libBtn')
+        self.setToolTip("点击查看当前品种数据表")
+        self.table_lib_btn.setCursor(Qt.PointingHandCursor)
+        self.table_lib_btn.hide()
+        self.table_lib_btn.clicked.connect(self.reverse_charts_and_table)
+        r_layout.addWidget(self.table_lib_btn, alignment=Qt.AlignLeft)
+        self.charts_loader = QWebEngineView(self)
+        r_layout.addWidget(self.charts_loader)
+
+        self.data_table = DataTableWidget(self)
+        r_layout.addWidget(self.data_table)
+        self.data_table.hide()
+
+        layout.addLayout(r_layout)
 
         self.setLayout(layout)
         # 设置折叠窗的样式
@@ -282,12 +305,18 @@ class TrendPage(QWidget):
             background: rgba(0, 0, 0, 80);
         }
         """)
+        self.setStyleSheet("""
+        #libBtn{border:none;color:rgb(50,120,180);padding:3px 8px;font-size:13px}
+        #libBtn:hover{color:rgb(50,150,230);font-weight:bold}
+        """)
+        self.charts_loader.load(QUrl(settings.SERVER_ADDR + 'trend/charts/'))
 
     def resizeEvent(self, event):
         # 设置折叠窗的大小
         box_width = self.parent().width() * 0.228
         self.variety_folded.setFixedWidth(box_width + 8)
         self.variety_folded.setBodyHorizationItemCount()
+        self.charts_loader.setFixedWidth(self.parent().width() - box_width - 8)
 
     # 获取所有品种组和品种
     def getGroupVarieties(self):
@@ -306,8 +335,13 @@ class TrendPage(QWidget):
                     body.addButton(sub_item['id'], sub_item['name'])
             self.variety_folded.container.layout().addStretch()
 
-    # 点击了品种,请求当前品种下的所有数据表
+    # 点击了品种，显示当前品种下的品种页显示的图形
     def variety_clicked(self, vid, text):
+        self.charts_loader.load(QUrl(settings.SERVER_ADDR + 'trend/variety-charts/'+str(vid)+'/'))
+        self.get_current_variety_table(vid, text)
+
+    # 点击了品种,请求当前品种下的所有数据表
+    def get_current_variety_table(self, vid, text):
         try:
             r = requests.get(url=settings.SERVER_ADDR + 'variety/{}/trend/table/'.format(vid))
             if r.status_code != 200:
@@ -317,3 +351,17 @@ class TrendPage(QWidget):
             settings.logger.error("【基本分析】模块获取品种下的数据表失败:{}".format(e))
         else:
             self.data_table.show_tables(response["tables"])
+            self.table_lib_btn.show()
+
+    # 切换图形与表格的显示
+    def reverse_charts_and_table(self):
+        if self.data_table.isHidden():
+            self.charts_loader.hide()
+            self.data_table.show()
+            self.table_lib_btn.setText("图形库")
+            self.setToolTip("点击查看当前品种图形")
+        else:
+            self.data_table.hide()
+            self.charts_loader.show()
+            self.table_lib_btn.setText("数据库")
+            self.setToolTip("点击查看当前品种数据表")
