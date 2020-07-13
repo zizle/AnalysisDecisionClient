@@ -56,6 +56,39 @@ body{background-color: rgb(240,240,240)}
 
     <hr>
 
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">100元可交割国债应计利息</th>
+            </tr>
+            <tr>
+                <td>可交割国债票面利率:</td>
+                <td><input type="number" v-model.number="tickRate"></td>
+                <td rowspan="4" class="resultLabel">应计利息:</td>
+                <td rowspan="4" class="calResult">{{ AccruedInterest }}</td>
+            </tr>
+
+            <tr>
+                <td>每年付息次数:</td>
+                <td><input type="number" v-model.number="yearInterestCount"></td>
+            </tr>
+            <tr>
+                <td>第二交割日:</td>
+                <td><input type="number" ></td>
+            </tr>
+            <tr>
+                <td>上一付息日:</td>
+                <td><input type="number" ></td>
+            </tr>
+            <tr>
+                <td>当前付息周期实际天数:</td>
+                <td><input type="number" v-model.number="factDayCount"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote"><img src="../img/accrued_interest.png" alt="应计利息计算公式"></div>
+        <div class="formalasNote">注:结果四舍五入到小数点后7位</div>
+    </div>
 
 
 </div>
@@ -71,6 +104,12 @@ var vm = new Vue({
         c_couponRateGZ:'',
         f_interestCountGZ:'',
         convertResult: 0,
+
+        AccruedInterest: 0,
+        tickRate:'',
+        yearInterestCount: '',
+        factDayCount:'',
+
     },
     watch: {
         r_couponRate10(val, oldVal){

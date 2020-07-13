@@ -6,6 +6,7 @@ import os
 import sys
 import time
 import json
+import logging
 from hashlib import md5 as hash_md5
 from requests import get as request_get
 from subprocess import Popen
@@ -20,6 +21,34 @@ SYSTEM_BIT = "64"
 APP_DAWN = QSettings('dawn/initial.ini', QSettings.IniFormat)
 
 BASE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+
+
+# 设置日志记录
+def make_dir(dir_path):
+    path = dir_path.strip()
+    if not os.path.exists(path):
+        os.makedirs(path)
+    return path
+
+
+def config_logger_handler():
+    # 日志配置
+    log_folder = os.path.join(BASE_DIR, "logs/")
+    make_dir(log_folder)
+    log_file_name = time.strftime('%Y-%m-%d', time.localtime(time.time())) + '.log'
+    log_file_path = log_folder + os.sep + log_file_name
+
+    handler = logging.FileHandler(log_file_path, encoding='UTF-8')
+    handler.setLevel(logging.ERROR)
+    logger_format = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s[line:%(lineno)d]"
+    )
+    handler.setFormatter(logger_format)
+    return handler
+
+
+logger = logging.getLogger('errorlog')
+logger.addHandler(config_logger_handler())
 
 
 # 线程检测是否更新版本
@@ -39,9 +68,10 @@ class CheckUpdatingVersion(QThread):
                 headers={'User-Agent': 'RuiDa_ADSClient'}
             )
             if r.status_code != 200:
-                raise ValueError('检测版本失败。')
+                raise ValueError('检测版本失败。{}'.format(r.status_code))
             response = json.loads(r.content.decode('utf-8'))
         except Exception as e:
+            logger.error("检测版本出错:{}".format(e))
             self.check_fail.emit(True)
         else:
             self.check_successful.emit(response['data'])

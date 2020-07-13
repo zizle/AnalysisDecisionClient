@@ -767,19 +767,19 @@ class FrameLessWindow(QWidget):
         layout.addWidget(self.page_container)
         self.setLayout(layout)
 
-    def close(self):
-        super(FrameLessWindow, self).close()
-        # 清理缓存目录
-        cache_path = os.path.join(settings.BASE_DIR, 'cache/')
-        shutil.rmtree(cache_path)
-        os.mkdir(cache_path)
+    # def close(self):
+    #     super(FrameLessWindow, self).close()
+        # # 清理缓存目录
+        # cache_path = os.path.join(settings.BASE_DIR, 'cache/')
+        # shutil.rmtree(cache_path)
+        # os.mkdir(cache_path)
 
-    def show(self):
-        super(FrameLessWindow, self).show()
-        # 创建缓存目录
-        cache_path = os.path.join(settings.BASE_DIR, 'cache/')
-        if not os.path.exists(cache_path):
-            os.mkdir(cache_path)
+    # def show(self):
+    #     super(FrameLessWindow, self).show()
+        # # 创建缓存目录
+        # cache_path = os.path.join(settings.BASE_DIR, 'cache/')
+        # if not os.path.exists(cache_path):
+        #     os.mkdir(cache_path)
 
     # 事件过滤器, 用于解决鼠标进入其它控件后还原为标准鼠标样式
     def eventFilter(self, obj, event):
