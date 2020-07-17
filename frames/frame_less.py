@@ -717,6 +717,14 @@ class NavigationBar(QWidget):
         event.accept()
 
 
+# 现实更新信息的窗口
+class UpdateTipsLabel(QLabel):
+    def closeEvent(self, *args, **kwargs):
+        super(UpdateTipsLabel, self).closeEvent(*args, **kwargs)
+        print("关闭了")
+        settings.app_dawn.remove('updated')
+
+
 # 主窗口(无边框)
 class FrameLessWindow(QWidget):
     # 枚举左上右下以及四个定点
@@ -766,6 +774,19 @@ class FrameLessWindow(QWidget):
         layout.addWidget(self.navigation_bar)
         layout.addWidget(self.page_container)
         self.setLayout(layout)
+
+        if settings.app_dawn.value("updated"):
+            self.update_tips = UpdateTipsLabel(self)
+            self.update_tips.setWordWrap(True)
+            self.update_tips.setWindowFlags(Qt.Dialog)
+            self.update_tips.setWindowTitle("【1.13.4更新】")
+            self.update_tips.setFixedSize(300, 150)
+            self.update_tips.setText("<p>【1.13.4】版本更新:</p><p>1.已知的数据显示问题</p><p>2.操作体验优化</p>")
+            tips_frame = self.update_tips.frameGeometry()
+            tips_frame.moveCenter(user_desktop.center())
+            self.update_tips.move(tips_frame.topLeft())
+            self.update_tips.show()
+            self.update_tips.setStyleSheet("color:rgb(7,99,109);font-weight:bold;font-size:14px;padding-left:30px")
 
     # def close(self):
     #     super(FrameLessWindow, self).close()

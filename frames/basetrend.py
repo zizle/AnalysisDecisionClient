@@ -24,7 +24,10 @@ class DetailTable(QTableWidget):
         self.setEditTriggers(QHeaderView.NoEditTriggers)
 
     def show_detail_data(self, table_headers, table_records):
-        table_headers = [header for header in table_headers.values()]
+        headers_list = list()
+        for col_index in range(len(table_headers)):
+            headers_list.append(table_headers["column_{}".format(col_index)])
+        table_headers = headers_list
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(table_records))
         self.setHorizontalHeaderLabels(table_headers)

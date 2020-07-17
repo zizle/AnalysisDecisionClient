@@ -199,16 +199,15 @@ class ADSClient(FrameLessWindow):
         register_popup.exec_()
 
     # 用户注册成功
-    def user_register_success(self, userinfo):
+    def user_register_success(self, account):
+        # account是经加密后的数据
         # 再发起登录
         try:
             r = requests.post(
                 url=settings.SERVER_ADDR + 'login/',
                 headers={'Content-Type': "application/json;charset=utf-8"},
                 data=json.dumps({
-                    "username": userinfo['username'],
-                    "phone": userinfo["phone"],
-                    "password": userinfo["password"],
+                    "account": account,
                     "machine_code": settings.app_dawn.value('machine', '')
                 })
             )
