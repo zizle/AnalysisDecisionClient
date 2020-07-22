@@ -17,6 +17,7 @@ splash.import_packages()
 splash.make_client_existed()
 splash.getCurrentAdvertisements()
 base_window = ADSClient()  # main window
+base_window.bind_network_manager()
 base_window.running_auto_login()
 base_window.module_clicked(module_id=0, module_text=u'首页')  # 启动后显示首页
 base_window.show()

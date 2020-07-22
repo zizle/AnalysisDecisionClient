@@ -12,9 +12,10 @@ import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox
+from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox, qApp
 from PyQt5.QtGui import QPixmap, QFont, QImage
 from PyQt5.QtCore import Qt, QSize, QUrl
+from PyQt5.QtNetwork import QNetworkAccessManager
 
 from utils.machine import get_machine_code
 from popup import InformationPopup
@@ -113,6 +114,12 @@ class WelcomePage(QSplashScreen):
 
 # 主窗口(无边框)
 class ADSClient(FrameLessWindow):
+
+    # 绑定全局网络管理器
+    def bind_network_manager(self):
+        if not hasattr(qApp, "_network"):
+            network_manager = QNetworkAccessManager(self)
+            setattr(qApp, "_network", network_manager)
 
     # 用户点击【登录】
     def user_to_login(self):

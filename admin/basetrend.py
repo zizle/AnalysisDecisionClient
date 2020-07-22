@@ -12,18 +12,18 @@ import requests
 import pickle
 import pandas as pd
 from collections import OrderedDict
-from PyQt5.QtWidgets import QApplication,QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
+from PyQt5.QtWidgets import QApplication, qApp, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
     QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox, QListView
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
-from PyQt5.QtGui import QCursor, QIcon, QIntValidator
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins, QModelIndex
+from PyQt5.QtGui import QCursor, QIcon, QIntValidator, QBrush, QColor
+from PyQt5.QtNetwork import QNetworkRequest
 import settings
 from widgets import LoadedPage, CircleProgressBar
 from channels.trend import ReviewChartChannel
 from utils.charts import chart_options_handler, season_chart_options_handler
-
 
 # 数据图列配置的按钮
 class ChartAxisOptionButton(QPushButton):
@@ -938,6 +938,7 @@ class GetTableSourceThread(QThread):
 
 # 显示当前的数据表和支持管理操作
 class InformationTable(QTableWidget):
+    _current_variety = 0
     def __init__(self, *args):
         super(InformationTable, self).__init__(*args)
         self.get_source_thread = None
@@ -968,6 +969,7 @@ class InformationTable(QTableWidget):
         if event.buttons() == Qt.RightButton:
             index = self.indexAt(QPoint(event.x(), event.y()))
             current_row = index.row()
+            self.setCurrentCell(current_row, 7)
             self.setCurrentIndex(index)
             if current_row < 0:
                 return
@@ -1038,9 +1040,83 @@ class InformationTable(QTableWidget):
                 QMessageBox.information(self, '成功', response['message'])
                 self.removeRow(self.currentRow())
 
-    def show_contents(self, row_contents):
+    def reset_index_table(self):
+        move_btn = self.sender()
+        current_row = move_btn.row_index
+        if current_row == 0:
+            return
+        current_item = self.item(current_row, 0)
+        uprow_item = self.item(current_row - 1, 0)
+
+        # 组织数据，发送请求
+        body = {
+            "current_id": current_item.id,
+            "current_suffix": current_item.suffix_index,
+            "target_id": uprow_item.id,
+            "target_suffix": uprow_item.suffix_index
+        }
+
+        network_manager = getattr(qApp, "_network")
+        url = settings.SERVER_ADDR + 'variety/' + str(self._current_variety) + '/trend/table/'
+        request = QNetworkRequest(url=QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        reply = network_manager.put(request, json.dumps(body).encode("utf-8"))
+        reply.finished.connect(lambda: self.reset_table_index_reply(current_row))
+        print(body, self._current_variety)
+
+    def reset_table_index_reply(self, current_row):
+        reply = self.sender()
+        if reply.error():
+            settings.logger.error("用户修改数据表顺序错误:{}".format(reply.error()))
+            return
+        reply_data = reply.readAll().data()
+        reply.deleteLater()
+        reply_data = json.loads(reply_data.decode("utf-8"))
+        # 修改上一行的suffix_index
+        reply_indexes = reply_data['indexes']
+        self.item(current_row - 1, 0).suffix_index = reply_indexes['target_suffix']
+        # 修改本行数据suffix_index
+        self.item(current_row, 0).suffix_index = reply_indexes['current_suffix']
+        # 交换两行数据
+        for col in range(self.columnCount()):
+            current_item = self.takeItem(current_row, col)
+            uprow_item = self.takeItem(current_row - 1, col)
+            if col < 7:
+                if col == 0:
+                    new_current_item = QTableWidgetItem(current_item.text())
+                    new_current_item.id = uprow_item.id
+                    new_current_item.variety_id = uprow_item.variety_id
+                    new_current_item.suffix_index = uprow_item.suffix_index
+
+                    new_uprow_item = QTableWidgetItem(uprow_item.text())
+                    new_uprow_item.id = current_item.id
+                    new_uprow_item.variety_id = current_item.variety_id
+                    new_uprow_item.suffix_index = current_item.suffix_index
+                else:
+                    new_current_item = QTableWidgetItem(uprow_item.text())
+                    new_uprow_item = QTableWidgetItem(current_item.text())
+                new_current_item.setTextAlignment(Qt.AlignCenter)
+                new_uprow_item.setTextAlignment(Qt.AlignCenter)
+                if col == 6:
+                    if int(new_current_item.text()) > 0:
+                        new_current_item.setForeground(QBrush(QColor(180,60,60)))
+                    else:
+                        new_current_item.setForeground(QBrush(QColor(160, 160, 160)))
+                    if int(new_uprow_item.text()) > 0:
+                        new_uprow_item.setForeground(QBrush(QColor(180,60,60)))
+                    else:
+                        new_uprow_item.setForeground(QBrush(QColor(160, 160, 160)))
+
+                self.setItem(current_row, col, new_current_item)
+                self.setItem(current_row - 1, col, new_uprow_item)
+
+        self.setCurrentCell(current_row - 1, 7)
+
+    def show_contents(self, row_contents, current_variety):
+        self._current_variety = current_variety
         self.clear()
-        table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者']
+        # Tip:若修改表头注意修改点击移动行的函数内setCurrentCell()和右键事件内setCurrentCell()是否需变动
+        table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者', '最近新增', '']
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(row_contents))
         self.setHorizontalHeaderLabels(table_headers)
@@ -1051,6 +1127,7 @@ class InformationTable(QTableWidget):
             item0.setTextAlignment(Qt.AlignCenter)
             item0.id = row_item['id']
             item0.variety_id = row_item['variety_id']
+            item0.suffix_index = row_item["suffix_index"]
             self.setItem(row, 0, item0)
             item1 = QTableWidgetItem(row_item['title'])
             item1.setTextAlignment(Qt.AlignCenter)
@@ -1067,6 +1144,20 @@ class InformationTable(QTableWidget):
             item5 = QTableWidgetItem(row_item['updater'])
             item5.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 5, item5)
+            item6 = QTableWidgetItem(str(row_item['new_count']))
+            if row_item['new_count'] > 0:
+                item6.setForeground(QBrush(QColor(180,60,60)))
+            else:
+                item6.setForeground(QBrush(QColor(160, 160, 160)))
+            item6.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 6, item6)
+            if row > 0:
+                move_btn = QPushButton(self)
+                move_btn.setCursor(Qt.PointingHandCursor)
+                move_btn.setIcon(QIcon('media/move_up.png'))
+                move_btn.row_index = row
+                move_btn.clicked.connect(self.reset_index_table)
+                self.setCellWidget(row, 7, move_btn)
 
 
 # 管理我的数据表
@@ -1144,7 +1235,7 @@ class UpdateTrendTablePage(QWidget):
         except Exception:
             pass
         else:
-            self.trend_table.show_contents(response['tables'])
+            self.trend_table.show_contents(response['tables'], current_variety=current_variety_id)
 
 
 # 更新数据组的线程
@@ -1562,6 +1653,7 @@ class MyTrendChartTableManage(QTableWidget):
         super(MyTrendChartTableManage, self).__init__(*args)
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
         self.setAlternatingRowColors(True)
         self.verticalHeader().hide()
         self.setFrameShape(QFrame.NoFrame)
@@ -1581,6 +1673,7 @@ class MyTrendChartTableManage(QTableWidget):
         if event.buttons() == Qt.RightButton:
             index = self.indexAt(QPoint(event.x(), event.y()))
             current_row = index.row()
+            self.setCurrentCell(current_row, 5)  # setCurrentCell优先级大于item，cell有widget优先级大于无widget的。点击cell上的widget后会自动设置点击的widget为当前
             self.setCurrentIndex(index)
             if current_row < 0:
                 return
@@ -1606,10 +1699,8 @@ class MyTrendChartTableManage(QTableWidget):
             variety_show_action.triggered.connect(self.chart_show_in_variety)
             delete_action = menu.addAction('删除图表')
             delete_action.triggered.connect(self.delete_chart)
-
             menu.exec_(QCursor.pos())
-        else:
-            super(MyTrendChartTableManage, self).mousePressEvent(event)
+        super(MyTrendChartTableManage, self).mousePressEvent(event)
 
     # 首页显示,品种页显示和解说修改
     def modify_chart_information(self):
@@ -1747,19 +1838,23 @@ class MyTrendChartTableManage(QTableWidget):
 
     # 显示图形信息
     def show_charts_info(self, contents):
-        table_headers = ['序号','标题', '创建时间', '更新时间', '图形解说', '图形']
-        self.setColumnCount(6)
+        self.clear()
+        # Tip:若修改表头注意修改点击移动行的函数内setCurrentCell()和右键事件内setCurrentCell()是否需变动
+        table_headers = ['序号','标题', '创建时间', '更新时间', '图形解说', '图形', '']
+        self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.setRowCount(len(contents))
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         for row, row_item in enumerate(contents):
             item0 = QTableWidgetItem(str(row + 1))
             item0.setTextAlignment(Qt.AlignCenter)
             item0.id = row_item['id']
             item0.is_trend_show = row_item['is_trend_show']
             item0.is_variety_show = row_item['is_variety_show']
+            item0.suffix_index = row_item["suffix_index"]
             self.setItem(row, 0, item0)
             item1 = QTableWidgetItem(row_item['title'])
             item1.setTextAlignment(Qt.AlignCenter)
@@ -1773,19 +1868,98 @@ class MyTrendChartTableManage(QTableWidget):
             item4 = QTableWidgetItem(row_item['decipherment'])
             item4.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 4, item4)
+
+            item5 = QTableWidgetItem()
+            self.setItem(row, 5, item5)
+            item6 = QTableWidgetItem()
+            self.setItem(row, 6, item6)
+
             btn = QPushButton(self)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setIcon(QIcon('media/nor_chart.png'))
-            btn.chart_id = row_item['id']
-            btn.chart_title = row_item['title']
+            btn.row_index = row
+            # btn.chart_id = row_item['id']
+            # btn.chart_title = row_item['title']
             btn.clicked.connect(self.view_chart_show)
             self.setCellWidget(row, 5, btn)
+            if row > 0:
+                move_btn = QPushButton(self)
+                move_btn.setCursor(Qt.PointingHandCursor)
+                move_btn.setIcon(QIcon('media/move_up.png'))
+                move_btn.row_index = row
+                move_btn.clicked.connect(self.reset_index_chart)
+                self.setCellWidget(row, 6, move_btn)
+
+    def reset_index_chart(self):
+        move_btn = self.sender()
+        current_row = move_btn.row_index
+        if current_row == 0:
+            return
+        current_item = self.item(current_row, 0)
+        uprow_item = self.item(current_row - 1, 0)
+
+        # 组织数据，发送请求
+        body = {
+            "current_id": current_item.id,
+            "current_suffix": current_item.suffix_index,
+            "target_id": uprow_item.id,
+            "target_suffix": uprow_item.suffix_index
+        }
+        network_manager = getattr(qApp, "_network")
+        url = settings.SERVER_ADDR + 'trend/table-chart/'
+        request = QNetworkRequest(url=QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        reply = network_manager.put(request, json.dumps(body).encode("utf-8"))
+        reply.finished.connect(lambda: self.reset_chart_index_reply(current_row))
+
+    # 设置图形顺序的请求返回
+    def reset_chart_index_reply(self, current_row):
+        reply = self.sender()
+        if reply.error():
+            settings.logger.error("用户修改图形顺序错误:{}".format(reply.error()))
+            return
+        reply_data = reply.readAll().data()
+        reply.deleteLater()
+        reply_data = json.loads(reply_data.decode("utf-8"))
+        # 修改上一行的suffix_index
+        reply_indexes = reply_data['indexes']
+        self.item(current_row - 1, 0).suffix_index = reply_indexes['target_suffix']
+        # 修改本行数据suffix_index
+        self.item(current_row, 0).suffix_index = reply_indexes['current_suffix']
+        # 交换两行数据
+        for col in range(self.columnCount()):
+            current_item = self.takeItem(current_row, col)
+            uprow_item = self.takeItem(current_row - 1, col)
+            if col < 5:
+                if col == 0:
+                    new_current_item = QTableWidgetItem(current_item.text())
+                    new_current_item.id = uprow_item.id
+                    new_current_item.is_trend_show = uprow_item.is_trend_show
+                    new_current_item.is_variety_show = uprow_item.is_variety_show
+                    new_current_item.suffix_index = uprow_item.suffix_index
+
+                    new_uprow_item = QTableWidgetItem(uprow_item.text())
+                    new_uprow_item.id = current_item.id
+                    new_uprow_item.is_trend_show = current_item.is_trend_show
+                    new_uprow_item.is_variety_show = current_item.is_variety_show
+                    new_uprow_item.suffix_index = current_item.suffix_index
+                else:
+                    new_current_item = QTableWidgetItem(uprow_item.text())
+                    new_uprow_item = QTableWidgetItem(current_item.text())
+                new_current_item.setTextAlignment(Qt.AlignCenter)
+                new_uprow_item.setTextAlignment(Qt.AlignCenter)
+                self.setItem(current_row, col, new_current_item)
+                self.setItem(current_row - 1, col, new_uprow_item)
+
+        self.setCurrentCell(current_row - 1, 5)
 
     def view_chart_show(self):
         sender = self.sender()
-        chart_id = sender.chart_id
+        current_row = sender.row_index
+        chart_id = self.item(current_row, 0).id
+        chart_title = self.item(current_row, 1).text()
         chart_popup = QWebEngineView(self)
-        chart_popup.setWindowTitle(sender.chart_title)
+        chart_popup.setWindowTitle(chart_title)
         chart_popup.setAttribute(Qt.WA_DeleteOnClose)
         chart_popup.setWindowFlags(Qt.Dialog)
         chart_popup.resize(660, 420)

@@ -5,12 +5,14 @@ import time
 import logging
 from PyQt5.QtCore import QSettings
 
+SERVER_ADDR = "http://210.13.218.130:9002/"
+# SERVER_ADDR = "http://127.0.0.1:5000/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ADMINISTRATOR = True
 USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.1'
 # app设置
 app_dawn = QSettings('dawn/initial.ini', QSettings.IniFormat)
-SERVER_ADDR = app_dawn.value("SERVER")
+cache_dawn = QSettings('dawn/cache.ini', QSettings.IniFormat)
 # 与后端对应的静态文件路径
 STATIC_PREFIX = SERVER_ADDR + 'ads/'
 # 首页广告变化速率，单位毫秒
