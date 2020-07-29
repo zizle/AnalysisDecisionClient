@@ -4,6 +4,7 @@
 # Author: zizle
 # Created: 2020-05-18
 # ---------------------------
+import os
 import json
 import requests
 from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -96,11 +97,10 @@ class FormulasCalculate(QWidget):
     def variety_clicked(self, bid, head_text, v_en):
         # 拼接字符串
         # print(bid, head_text, v_en)
-        if v_en in ["A", "B"]:
-            page_file = "file:///pages/formulas/variety/calculate_beans.html"
-        elif v_en in ["CU", "AL", "NI", "SN", "SS"]:
-            page_file = "file:///pages/formulas/variety/calculate_{}.html".format(v_en)
-        elif v_en in ["GZQH"]:
+        file_path = os.path.join(settings.BASE_DIR, 'dawn/formulas.json')
+        with open(file_path, "r", encoding="utf-8") as f:
+            support_list = json.load(f)
+        if v_en in support_list:
             page_file = "file:///pages/formulas/variety/calculate_{}.html".format(v_en)
         else:
             page_file = "file:///pages/formulas/variety/no_found.html"

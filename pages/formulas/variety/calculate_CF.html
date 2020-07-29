@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>棉花计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="cfapp">
+    <!--皮棉收购价格测算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">皮棉收购价格测算</th>
+            </tr>
+            <tr>
+                <td>籽棉价格:</td>
+                <td><input type="number" v-model.number="zimianPrice"></td>
+                <td rowspan="4" class="resultLabel">皮棉价格:</td>
+                <td rowspan="4" class="calResult">{{ pimianPrice }}</td>
+            </tr>
+
+            <tr>
+                <td>棉籽价格:</td>
+                <td><input type="number" v-model="mianziPrice"></td>
+            </tr>
+            <tr>
+                <td>衣分:</td>
+                <td><input type="number" v-model="yifen"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:皮棉价格 = (籽棉价格-棉籽价格 x (1-衣分-0.01))÷(衣分- 0.01) x 2000</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后2位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#cfapp",
+    data: {
+        // 皮棉收购价格测算
+        pimianPrice:'',
+        zimianPrice:'',
+        mianziPrice:'',
+        yifen:'',
+    },
+    watch: {
+        // 皮棉收购价格测算
+        zimianPrice(val, oldVal){this.pimianPrice = this.calculatePiMianPrice()},
+        mianziPrice(val, oldVal){this.pimianPrice = this.calculatePiMianPrice()},
+        yifen(val, oldVal){this.pimianPrice = this.calculatePiMianPrice()},
+
+    },
+    methods:{
+        // 皮棉收购价格测算
+        calculatePiMianPrice(){
+            var result = (this.zimianPrice - this.mianziPrice * (1 - this.yifen - 0.01)) / (this.yifen -0.01) * 2000;
+            return Math.round(result * 100) / 100
+        },
+
+    }
+})
+</script>
+</html>

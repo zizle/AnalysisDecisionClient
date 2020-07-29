@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>焦炭计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="japp">
+    <!--焦炭计算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">焦炭成本</th>
+            </tr>
+            <tr>
+                <td>主焦煤:</td>
+                <td><input type="number" v-model.number="zhuJiaoMei"></td>
+                <td rowspan="4" class="resultLabel">成本:</td>
+                <td rowspan="4" class="calResult">{{ resultCost }}</td>
+            </tr>
+            <tr>
+                <td>焦煤:</td>
+                <td><input type="number" v-model.number="jiaoMei"></td>
+            </tr>
+            <tr>
+                <td>气煤:</td>
+                <td><input type="number" v-model.number="qiMei"></td>
+            </tr>
+
+            <tr>
+                <td>瘦煤:</td>
+                <td><input type="number" v-model.number="shouMei"></td>
+            </tr>
+            <tr>
+                <td>肥煤:</td>
+                <td><input type="number" v-model.number="feiMei"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:成本 = 1.35 × (0.3 × 主焦煤 + 0.15 × 瘦煤 + 0.15 × 气煤 + 0.15 × 肥煤 + 0.25 × 焦煤 / 3)</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#japp",
+    data: {
+        // 焦炭成本
+        resultCost: '',
+        zhuJiaoMei:'',
+        jiaoMei:'',
+        qiMei: '',
+        shouMei: '',
+        feiMei: ''
+    },
+    watch: {
+        // 测算
+        zhuJiaoMei(){this.resultCost = this.calculateCost()},
+        jiaoMei(){this.resultCost = this.calculateCost()},
+        qiMei(){this.resultCost = this.calculateCost()},
+        shouMei(){this.resultCost = this.calculateCost()},
+        feiMei(){this.resultCost = this.calculateCost()},
+
+    },
+    methods:{
+        // 测算
+        calculateCost(){
+            var r = 1.35 *(0.3*this.zhuJiaoMei+0.15*this.shouMei+0.15*this.feiMei+0.15*this.qiMei+0.25*(this.jiaoMei/3))
+            return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

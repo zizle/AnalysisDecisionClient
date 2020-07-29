@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>xx计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="xxapp">
+    <!--测算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">测算</th>
+            </tr>
+            <tr>
+                <td>xxx:</td>
+                <td><input type="number"></td>
+                <td rowspan="4" class="resultLabel">xxx:</td>
+                <td rowspan="4" class="calResult">{{  }}</td>
+            </tr>
+
+            <tr>
+                <td>xx:</td>
+                <td><input type="number" ></td>
+            </tr>
+            <tr>
+                <td>xx:</td>
+                <td><input type="number" ></td>
+            </tr>
+            <tr>
+                <td>xx:</td>
+                <td><input type="number" ></td>
+            </tr>
+            <tr>
+                <td>xx:</td>
+                <td><input type="number" ></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote"><img src="../img/convert.png" alt="转换因子计算公式"></div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#cfapp",
+    data: {
+        // 测算
+
+    },
+    watch: {
+        // 测算
+
+    },
+    methods:{
+        // 测算
+        calculateConvert(){
+
+        },
+
+    }
+})
+</script>
+</html>
