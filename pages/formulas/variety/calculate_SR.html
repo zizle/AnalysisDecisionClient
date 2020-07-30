@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>白糖计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+    .calculateDiv input[readonly]{border:none;color: rgb(210,50,50);}
+
+</style>
+<body>
+<div id="srapp">
+    <!--进口糖价格换算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">进口糖价格换算</th>
+            </tr>
+            <tr>
+                <td>原糖价格:</td>
+                <td><input type="number" v-model.number="yuanTangPrice"></td>
+                <td>汇率:</td>
+                <td><input type="number" v-model.number="huiLv"></td>
+            </tr>
+
+            <tr>
+                <td>升贴水:</td>
+                <td><input type="number" v-model.number="shengTieShui"></td>
+                <td>海运保险费率:</td>
+                <td><input type="number" v-model.number="haiYunHuiLv"></td>
+            </tr>
+            <tr>
+                <td>海外运费:</td>
+                <td><input type="number" v-model.number="haiWaiYunFei"></td>
+                <td>国内运费:</td>
+                <td><input type="number" v-model.number="guoNeiYunFei"></td>
+
+            </tr>
+            <tr>
+                <td>利息及劳务费:</td>
+                <td><input type="number" v-model.number="liXiLaoWu"></td>
+                <td>增值税率:</td>
+                <td><input type="number" v-model.number="zengZhiShui"></td>
+            </tr>
+            <tr>
+
+                <td>外贸代理费率:</td>
+                <td><input type="number" v-model.number="WaiMaoFeiLv"></td>
+
+                <td>海关关税率:</td>
+                <td><input type="number" v-model.number="haiGuanShui"></td>
+            </tr>
+            <tr>
+                <td>银行手续费率:</td>
+                <td><input type="number" v-model.number="yinHangFeiLv"></td>
+                <td>耗损率:</td>
+                <td><input type="number" v-model.number="haoSunLv"></td>
+
+            </tr>
+            <tr>
+                <td>重量单位换算值:</td>
+                <td><input type="number" v-model.number="weightConvert"></td>
+                <td>加工费及运杂费等:</td>
+                <td><input type="number" v-model.number="yunZaFei"></td>
+
+            </tr>
+            <tr>
+                <td>炫光度增值:</td>
+                <td><input type="number" v-model.number="xuanGuangDu"></td>
+            </tr>
+            <tr>
+                <td>&nbsp;</td><td></td><td></td><td></td>
+            </tr>
+            <!--计算结果-->
+            <tr>
+                <td>初价:</td>
+                <td><input type="number" readonly v-model="fobPrice"></td>
+                <td>海运保险费:</td>
+                <td><input type="number" readonly v-model="baoXianFei"></td>
+            </tr>
+             <tr>
+                 <td>到岸价格:</td>
+                 <td><input type="number" readonly v-model="daoAnPrice"></td>
+                <td>到岸含税价:</td>
+                <td><input type="number" readonly v-model="shuiQianPrice"></td>
+
+            </tr>
+            <tr>
+                <td>精炼后完税价格:</td>
+                <td><input type="number" readonly v-model="lastJingLianPrice"></td>
+                <td>到岸不含税价:</td>
+                <td><input type="number" readonly v-model="shuiHouPrice"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注1:初价 =（原糖价格＋升贴水）x 重量单位换算 x 旋光度增值</div>
+        <div class="formalasNote">注2:海运保险费= 初价 x 海运保险费率</div>
+        <div class="formalasNote">注3:到岸价(人民币) = (初价 + 海运保险费 + 海外运费) x 汇率</div>
+        <div class="formalasNote">注4:不含税价 = 到岸价 x (1 + 外贸代理费率) x (1 + 银行手续费率) + 利息及劳务费</div>
+        <div class="formalasNote">注5:含税价= 不含税价 x (1 + 海关税率) x (1 + 增值税率)</div>
+        <div class="formalasNote">注6:精炼后完税价格 = 含税价 x(1+0.07) + 加工费 + 国内运费。</div>
+        <div class="formalasNote">注7:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#srapp",
+    data: {
+        // 进口糖价格换算
+        yuanTangPrice:'',
+        huiLv:'',
+        shengTieShui:'',
+        haiYunHuiLv:'',
+        haiWaiYunFei:'',
+        guoNeiYunFei:'',
+        liXiLaoWu:'',
+        yinHangFeiLv:'',
+        WaiMaoFeiLv:'',
+        zengZhiShui:0.13,
+        haiGuanShui:'',
+        haoSunLv: '',
+        yunZaFei: '',
+        weightConvert: '',
+        xuanGuangDu: '',
+        // 进口糖价格换算结果
+        daoAnPrice: '',
+        fobPrice: '',
+        baoXianFei: '',
+        shuiQianPrice:'',
+        shuiHouPrice:'',
+        lastJingLianPrice: '',
+    },
+    watch: {
+        // 进口糖价格换算
+        // 初价
+        yuanTangPrice(val, oldVal){this.fobPrice = this.calculateFobPrice()},
+        shengTieShui(val, oldVal){this.fobPrice = this.calculateFobPrice()},
+        weightConvert(val, oldVal){this.fobPrice = this.calculateFobPrice()},
+        xuanGuangDu(val, oldVal){this.fobPrice = this.calculateFobPrice()},
+        // 初价变化
+        fobPrice(val, oldVal){
+            this.baoXianFei = this.calculateHaiyunbaoxian(); // 海运保险费
+            this.daoAnPrice = this.calculateDaoAnPrice(); // 计算到岸价
+        },
+        // 海运费率变化
+        haiYunHuiLv(val, oldVal){
+            this.baoXianFei = this.calculateHaiyunbaoxian(); // 海运保险费
+
+        },
+        // 海运保险费变化
+        baoXianFei(val, oldVal){
+            this.daoAnPrice = this.calculateDaoAnPrice(); // 计算到岸价
+        },
+        // 海外运费变化
+        haiWaiYunFei(val, oldVal){
+            this.daoAnPrice = this.calculateDaoAnPrice(); // 计算到岸价
+        },
+        // 汇率变化
+        huiLv(val, oldVal){
+            this.daoAnPrice = this.calculateDaoAnPrice();// 计算到岸价
+        },
+        // 到岸价变化
+        daoAnPrice(n, o){
+            this.shuiHouPrice = this.buHanSuiPrice(); //  计算不含税价
+        },
+        // 外贸代理费率变化
+        WaiMaoFeiLv(n, o){
+            this.shuiHouPrice = this.buHanSuiPrice(); // 计算不含税价
+        },
+        // 银行手续费变化
+        yinHangFeiLv(n, o){
+             this.shuiHouPrice = this.buHanSuiPrice(); // 计算不含税价
+        },
+        // 利息及劳务费变化
+        liXiLaoWu(n, o){
+            this.shuiHouPrice = this.buHanSuiPrice(); // 计算不含税价
+        },
+        // 不含税价变化
+        shuiHouPrice(n, o){
+            this.shuiQianPrice = this.hanShuiPrice(); // 计算含税价
+        },
+        // 海关税率变化
+        haiGuanShui(n, o){
+            this.shuiQianPrice = this.hanShuiPrice(); // 计算含税价
+        },
+        // 增值税率变化
+        zengZhiShui(n, o){
+            this.shuiQianPrice = this.hanShuiPrice(); // 计算含税价
+        },
+        // 含税价变化
+        shuiQianPrice(n, o){
+            this.lastJingLianPrice = this.calculateJingLianPrice(); // 计算精炼后完税价
+        },
+        // 加工运杂费变化
+        yunZaFei(n, o){
+            this.lastJingLianPrice = this.calculateJingLianPrice(); // 计算精炼后完税价
+        },
+        guoNeiYunFei(n, o){
+            this.lastJingLianPrice = this.calculateJingLianPrice(); // 计算精炼后完税价
+        },
+
+    },
+    methods:{
+        // 进口糖价格换算
+        calculateFobPrice(){
+            var p = (this.yuanTangPrice + this.shengTieShui) * this.weightConvert * this.xuanGuangDu;
+            return Math.round(p * 10000) / 10000
+        },
+        // 海运保险费
+        calculateHaiyunbaoxian(){
+            return Math.round((this.fobPrice * this.haiYunHuiLv) * 10000) / 10000
+        },
+        // 到岸价
+        calculateDaoAnPrice(){
+            var result = (this.fobPrice + this.baoXianFei + this.haiWaiYunFei) * this.huiLv;
+            return Math.round(result * 10000) / 10000
+        },
+        // 不含税价
+        buHanSuiPrice(){
+            var result = this.daoAnPrice * (1 + this.WaiMaoFeiLv) * (1 + this.yinHangFeiLv) + this.liXiLaoWu;
+            return Math.round(result * 10000) / 10000
+        },
+        // 含税价
+        hanShuiPrice(){
+            var result = this.shuiHouPrice * (1 + this.haiGuanShui) * (1 + this.zengZhiShui);
+            return Math.round(result * 10000) / 10000
+        },
+        // 精炼价格
+        calculateJingLianPrice(){
+            var r = this.shuiHouPrice * (1 + 0.07) + this.yunZaFei + this.guoNeiYunFei;
+            return Math.round(r * 10000) / 10000
+        }
+
+    }
+})
+</script>
+</html>

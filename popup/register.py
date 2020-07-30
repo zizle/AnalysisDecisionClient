@@ -7,6 +7,7 @@
 import re
 import uuid
 import json
+import base64
 import requests
 from PyQt5.QtWidgets import QDialog, QLabel, QLineEdit, QPushButton, QCheckBox, QHBoxLayout, QVBoxLayout, QTextBrowser
 from PyQt5.QtGui import QPixmap, QImage
@@ -63,7 +64,7 @@ class ImageCodeLabel(QLabel):
 
 # 注册弹窗
 class RegisterPopup(QDialog):
-    user_registered = pyqtSignal(dict)
+    user_registered = pyqtSignal(str)
 
     def __init__(self, *args, **kwargs):
         super(RegisterPopup, self).__init__(*args, **kwargs)
@@ -223,11 +224,13 @@ class RegisterPopup(QDialog):
         if not image_code:
             self.findChild(QLabel, 'verifyError').setText('请填写验证码。')
             return
+        # 加密phone和password
+        account = json.dumps({'phone': phone, 'password': password})
+        account = base64.b64encode(account.encode('utf-8')).decode('utf-8')
         # 提交注册
         data = {
-            "phone": phone,
             "username": username,
-            "password": password,
+            "account": account,
             "imgcode": image_code,
             "machine_code": settings.app_dawn.value("machine"),
             "image_code_id": settings.app_dawn.value('IMGCODEID')
@@ -235,7 +238,7 @@ class RegisterPopup(QDialog):
         response_data = self._register_post(data)
         if response_data:
             # 注册成功
-            self.user_registered.emit({"username": username, "password": password, "phone":phone})
+            self.user_registered.emit(account)
             self.close()
 
     # 提交注册

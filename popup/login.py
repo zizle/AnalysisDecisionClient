@@ -165,6 +165,8 @@ class LoginPopup(QDialog):
 
     # 提交登录
     def _login_post(self, phone, password):
+        account = json.dumps({'phone': phone, 'password': password})
+        account = base64.b64encode(account.encode('utf-8')).decode('utf-8')
         try:
             r = requests.post(
                 url=settings.SERVER_ADDR + 'login/',
@@ -173,8 +175,7 @@ class LoginPopup(QDialog):
                     "AUTHORIZATION": settings.app_dawn.value('AUTHORIZATION'),
                 },
                 data=json.dumps({
-                    "phone": phone,
-                    "password": password,
+                    "account": account,
                     "machine_code":settings.app_dawn.value('machine', '')
                 }),
             )

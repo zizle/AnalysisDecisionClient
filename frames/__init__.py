@@ -12,9 +12,10 @@ import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox
+from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox, qApp
 from PyQt5.QtGui import QPixmap, QFont, QImage
 from PyQt5.QtCore import Qt, QSize, QUrl
+from PyQt5.QtNetwork import QNetworkAccessManager
 
 from utils.machine import get_machine_code
 from popup import InformationPopup
@@ -114,6 +115,12 @@ class WelcomePage(QSplashScreen):
 # 主窗口(无边框)
 class ADSClient(FrameLessWindow):
 
+    # 绑定全局网络管理器
+    def bind_network_manager(self):
+        if not hasattr(qApp, "_network"):
+            network_manager = QNetworkAccessManager(self)
+            setattr(qApp, "_network", network_manager)
+
     # 用户点击【登录】
     def user_to_login(self):
         login_popup = LoginPopup(parent=self)
@@ -199,16 +206,15 @@ class ADSClient(FrameLessWindow):
         register_popup.exec_()
 
     # 用户注册成功
-    def user_register_success(self, userinfo):
+    def user_register_success(self, account):
+        # account是经加密后的数据
         # 再发起登录
         try:
             r = requests.post(
                 url=settings.SERVER_ADDR + 'login/',
                 headers={'Content-Type': "application/json;charset=utf-8"},
                 data=json.dumps({
-                    "username": userinfo['username'],
-                    "phone": userinfo["phone"],
-                    "password": userinfo["password"],
+                    "account": account,
                     "machine_code": settings.app_dawn.value('machine', '')
                 })
             )

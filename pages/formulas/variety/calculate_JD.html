@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>鸡蛋计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="jdapp">
+    <!--蛋鸡养殖总成本-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">蛋鸡养殖总成本</th>
+            </tr>
+            <tr>
+                <td>仔鸡:</td>
+                <td><input type="number" v-model.number="zaiJi"></td>
+                <td rowspan="4" class="resultLabel">总成本:</td>
+                <td rowspan="4" class="calResult">{{ totalCost }}</td>
+            </tr>
+
+            <tr>
+                <td>饲料:</td>
+                <td><input type="number" v-model.number="siLiao"></td>
+            </tr>
+            <tr>
+                <td>防疫费:</td>
+                <td><input type="number" v-model.number="fangYiFei"></td>
+            </tr>
+            <tr>
+                <td>水电费:</td>
+                <td><input type="number" v-model.number="shuiDianFei"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注1:蛋鸡养殖总成本＝仔鸡＋饲料＋防疫费＋水电费</div>
+        <div class="formalasNote">注2:不计人工成本</div>
+        <div class="formalasNote">注3:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+    <!--鸡蛋盈亏平衡点价格-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">鸡蛋盈亏平衡点价格</th>
+            </tr>
+            <tr>
+                <td>总成本:</td>
+                <td><input type="number" v-model.number="totalCost"></td>
+                <td rowspan="4" class="resultLabel">盈亏平衡点价格:</td>
+                <td rowspan="4" class="calResult">{{ yingKuiPingHeng }}</td>
+            </tr>
+
+            <tr>
+                <td>淘汰鸡收入:</td>
+                <td><input type="number" v-model.number="taoTaiJi"></td>
+            </tr>
+            <tr>
+                <td>鸡粪收入:</td>
+                <td><input type="number" v-model.number="jiFen"></td>
+            </tr>
+            <tr>
+                <td>产蛋量:</td>
+                <td><input type="number" v-model.number="chanDanLiang"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注1:鸡蛋盈亏平衡点价格 = (总收益－淘汰鸡收入－鸡粪收入) ÷ 产蛋量＝(总成本－淘汰鸡收入－鸡粪收入) ÷ 产蛋量</div>
+        <div class="formalasNote">注2:【总成本】使用上述计算结果</div>
+        <div class="formalasNote">注3:结果四舍五入到小数点后4位</div>
+    </div>
+
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#jdapp",
+    data: {
+        // 蛋鸡养殖总成本
+        totalCost: '',
+        zaiJi: '',
+        siLiao: '',
+        fangYiFei: '',
+        shuiDianFei: '',
+        // 鸡蛋盈亏平衡点价格
+        yingKuiPingHeng:'',
+        taoTaiJi: '',
+        jiFen: '',
+        chanDanLiang: '',
+    },
+    watch: {
+        // 蛋鸡养殖总成本
+        zaiJi(n,o){this.totalCost = this.calculateJiCost()},
+        siLiao(n,o){this.totalCost = this.calculateJiCost()},
+        fangYiFei(n,o){this.totalCost = this.calculateJiCost()},
+        shuiDianFei(n,o){this.totalCost = this.calculateJiCost()},
+        // 鸡蛋盈亏平衡点价格
+        totalCost(n,o){this.yingKuiPingHeng = this.calculateYingKuiPingHeng()},
+        taoTaiJi(n,o){this.yingKuiPingHeng = this.calculateYingKuiPingHeng()},
+        jiFen(n,o){this.yingKuiPingHeng = this.calculateYingKuiPingHeng()},
+        chanDanLiang(n,o){this.yingKuiPingHeng = this.calculateYingKuiPingHeng()}
+    },
+    methods:{
+        // 蛋鸡养殖总成本
+        calculateJiCost(){
+            var r = this.zaiJi + this.siLiao + this.fangYiFei + this.shuiDianFei;
+            return Math.round(r * 10000) / 10000
+        },
+        // 鸡蛋盈亏平衡点价格
+        calculateYingKuiPingHeng(){
+            var r = (this.totalCost -  this.taoTaiJi - this.jiFen) / this.chanDanLiang;
+            return Math.round(r * 10000) / 10000
+        }
+    }
+})
+</script>
+</html>

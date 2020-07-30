@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>燃料油计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="fuapp">
+    <!--测算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">燃料油现货价</th>
+            </tr>
+            <tr>
+                <td>新加坡高硫380cst现货价:</td>
+                <td><input type="number" v-model.number="xinJiaPoXianHuo"></td>
+                <td rowspan="4" class="resultLabel">现货价:</td>
+                <td rowspan="4" class="calResult">{{ spotGoodsPrice }}</td>
+            </tr>
+
+            <tr>
+                <td>升贴水:</td>
+                <td><input type="number" v-model.number="shengTieShui"></td>
+            </tr>
+            <tr>
+                <td>人民币兑美元汇率:</td>
+                <td><input type="number" v-model.number="meiYuanHuiLv"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:燃料油现货 = (新加坡高硫380cst现货价 + 升贴水) × 人民币兑美元汇率</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">进口保税燃料油成本</th>
+            </tr>
+            <tr>
+                <td>MOPS价格:</td>
+                <td><input type="number" v-model.number="MOPSPrice"></td>
+                <td rowspan="4" class="resultLabel">燃料油成本:</td>
+                <td rowspan="4" class="calResult">{{ chengBen }}</td>
+            </tr>
+
+            <tr>
+                <td>升贴水:</td>
+                <td><input type="number" v-model.number="baoShuiShengTieShui"></td>
+            </tr>
+            <tr>
+                <td>汇率:</td>
+                <td><input type="number" v-model.number="baoShuiHuiLv"></td>
+            </tr>
+            <tr>
+                <td>其他费用:</td>
+                <td><input type="number" v-model.number="qiTaFei"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:进口保税燃料油成本 = (MOPS价格 + 升贴水) × 汇率 + 其他费用</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#fuapp",
+    data: {
+        // 燃料油现货价
+        spotGoodsPrice:'',
+        xinJiaPoXianHuo:'',
+        shengTieShui:'',
+        meiYuanHuiLv: '',
+        // 进口保税燃料油成本
+        chengBen:'',
+        MOPSPrice:'',
+        baoShuiShengTieShui:'',
+        baoShuiHuiLv:'',
+        qiTaFei:''
+    },
+    watch: {
+        // 燃料油现货价
+        xinJiaPoXianHuo(n,o){this.spotGoodsPrice = this.calculateXianHuoPrice()},
+        shengTieShui(n,o){this.spotGoodsPrice = this.calculateXianHuoPrice()},
+        meiYuanHuiLv(n,o){this.spotGoodsPrice = this.calculateXianHuoPrice()},
+        // 进口保税燃料油成本
+        MOPSPrice(n,o){this.chengBen = this.calculateChengBen()},
+        baoShuiShengTieShui(n,o){this.chengBen = this.calculateChengBen()},
+        baoShuiHuiLv(n,o){this.chengBen = this.calculateChengBen()},
+        qiTaFei(n,o){this.chengBen = this.calculateChengBen()},
+    },
+    methods:{
+        // 燃料油现货价
+        calculateXianHuoPrice(){
+            var r = (this.xinJiaPoXianHuo + this.shengTieShui) * this.meiYuanHuiLv;
+            return Math.round(r * 10000) / 10000
+        },
+        // 进口保税燃料油成本
+        calculateChengBen(){
+          var r = (this.MOPSPrice + this.baoShuiShengTieShui) * this.baoShuiHuiLv + this.qiTaFei;
+           return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

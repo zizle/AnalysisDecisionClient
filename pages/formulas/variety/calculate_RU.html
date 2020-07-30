@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>天然橡胶计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="ruapp">
+    <!--烟片加工成本（美金）-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">烟片加工成本(美金)</th>
+            </tr>
+            <tr>
+                <td>白片:</td>
+                <td><input type="number" v-model.number="baiPian"></td>
+                <td rowspan="4" class="resultLabel">加工成本:</td>
+                <td rowspan="4" class="calResult">{{ jiaGongCost }}</td>
+            </tr>
+
+            <tr>
+                <td>泰铢对美元汇率:</td>
+                <td><input type="number" v-model.number="taiZhuMeiYuanHuiLv"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:烟片加工成本(美金) = (白片 + 9) × 1000 ÷ 泰铢对美元汇率</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+    <!--标胶加工成本(美金)-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">标胶加工成本(美金)</th>
+            </tr>
+            <tr>
+                <td>杯胶:</td>
+                <td><input type="number" v-model.number="beiJiao"></td>
+                <td rowspan="4" class="resultLabel">加工成本:</td>
+                <td rowspan="4" class="calResult">{{ biaoJiaoCost }}</td>
+            </tr>
+
+            <tr>
+                <td>泰铢对美元汇率:</td>
+                <td><input type="number" v-model.number="taiZhuMeiYuanHuiLv"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:标胶加工成本(美金) = (杯胶 + 9) * 1000 ÷ 泰铢对美元汇率</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+    <!--天胶橡胶进口成本-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">天胶橡胶进口成本</th>
+            </tr>
+            <tr>
+                <td>进口报价:</td>
+                <td><input type="number" v-model.number="importPrice"></td>
+                <td rowspan="4" class="resultLabel">进口成本:</td>
+                <td rowspan="4" class="calResult">{{ importCost }}</td>
+            </tr>
+
+            <tr>
+                <td>人民币对美元汇率:</td>
+                <td><input type="number" v-model.number="RMBMeiYuanHuiLv"></td>
+            </tr>
+            <tr>
+                <td>关税:</td>
+                <td><input type="number" v-model.number="guanShui"></td>
+            </tr>
+            <tr>
+                <td>增值税:</td>
+                <td><input type="number" v-model.number="zengZhiShui"></td>
+            </tr>
+            <tr>
+                <td>其他费用:</td>
+                <td><input type="number" v-model.number="otherCost"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:进口成本 = 进口报价 × 人民币对美元汇率 + 关税 + 增值税 + 其他费用</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#ruapp",
+    data: {
+        // 烟片加工成本(美金)
+        jiaGongCost:'',
+        baiPian:'',
+        taiZhuMeiYuanHuiLv:'',
+        // 标胶加工成本(美金)
+        biaoJiaoCost:'',
+        beiJiao:'',
+        // 天胶橡胶进口成本
+        importCost:'',
+        importPrice:'',
+        RMBMeiYuanHuiLv:'',
+        guanShui:'',
+        zengZhiShui:'',
+        otherCost:'',
+    },
+    watch: {
+        // 烟片加工成本(美金)
+        baiPian(n,o){this.jiaGongCost = this.calculateJiaGongCost()},
+        taiZhuMeiYuanHuiLv(n,o){
+            this.jiaGongCost = this.calculateJiaGongCost();
+            this.biaoJiaoCost = this.calculateBiaoJiaoCost();
+        },
+        // 标胶加工成本(美金)
+        beiJiao(n,o){this.biaoJiaoCost = this.calculateBiaoJiaoCost();},
+        // 天胶橡胶进口成本
+        importPrice(){this.importCost = this.calculateImportCost()},
+        RMBMeiYuanHuiLv(){this.importCost = this.calculateImportCost()},
+        guanShui(){this.importCost = this.calculateImportCost()},
+        zengZhiShui(){this.importCost = this.calculateImportCost()},
+        otherCost(){this.importCost = this.calculateImportCost()},
+    },
+    methods:{
+        // 烟片加工成本(美金)
+        calculateJiaGongCost(){
+            return Math.round(((this.baiPian + 9) * 1000 / this.taiZhuMeiYuanHuiLv) * 10000) / 10000
+        },
+        // 标胶加工成本(美金)
+        calculateBiaoJiaoCost(){
+            return Math.round(((this.beiJiao + 9) * 1000 / this.taiZhuMeiYuanHuiLv) * 10000) / 10000
+        },
+        // 天胶橡胶进口成本
+        calculateImportCost(){
+            var r = this.importPrice * this.RMBMeiYuanHuiLv + this.guanShui + this.zengZhiShui + this.otherCost;
+            return Math.round(r * 10000) / 10000
+        },
+    }
+})
+</script>
+</html>

@@ -24,7 +24,10 @@ class DetailTable(QTableWidget):
         self.setEditTriggers(QHeaderView.NoEditTriggers)
 
     def show_detail_data(self, table_headers, table_records):
-        table_headers = [header for header in table_headers.values()]
+        headers_list = list()
+        for col_index in range(len(table_headers)):
+            headers_list.append(table_headers["column_{}".format(col_index)])
+        table_headers = headers_list
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(table_records))
         self.setHorizontalHeaderLabels(table_headers)
@@ -169,6 +172,7 @@ class DataTableWidget(QTableWidget):
 
     def show_tables(self, table_list):
         table_headers = ["序号", "标题", "起始时间", "截止时间", "数据来源", "备注", ""]
+
         self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.setRowCount(len(table_list))
@@ -199,7 +203,10 @@ class DataTableWidget(QTableWidget):
             item5.setForeground(QBrush(QColor(150, 50, 50)))
             item5.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 5, item5)
-            btn = QPushButton(self)
+            chart_count = row_item["charts_count"]
+            btn = QPushButton(str(chart_count), self) if chart_count else QPushButton(self)
+            btn.setStyleSheet("border:none;color:rgb(50,160,100)")
+            btn.resize(50, 50)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setIcon(QIcon('media/nor_chart.png'))
             btn.row = row
@@ -252,7 +259,7 @@ class TrendPage(QWidget):
         # 右侧是webView
         r_layout = QVBoxLayout(self)
         self.table_lib_btn = QPushButton("数据库", self, objectName='libBtn')
-        self.setToolTip("点击查看当前品种数据表")
+        self.table_lib_btn.setToolTip("点击查看当前品种数据表")
         self.table_lib_btn.setCursor(Qt.PointingHandCursor)
         self.table_lib_btn.hide()
         self.table_lib_btn.clicked.connect(self.reverse_charts_and_table)
@@ -359,9 +366,9 @@ class TrendPage(QWidget):
             self.charts_loader.hide()
             self.data_table.show()
             self.table_lib_btn.setText("图形库")
-            self.setToolTip("点击查看当前品种图形")
+            self.table_lib_btn.setToolTip("点击查看当前品种图形")
         else:
             self.data_table.hide()
             self.charts_loader.show()
             self.table_lib_btn.setText("数据库")
-            self.setToolTip("点击查看当前品种数据表")
+            self.table_lib_btn.setToolTip("点击查看当前品种数据表")

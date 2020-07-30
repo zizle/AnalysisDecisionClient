@@ -59,6 +59,36 @@ body{background-color: rgb(240,240,240)}
     <div class="calculateDiv">
         <table>
             <tr>
+                <th colspan="2" class="calDivHeader">国债基差</th>
+            </tr>
+            <tr>
+                <td>面值100元国债价格:</td>
+                <td><input type="number" v-model.number="debtPrice"></td>
+                <td rowspan="4" class="resultLabel">国债基差:</td>
+                <td rowspan="4" class="calResult">{{ debtBasisPrice }}</td>
+            </tr>
+
+            <tr>
+                <td>持有至交割期的收益:</td>
+                <td><input type="number" v-model.number="debtDeliveryProfit"></td>
+            </tr>
+            <tr>
+                <td>面值100元期货合约价:</td>
+                <td><input type="number" v-model="debtContractPrice"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注1:国债基差＝(面值100元国债价格 - 持有至交割期的收益) - (面值100元期货合约价 x 转换因子)</div>
+        <div class="formalasNote">注2:【转换因子】取以上计算结果</div>
+        <div class="formalasNote">注3:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+
+    <div class="calculateDiv">
+        <table>
+            <tr>
                 <th colspan="2" class="calDivHeader">100元可交割国债应计利息</th>
             </tr>
             <tr>
@@ -74,11 +104,11 @@ body{background-color: rgb(240,240,240)}
             </tr>
             <tr>
                 <td>第二交割日:</td>
-                <td><input type="number" ></td>
+                <td><input type="date" v-model="secondDeliveryDate"></td>
             </tr>
             <tr>
                 <td>上一付息日:</td>
-                <td><input type="number" ></td>
+                <td><input type="date" v-model="lastInterestDate"></td>
             </tr>
             <tr>
                 <td>当前付息周期实际天数:</td>
@@ -90,28 +120,82 @@ body{background-color: rgb(240,240,240)}
         <div class="formalasNote">注:结果四舍五入到小数点后7位</div>
     </div>
 
+    <hr>
+
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">国债期货交割货款</th>
+            </tr>
+            <tr>
+                <td>交割数量:</td>
+                <td><input type="number" v-model.number="deliveryCount"></td>
+                <td rowspan="4" class="resultLabel">交割货款:</td>
+                <td rowspan="4" class="calResult">{{ deliveryPrice }}</td>
+            </tr>
+
+            <tr>
+                <td>交割结算价:</td>
+                <td><input type="number" v-model.number="deliverySettlementPrice"></td>
+            </tr>
+            <tr>
+                <td>合约面值:</td>
+                <td><input type="number" v-model="contractFaceValue"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注1:交割货款＝交割数量×（交割结算价×转换因子+应计利息）×（合约面值/100元）</div>
+        <div class="formalasNote">注2:【转换因子】和【应计利息】都取以上计算结果</div>
+        <div class="formalasNote">注3:结果四舍五入到小数点后2位</div>
+    </div>
+
 
 </div>
 
 </body>
 <script>
+function datedifference(sDate1, sDate2) {    //sDate1和sDate2是2006-12-18格式
+    var dateSpan,
+        tempDate,
+        iDays;
+    sDate1 = Date.parse(sDate1);
+    sDate2 = Date.parse(sDate2);
+    dateSpan = sDate2 - sDate1;
+    dateSpan = Math.abs(dateSpan);
+    iDays = Math.floor(dateSpan / (24 * 3600 * 1000));
+    return iDays
+};
 var vm = new Vue({
     el: "#gzqhapp",
     data: {
+        // 计算转换因子
         r_couponRate10:0.03,
         x_monthCount:'',
         n_interestCount:'',
         c_couponRateGZ:'',
         f_interestCountGZ:'',
-        convertResult: 0,
-
-        AccruedInterest: 0,
+        convertResult: '',
+        // 计算国债基差
+        debtBasisPrice: '',
+        debtPrice: '',
+        debtDeliveryProfit:'',
+        debtContractPrice:'',
+        // 计算100元可交割国债的应计利息
+        AccruedInterest: '',
         tickRate:'',
         yearInterestCount: '',
+        secondDeliveryDate: '',
+        lastInterestDate:'',
         factDayCount:'',
-
+        // 国债交割货款
+        deliveryPrice:'',
+        deliveryCount: '',
+        deliverySettlementPrice:'',
+        contractFaceValue: '',
     },
     watch: {
+        // 计算转换因子
         r_couponRate10(val, oldVal){
             this.convertResult = this.calculateConvert();
         },
@@ -127,7 +211,42 @@ var vm = new Vue({
         f_interestCountGZ(val, oldVal){
             this.convertResult = this.calculateConvert();
         },
-
+        // 计算国债基差
+        debtPrice(){
+            this.debtBasisPrice = this.calculateBasisPrice();
+        },
+        debtDeliveryProfit(){
+            this.debtBasisPrice = this.calculateBasisPrice();
+        },
+        debtContractPrice(){
+            this.debtBasisPrice = this.calculateBasisPrice();
+        },
+        // 计算100元可交割国债的应计利息
+        tickRate(){
+             this.AccruedInterest = this.calculateInterest();
+        },
+        yearInterestCount(){
+            this.AccruedInterest = this.calculateInterest();
+        },
+        secondDeliveryDate(val, oldVal){
+            this.AccruedInterest = this.calculateInterest();
+        },
+        lastInterestDate(val, oldVal){
+            this.AccruedInterest = this.calculateInterest();
+        },
+        factDayCount(){
+            this.AccruedInterest = this.calculateInterest();
+        },
+        // 计算交割货款
+        deliveryCount(){
+            this.deliveryPrice = this.calculateDeliveryPrice();
+        },
+        deliverySettlementPrice(){
+            this.deliveryPrice = this.calculateDeliveryPrice();
+        },
+        contractFaceValue(){
+            this.deliveryPrice = this.calculateDeliveryPrice();
+        }
     },
     methods:{
         // 计算转换因子
@@ -141,6 +260,24 @@ var vm = new Vue({
             var subfix = cf * (1 - xfDvt);
             var result = pre * middle - subfix;
             return Math.round(result * 10000) / 10000
+        },
+        // 计算国债基差
+        calculateBasisPrice(){
+            var result = (this.debtPrice - this.debtDeliveryProfit) - (this.debtContractPrice * this.convertResult);
+            return Math.round(result * 10000) / 10000
+        },
+        // 计算应计利息
+        calculateInterest(){
+            var dateDiff = datedifference(this.secondDeliveryDate, this.lastInterestDate);
+            if (isNaN(dateDiff)){return};
+            console.log(dateDiff)
+            var result = ((this.tickRate * 100) / this.yearInterestCount) * (dateDiff / this.factDayCount);
+            return Math.round(result * 10000000) / 10000000
+        },
+        // 计算交割货款
+        calculateDeliveryPrice(){
+            var result = this.deliveryCount * (this.deliverySettlementPrice * this.convertResult + this.AccruedInterest) * (this.contractFaceValue / 100);
+            return Math.round(result * 100) / 100
         }
     }
 })

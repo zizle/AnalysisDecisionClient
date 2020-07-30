@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PTA计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="ptaapp">
+    <!--PTA外采PX成本-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">PTA外采PX成本</th>
+            </tr>
+            <tr>
+                <td>PX价格:</td>
+                <td><input type="number" v-model.number="PXPrice"></td>
+                <td rowspan="4" class="resultLabel">PX成本:</td>
+                <td rowspan="4" class="calResult">{{ pxCost }}</td>
+            </tr>
+
+            <tr>
+                <td>增值税率:</td>
+                <td><input type="number" v-model.number="zengZhiShuiLv"></td>
+            </tr>
+            <tr>
+                <td>关税税率:</td>
+                <td><input type="number" v-model.number="guanShuiLv"></td>
+            </tr>
+            <tr>
+                <td>汇率:</td>
+                <td><input type="number" v-model.number="huiLv"></td>
+            </tr>
+            <tr>
+                <td>加工费:</td>
+                <td><input type="number" v-model.number="jiaGongFei"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:PX成本 = PX价格 * 0.655(生产一吨的需求量) ×(1 + 增值税率）× (1 + 关税税率) × 汇率 + 600(加工费500-600)</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#ptaapp",
+    data: {
+        // PTA外采PX成本
+        pxCost:'',
+        PXPrice:'',
+        zengZhiShuiLv:0.13,
+        guanShuiLv:0.02,
+        huiLv:'',
+        jiaGongFei:600,
+    },
+    watch: {
+        // PTA外采PX成本
+        PXPrice(n,o){this.pxCost = this.calculatePxCost()},
+        zengZhiShuiLv(n,o){this.pxCost = this.calculatePxCost()},
+        guanShuiLv(n,o){this.pxCost = this.calculatePxCost()},
+        huiLv(n,o){this.pxCost = this.calculatePxCost()},
+        jiaGongFei(n,o){this.pxCost = this.calculatePxCost()},
+    },
+    methods:{
+        // PTA外采PX成本
+        calculatePxCost(){
+            var r = this.PXPrice * 0.655 * (1 + this.zengZhiShuiLv) * (1 + this.guanShuiLv) * this.huiLv + 600;
+            return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>
