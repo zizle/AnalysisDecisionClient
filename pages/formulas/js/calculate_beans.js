@@ -32,14 +32,6 @@ var vm = new Vue({
 		tariff: "", // 关税
 		RMBRate: "", // 人民币汇率
 		seaMixedCost: "", // 港杂费
-		
-		// 出粕量
-		generateMealAmount: "", // 出粕量
-		mealPressAmount: "", // 压榨量 
-		
-		// 出油量
-		genarateOilAmount: "", // 出油量
-		oilPressAmount: "", // 压榨量
 	},
 	watch:{
 		//大豆现货压榨利润
@@ -115,15 +107,6 @@ var vm = new Vue({
 		seaMixedCost(val, oldVal){
 			this.beansImportCost = this.calculateImportCost();
 		},
-		// 出粕量
-		
-		mealPressAmount(){
-			this.generateMealAmount = this.caculateGenerateMeal();
-		},
-		// 出油量
-		oilPressAmount(){
-			this.genarateOilAmount = this.caculateGenerateOil();
-		}
 		
 	},
 	methods:{
@@ -148,13 +131,5 @@ var vm = new Vue({
 			resultValue = ((parseFloat(this.CBOTFuturesPrice) + parseFloat(this.FOBPrimiun)) * parseFloat(this.unitReverseRatio) + parseFloat(this.seaTrafficCost)) * (1 + parseFloat(this.addedTax)) * (1 + parseFloat(this.tariff)) * parseFloat(this.RMBRate) + parseFloat(this.seaMixedCost);
 			return Math.round(resultValue);
 		},
-		// 出粕量计算
-		caculateGenerateMeal(){
-			return Math.round(parseFloat(this.mealPressAmount) * 0.785);
-		},
-		// 出油量计算
-		caculateGenerateOil(){
-			return Math.round(parseFloat(this.oilPressAmount) * 0.195);
-		}
 	}
 });

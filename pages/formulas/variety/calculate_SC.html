@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>原油计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="scapp">
+    <!--测算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">上海原油现货价</th>
+            </tr>
+            <tr>
+                <td>阿曼原油现货价:</td>
+                <td><input type="number" v-model.number="aManSpotPrice"></td>
+                <td rowspan="4" class="resultLabel">现货价:</td>
+                <td rowspan="4" class="calResult">{{ spotGoodsPrice }}</td>
+            </tr>
+
+            <tr>
+                <td>升贴水:</td>
+                <td><input type="number" v-model.number="shengTieShui"></td>
+            </tr>
+            <tr>
+                <td>人民币兑美元汇率:</td>
+                <td><input type="number" v-model.number="huiLv"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:上海原油现货 = (阿曼原油现货价 + 升贴水) × 人民币兑美元汇率</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+    <hr>
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">进口保税原油成本</th>
+            </tr>
+            <tr>
+                <td>到岸价:</td>
+                <td><input type="number" v-model.number="daoAnPrice"></td>
+                <td rowspan="4" class="resultLabel">成本:</td>
+                <td rowspan="4" class="calResult">{{ chegnBen }}</td>
+            </tr>
+
+            <tr>
+                <td>汇率:</td>
+                <td><input type="number" v-model.number="chengBenHuiLV"></td>
+            </tr>
+            <tr>
+                <td>其他费用:</td>
+                <td><input type="number" v-model.number="qiTaFeiYong"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:进口保税原油成本 = (到岸价 × 汇率) + 其他费用</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#scapp",
+    data: {
+        // 上海原油现货价
+        spotGoodsPrice: '',
+        aManSpotPrice: '',
+        shengTieShui: '',
+        huiLv:'',
+        // 进口保税原油成本
+        chegnBen:'',
+        daoAnPrice: '',
+        chengBenHuiLV: '',
+        qiTaFeiYong: '',
+
+    },
+    watch: {
+        // 上海原油现货价
+        aManSpotPrice(n,o){this.spotGoodsPrice = this.calculateYuanYouXianHuo();},
+        shengTieShui(n,o){this.spotGoodsPrice = this.calculateYuanYouXianHuo();},
+        huiLv(n,o){this.spotGoodsPrice = this.calculateYuanYouXianHuo();},
+        // 进口保税原油成本
+        daoAnPrice(n,o){this.chegnBen = this.calculateChengBen()},
+        chengBenHuiLV(n,o){this.chegnBen = this.calculateChengBen()},
+        qiTaFeiYong(n,o){this.chegnBen = this.calculateChengBen()},
+
+    },
+    methods:{
+        // 上海原油现货价
+        calculateYuanYouXianHuo(){
+            var r = (this.aManSpotPrice + this.shengTieShui) * this.huiLv;
+            return Math.round(r * 10000) / 10000
+        },
+        //进口保税原油成本
+        calculateChengBen(){
+            var r = this.daoAnPrice * this.chengBenHuiLV + this.qiTaFeiYong;
+            return Math.round(r * 10000) / 10000
+        },
+
+
+    }
+})
+</script>
+</html>

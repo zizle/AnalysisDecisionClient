@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>铁矿石计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="iapp">
+    <!--进口铁矿石成本-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">进口铁矿石成本</th>
+            </tr>
+            <tr>
+                <td>普氏62%粉矿价格:</td>
+                <td><input type="number" v-model.number="fenKuangPrice"></td>
+                <td rowspan="4" class="resultLabel">成本:</td>
+                <td rowspan="4" class="calResult">{{ importCost }}</td>
+            </tr>
+
+            <tr>
+                <td>汇率:</td>
+                <td><input type="number" v-model.number="huiLv"></td>
+            </tr>
+            <tr>
+                <td>增值税率:</td>
+                <td><input type="number" v-model.number="zengZhiShuiLv"></td>
+            </tr>
+            <tr>
+                <td>港杂费:</td>
+                <td><input type="number" v-model.number="gangZaFei"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:成本 = 普氏62%粉矿价格 × 汇率 × (1 + 增值税率）+ 港杂费)</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#iapp",
+    data: {
+        // 进口铁矿石成本
+        importCost:'',
+        fenKuangPrice:'',
+        huiLv:'',
+        zengZhiShuiLv:0.13,
+        gangZaFei:'',
+    },
+    watch: {
+        // 进口铁矿石成本
+        fenKuangPrice(n,o){this.importCost = this.calculateImportCost()},
+        huiLv(n,o){this.importCost = this.calculateImportCost()},
+        zengZhiShuiLv(n,o){this.importCost = this.calculateImportCost()},
+        gangZaFei(n,o){this.importCost = this.calculateImportCost()},
+    },
+    methods:{
+        // 进口铁矿石成本
+        calculateImportCost(){
+            var r = this.fenKuangPrice * this.huiLv * (1 + this.zengZhiShuiLv) + this.gangZaFei;
+            return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>xx计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="mapp">
+    <!--测算-->
+    <div class="calculateDiv">
+		<table>
+			<tr>
+				<th colspan="2" class="calDivHeader">大豆出粕量</th>
+			</tr>
+			<tr>
+				<td>大豆压榨量</td>
+				<td><input type="number" v-model.number="mealPressAmount"></td>
+				<td class="resultLabel">出粕量:</td>
+				<td class="calResult"> {{ generateMealAmount }}</td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:出粕量 = 大豆压榨量 × 0.785</div>
+		<div class="formalasNote">注2:计算结果四舍五入保留4位</div>
+	</div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#mapp",
+    data: {
+        // 大豆出粕量
+        generateMealAmount:'',
+        mealPressAmount:'',
+    },
+    watch: {
+        // 大豆出粕量
+        mealPressAmount(n,o){this.generateMealAmount = this.calculateMealAmount()}
+    },
+    methods:{
+        // 测算
+        calculateMealAmount(){
+            return Math.round((this.mealPressAmount * 0.785) * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

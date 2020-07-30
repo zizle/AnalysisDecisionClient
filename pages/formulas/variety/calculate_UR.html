@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>尿素计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="urapp">
+    <!--气头成本-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">气头成本</th>
+            </tr>
+            <tr>
+                <td>天然气单价:</td>
+                <td><input type="number" v-model.number="tianRanQiPrice"></td>
+                <td rowspan="4" class="resultLabel">气头成本:</td>
+                <td rowspan="4" class="calResult">{{ qiTouChengBen }}</td>
+            </tr>
+
+            <tr>
+                <td>电价:</td>
+                <td><input type="number" v-model.number="dianPrice"></td>
+            </tr>
+            <tr>
+                <td>管理费:</td>
+                <td><input type="number" v-model.number="guanLiFei"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:气头成本 = (800 × 天然气单价 + 200) × 0.6 + 电价 × 800 + 管理费400</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#urapp",
+    data: {
+        // 气头成本
+        qiTouChengBen:'',
+        tianRanQiPrice:'',
+        dianPrice:'',
+        guanLiFei:400,
+    },
+    watch: {
+        // 气头成本
+        tianRanQiPrice(n,o){this.qiTouChengBen = this.calculateQiTouCost()},
+        dianPrice(n,o){this.qiTouChengBen = this.calculateQiTouCost()},
+        guanLiFei(n,o){this.qiTouChengBen = this.calculateQiTouCost()},
+
+    },
+    methods:{
+        // 气头成本
+        calculateQiTouCost(){
+            var r = (800 * this.tianRanQiPrice + 200) * 0.6 + this.dianPrice * 800 + this.guanLiFei;
+            return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

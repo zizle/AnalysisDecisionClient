@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>油菜籽计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="rsapp">
+    <!--加拿大油菜籽郑盘套保利润-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">加拿大油菜籽郑盘套保利润</th>
+            </tr>
+            <tr>
+                <td>菜籽郑盘压榨价值:</td>
+                <td><input type="number" v-model.number="yaZhaJiaZhi"></td>
+                <td rowspan="4" class="resultLabel">利润:</td>
+                <td rowspan="4" class="calResult">{{ hedgingProfit }}</td>
+            </tr>
+
+            <tr>
+                <td>进口完税成本:</td>
+                <td><input type="number" v-model.number="wanShuiChengBen"></td>
+            </tr>
+            <tr>
+                <td>加工成本:</td>
+                <td><input type="number" v-model.number="jiaGongChengBen"></td>
+            </tr>
+
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:郑盘套保利润 = 菜籽郑盘压榨价值 - 进口完税成本 - 加工成本</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#rsapp",
+    data: {
+        // 加拿大油菜籽郑盘套保利润
+        hedgingProfit:'',
+        yaZhaJiaZhi:'',
+        wanShuiChengBen:'',
+        jiaGongChengBen:'',
+
+    },
+    watch: {
+        // 加拿大油菜籽郑盘套保利润
+        yaZhaJiaZhi(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+        wanShuiChengBen(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+        jiaGongChengBen(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+
+    },
+    methods:{
+        // 加拿大油菜籽郑盘套保利润
+        calculateHedgingProfit(){
+            return Math.round((this.yaZhaJiaZhi - this.wanShuiChengBen - this.jiaGongChengBen) * 10000) / 10000;
+        },
+
+    }
+})
+</script>
+</html>

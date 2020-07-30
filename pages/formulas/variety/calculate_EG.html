@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>乙二醇计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="egapp">
+    <!--测算-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">乙二醇进口成本</th>
+            </tr>
+            <tr>
+                <td>乙二醇外盘价格:</td>
+                <td><input type="number" v-model.number="waiPanPrice"></td>
+                <td rowspan="4" class="resultLabel">进口成本:</td>
+                <td rowspan="4" class="calResult">{{ importChengben }}</td>
+            </tr>
+
+            <tr>
+                <td>人民币汇率:</td>
+                <td><input type="number" v-model.number="RMBHuiLv"></td>
+            </tr>
+            <tr>
+                <td>进口关税率:</td>
+                <td><input type="number" v-model.number="guanShuiLv"></td>
+            </tr>
+            <tr>
+                <td>增值税率:</td>
+                <td><input type="number" v-model.number="zengZhiShuiLv"></td>
+            </tr>
+            <tr>
+                <td>杂费:</td>
+                <td><input type="number" v-model.number="zaFei"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:乙二醇进口成本 = 乙二醇外盘价格 * 人民币汇率 * (1 + 进口关税率) * (1 + 增值税率) + 杂费</div>
+        <div class="formalasNote">注:乙二醇进口关税：最惠国进口关税5.5%；增值税：13%</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#egapp",
+    data: {
+        // 乙二醇进口成本
+        importChengben:'',
+        waiPanPrice:'',
+        RMBHuiLv: '',
+        guanShuiLv:0.055,
+        zengZhiShuiLv: 0.13,
+        zaFei: ''
+
+    },
+    watch: {
+        // 乙二醇进口成本
+        waiPanPrice(n, o){this.importChengben = this.calculateChengBen()},
+        RMBHuiLv(n, o){this.importChengben = this.calculateChengBen()},
+        guanShuiLv(n, o){this.importChengben = this.calculateChengBen()},
+        zengZhiShuiLv(n, o){this.importChengben = this.calculateChengBen()},
+        zaFei(n, o){this.importChengben = this.calculateChengBen()}
+    },
+    methods:{
+        // 乙二醇进口成本
+        calculateChengBen(){
+            var r = this.waiPanPrice * this.RMBHuiLv * (1 + this.guanShuiLv) * (1 + this.zengZhiShuiLv) + this.zaFei;
+            return Math.round(r * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

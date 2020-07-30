@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>菜油计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="oiapp">
+    <!--郑盘套保利润-->
+    <div class="calculateDiv">
+        <table>
+            <tr>
+                <th colspan="2" class="calDivHeader">郑盘套保利润</th>
+            </tr>
+            <tr>
+                <td>郑盘菜油收盘价:</td>
+                <td><input type="number" v-model.number="oiClosePrice"></td>
+                <td rowspan="4" class="resultLabel">利润:</td>
+                <td rowspan="4" class="calResult">{{ hedgingProfit }}</td>
+            </tr>
+
+            <tr>
+                <td>进口完税成本:</td>
+                <td><input type="number" v-model.number="wanShuiChengBen"></td>
+            </tr>
+            <tr>
+                <td>加工成本:</td>
+                <td><input type="number" v-model.number="jiaGongChengBen"></td>
+            </tr>
+        </table>
+        <!-- 公式注解 -->
+        <div class="formalasNote">注:郑盘套保利润 = 郑盘菜油收盘价 - 进口完税成本 - 加工成本</div>
+        <div class="formalasNote">注:结果四舍五入到小数点后4位</div>
+    </div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#oiapp",
+    data: {
+        // 郑盘套保利润
+        hedgingProfit:'',
+        oiClosePrice:'',
+        wanShuiChengBen:'',
+        jiaGongChengBen: '',
+    },
+    watch: {
+        // 郑盘套保利润
+        oiClosePrice(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+        wanShuiChengBen(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+        jiaGongChengBen(n,o){this.hedgingProfit = this.calculateHedgingProfit()},
+
+    },
+    methods:{
+        // 郑盘套保利润
+        calculateHedgingProfit(){
+            var r = this.oiClosePrice -  this.wanShuiChengBen - this.jiaGongChengBen;
+            return Math.round(r * 10000) / 10000
+
+        },
+
+    }
+})
+</script>
+</html>

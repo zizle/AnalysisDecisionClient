@@ -128,38 +128,6 @@
 		<div class="formalasNote">注1:大豆进口成本 =〔（CBOT期价＋FOB升贴水）×单位转换系数＋海运费〕×(1+增值税)×(1+关税)×人民币汇率＋港杂费</div>
 		<div class="formalasNote">注2:计算结果四舍五入</div>
 	</div>
-	<hr>
-	<div class="calculateDiv">
-		<table>
-			<tr>
-				<th colspan="2" class="calDivHeader">大豆出粕量</th>
-			</tr>
-			<tr>
-				<td>大豆压榨量</td>
-				<td><input type="number" v-model="mealPressAmount"></td>
-				<td class="resultLabel">出粕量:</td>
-				<td class="calResult"> {{ generateMealAmount }}</td>
-			</tr>
-		</table>
-		<div class="formalasNote">注1:出粕量=大豆压榨量*0.785</div>
-		<div class="formalasNote">注2:计算结果四舍五入</div>
-	</div>
-	
-	<hr>
-	
-	<div class="calculateDiv">
-		<table>
-			<tr><th colspan="2" class="calDivHeader">大豆出油量</th></tr>
-			<tr>
-				<td>大豆压榨量</td>
-				<td><input type="number" v-model="oilPressAmount"></td>
-				<td class="resultLabel">出油量:</td>
-				<td class="calResult">{{ genarateOilAmount }}</td>
-			</tr>
-		</table>
-		<div class="formalasNote">注1:出油量=大豆压榨量*0.195</div>
-		<div class="formalasNote">注2:计算结果四舍五入</div>
-	</div>
 	
 </div>
 </body>

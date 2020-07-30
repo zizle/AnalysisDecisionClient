@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>xx计算</title>
+    <link rel="stylesheet" type="text/css" href="../css/public.css"/>
+    <script type="text/javascript" src="../js/vue.min.js"></script>
+</head>
+<style>
+body{background-color: rgb(240,240,240)}
+
+</style>
+<body>
+<div id="yapp">
+    <!--测算-->
+    <div class="calculateDiv">
+		<table>
+			<tr><th colspan="2" class="calDivHeader">大豆出油量</th></tr>
+			<tr>
+				<td>大豆压榨量</td>
+				<td><input type="number" v-model.number="oilPressAmount"></td>
+				<td class="resultLabel">出油量:</td>
+				<td class="calResult">{{ generateOilAmount }}</td>
+			</tr>
+		</table>
+		<div class="formalasNote">注1:出油量 = 大豆压榨量 × 0.195</div>
+		<div class="formalasNote">注2:计算结果四舍五入保留4位</div>
+	</div>
+
+</div>
+
+</body>
+<script>
+var vm = new Vue({
+    el: "#yapp",
+    data: {
+        // 大豆出油量
+        generateOilAmount:'',
+        oilPressAmount:''
+
+    },
+    watch: {
+        // 大豆出油量
+        oilPressAmount(n,o){this.generateOilAmount = this.calculateOilAmount()}
+
+    },
+    methods:{
+        // 大豆出油量
+        calculateOilAmount(){
+            return Math.round((this.oilPressAmount * 0.195) * 10000) / 10000
+        },
+
+    }
+})
+</script>
+</html>

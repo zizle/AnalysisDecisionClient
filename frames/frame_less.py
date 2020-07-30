@@ -778,14 +778,12 @@ class FrameLessWindow(QWidget):
             self.update_tips = UpdateTipsLabel(self)
             self.update_tips.setWordWrap(True)
             self.update_tips.setWindowFlags(Qt.Dialog)
-            self.update_tips.setWindowTitle("【1.13.6更新】")
-            self.update_tips.setFixedSize(350, 220)
-            self.update_tips.setText("<p>【1.13.6】版本更新:</p>"
-                                     "<p>1.修复数据列头过多显示错误的问题.</p>"
-                                     "<p>2.修复点击右键选中行错误的问题.</p>"
-                                     "<p>3.新增显示表最近一次更新而新增的行数量.</p>"
-                                     "<p>4.图形管理列表支持自定义移动排序.</p>"
-                                     "<p>5.数据表支持自定义移动排序.</p>"
+            self.update_tips.setWindowTitle("【1.14.0更新】")
+            self.update_tips.setFixedSize(350, 150)
+            self.update_tips.setText("<p>【1.14.0】版本更新:</p>"
+                                     "<p>1 新增功能模块【计算平台】.</p>"
+                                     "<p>支持部分品种的相关数据公式计算,</p>"
+                                     "<p>输入数据,时刻得到公式结果</p>"
                                      )
             tips_frame = self.update_tips.frameGeometry()
             tips_frame.moveCenter(user_desktop.center())
