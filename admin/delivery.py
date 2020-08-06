@@ -4,10 +4,11 @@
 # ------------------------
 import json
 import requests
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QListWidget,QGridLayout, QLabel, QPushButton,QTableWidget, QLineEdit, \
-    QComboBox, QMessageBox,QTableWidgetItem, QFrame, QHeaderView, QMenu, QDialog
-from PyQt5.QtCore import Qt, QMargins, QPoint, pyqtSignal
+from PyQt5.QtWidgets import qApp, QWidget, QHBoxLayout, QVBoxLayout, QListWidget,QGridLayout, QLabel, QPushButton,QTableWidget, QLineEdit, \
+    QComboBox, QMessageBox,QTableWidgetItem, QFrame, QHeaderView, QMenu, QDialog, QPlainTextEdit
+from PyQt5.QtCore import Qt, QMargins, QPoint, pyqtSignal, QUrl
 from PyQt5.QtGui import QCursor
+from PyQt5.QtNetwork import QNetworkRequest
 from widgets import LoadedPage
 
 from settings import SERVER_ADDR, USER_AGENT
@@ -435,6 +436,115 @@ class HouseNumberAdmin(QWidget):
         popup.exec_()
 
 
+class VarietyDeliveryAdmin(QWidget):
+    def __init__(self, *args, **kwargs):
+        super(VarietyDeliveryAdmin, self).__init__(*args, **kwargs)
+        layout = QVBoxLayout()
+
+        opts_layout = QHBoxLayout()                     # 品种选择布局
+        opts_layout.addWidget(QLabel("选择品种:", self))
+        self.variety_combobox = QComboBox(self)         # 品种选择框
+        self.variety_combobox.setMinimumWidth(90)
+        self.variety_combobox.currentTextChanged.connect(self.fill_detail_variety_message)
+        opts_layout.addWidget(self.variety_combobox)
+        opts_layout.addStretch()
+
+        layout.addLayout(opts_layout)
+
+        # 品种详情数据展示
+        detail_widget = QWidget(self)
+        detail_layout = QVBoxLayout()
+        detail_layout.addWidget(QLabel("当前品种:",self))
+        self.current_variety = QLabel(self)
+        detail_layout.addWidget(self.current_variety)
+
+        detail_layout.addWidget(QLabel("最后交易日:", self))
+        self.last_trade = QPlainTextEdit(self)
+        detail_layout.addWidget(self.last_trade)
+
+        detail_layout.addWidget(QLabel("仓单有效期:", self))
+        self.receipt_expire = QPlainTextEdit(self)
+        detail_layout.addWidget(self.receipt_expire)
+
+        detail_layout.addWidget(QLabel("交割单位:", self))
+        self.delivery_unit = QPlainTextEdit(self)
+        detail_layout.addWidget(self.delivery_unit)
+
+        detail_layout.addWidget(QLabel("交割月投机限仓:", self))
+        self.limit_holding = QPlainTextEdit(self)
+        detail_layout.addWidget(self.limit_holding)
+
+        detail_widget.setLayout(detail_layout)
+        layout.addWidget(detail_widget)
+
+        self.commit_button = QPushButton("确定修改", self)
+        self.commit_button.clicked.connect(self.modify_variety_message)
+        layout.addWidget(self.commit_button, alignment=Qt.AlignRight)
+
+        self.setLayout(layout)
+
+        self._get_all_variety()
+
+    def _get_all_variety(self):
+        """ 获取所有交割品种的信息 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_ADDR + "delivery/variety-message/"
+        req = QNetworkRequest(QUrl(url))
+        reply = network_manager.get(req)
+        reply.finished.connect(self.variety_message_reply)
+
+    def variety_message_reply(self):
+        """ 获取到品种信息 """
+        reply = self.sender()
+        if reply.error():
+            reply.deleteLater()
+            return
+        data = reply.readAll().data()
+        reply.deleteLater()
+        data = json.loads(data.decode("utf-8"))
+        self.variety_combobox.clear()
+        for variety_item in data["variety_data"]:
+            self.variety_combobox.addItem(variety_item["variety"], variety_item)
+
+    def fill_detail_variety_message(self):
+        """ 品种选择框变化 """
+        current_data = self.variety_combobox.currentData()
+        self.current_variety.setText(current_data["variety"] + "(" + current_data["variety_en"] + ")")
+        self.last_trade.setPlainText(current_data["last_trade"])
+        self.receipt_expire.setPlainText(current_data["receipt_expire"])
+        self.delivery_unit.setPlainText(current_data["delivery_unit"])
+        self.limit_holding.setPlainText(current_data["limit_holding"])
+
+    def modify_variety_message(self):
+        """ 修改品种的交割信息 """
+        current_data = self.variety_combobox.currentData()
+        new_data = {
+            "vid": current_data["id"],
+            "last_trade": self.last_trade.toPlainText().strip(),
+            "receipt_expire": self.receipt_expire.toPlainText().strip(),
+            "delivery_unit": self.delivery_unit.toPlainText().strip(),
+            "limit_holding": self.limit_holding.toPlainText().strip(),
+        }
+        url = SERVER_ADDR + "delivery/variety-message/"
+        req = QNetworkRequest(QUrl(url))
+        req.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.put(req, json.dumps(new_data).encode("utf-8"))
+        reply.finished.connect(self.modify_reply)
+
+    def modify_reply(self):
+        """ 修改信息返回"""
+        reply = self.sender()
+        if reply.error():
+            reply.deleteLater()
+            QMessageBox.information(self, "错误", "修改失败了.")
+            return
+        data = reply.readAll().data()
+        reply.deleteLater()
+        data = json.loads(data.decode("utf-8"))
+        QMessageBox.information(self, "提示", data["message"])
+
+
 # 交割服务维护主页
 class DeliveryInfoAdmin(QWidget):
     def __init__(self, *args, **kwargs):
@@ -443,7 +553,7 @@ class DeliveryInfoAdmin(QWidget):
         layout.setContentsMargins(QMargins(0, 0, 1, 0))
         layout.setSpacing(0)
         self.menu_list = QListWidget(self)
-        self.menu_list.addItems(["仓库编号", "仓库管理"])
+        self.menu_list.addItems(["仓库编号", "仓库管理", "品种交割信息"])
         self.menu_list.clicked.connect(self.clicked_left_menu)
         layout.addWidget(self.menu_list, alignment=Qt.AlignLeft)
 
@@ -480,6 +590,8 @@ class DeliveryInfoAdmin(QWidget):
             page.get_warehouses()
         elif menu == '仓库编号':
             page = HouseNumberAdmin()
+        elif menu == "品种交割信息":
+            page = VarietyDeliveryAdmin()
         else:
             page = QLabel('【' + menu + '】正在加紧开发中...')
 

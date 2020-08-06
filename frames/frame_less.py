@@ -7,8 +7,8 @@
 import os
 import shutil
 import pickle
-from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QStackedWidget, QHBoxLayout, QPushButton, QMenu
-from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QImage, QPainterPath, QMovie
+from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QMenu, QMessageBox
+from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QPainterPath, QMovie
 from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QPropertyAnimation, QRectF, QPointF, pyqtProperty, QUrl
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkRequest
 from widgets import LoadedPage
@@ -383,8 +383,8 @@ class TitleBar(QWidget):
 
     # 关闭
     def windowClosed(self):
-        # print('关闭窗口')
-        self.parent().close()
+        if QMessageBox.Yes == QMessageBox.information(self.parent(), "提示", "确定退出分析决策系统?", QMessageBox.Yes | QMessageBox.No):
+            self.parent().close()
 
     # 鼠标双击
     def mouseDoubleClickEvent(self, event):
@@ -778,12 +778,15 @@ class FrameLessWindow(QWidget):
             self.update_tips = UpdateTipsLabel(self)
             self.update_tips.setWordWrap(True)
             self.update_tips.setWindowFlags(Qt.Dialog)
-            self.update_tips.setWindowTitle("【1.14.0更新】")
-            self.update_tips.setFixedSize(350, 150)
-            self.update_tips.setText("<p>【1.14.0】版本更新:</p>"
-                                     "<p>1 新增功能模块【计算平台】.</p>"
-                                     "<p>支持部分品种的相关数据公式计算,</p>"
-                                     "<p>输入数据,时刻得到公式结果</p>"
+            self.update_tips.setWindowTitle("【1.14.1更新】")
+            self.update_tips.setFixedSize(350, 280)
+            self.update_tips.setText("<p>【1.14.1】版本更新:</p>"
+                                     "<p>1 数据表支持修改[来源]和[备注]信息.</p>"
+                                     "<p>2 系统不再读取以'Sheet'开头的表名的数据</p>"
+                                     "<p>如:'Sheet1','Sheet2','Sheet我是一张表','Sheet XX数据'等类似的表名称都不会被读取.</p>"
+                                     "<p>3 【图形管理】取数范围支持设置只显示最近几周的数据.</p>"
+                                     "<p>入口：【图形管理】->鼠标右键->【取数修改】.</p>"
+                                     "<p>4 修复数据表和数据图自定义排序无效的问题</p>"
                                      )
             tips_frame = self.update_tips.frameGeometry()
             tips_frame.moveCenter(user_desktop.center())

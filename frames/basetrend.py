@@ -47,7 +47,8 @@ class InformationPopup(QLabel):
         self.setWindowTitle(title)
         self.setText(text)
         self.setWindowFlags(Qt.Dialog)
-        self.setFixedSize(200,130)
+        self.resize(200, 130)
+        self.setAlignment(Qt.AlignCenter)
 
 
 # 请求table源数据的线程
@@ -199,7 +200,7 @@ class DataTableWidget(QTableWidget):
             item4.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 4, item4)
             item5 = QTableWidgetItem("备注")
-            item5.show_text = ""
+            item5.show_text = row_item["note"]
             item5.setForeground(QBrush(QColor(150, 50, 50)))
             item5.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 5, item5)

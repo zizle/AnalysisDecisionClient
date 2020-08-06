@@ -9,7 +9,7 @@ import json
 import requests
 from urllib3 import encode_multipart_formdata
 from PyQt5.QtWidgets import qApp,QWidget, QListWidget, QHBoxLayout, QVBoxLayout,QMessageBox, QTabWidget, QLabel, QComboBox, QGridLayout, \
-    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame
+    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame, QSplitter
 from PyQt5.QtCore import Qt, QPoint, QMargins
 from PyQt5.QtGui import QCursor, QIcon, QColor, QBrush, QPixmap, QImage
 from widgets import PDFContentPopup, ImagePathLineEdit, FilePathLineEdit
@@ -1087,7 +1087,7 @@ class AdvertisementPage(QWidget):
 
 
 # 运营管理主页
-class OperatorMaintain(QWidget):
+class OperatorMaintain(QSplitter):
     def __init__(self, *args, **kwargs):
         super(OperatorMaintain, self).__init__(*args, **kwargs)
         layout = QHBoxLayout()
@@ -1097,14 +1097,18 @@ class OperatorMaintain(QWidget):
         self.operate_list = QListWidget(self)
 
         self.operate_list.clicked.connect(self.operate_list_clicked)
-        layout.addWidget(self.operate_list, alignment=Qt.AlignLeft)
+        # layout.addWidget(self.operate_list, alignment=Qt.AlignLeft)
+        self.addWidget(self.operate_list)
         # 右侧tab显示
         self.frame_tab = QTabWidget()
         self.frame_tab.setDocumentMode(True)
         self.frame_tab.tabBar().hide()
-        layout.addWidget(self.frame_tab)
-        self.setLayout(layout)
-
+        # layout.addWidget(self.frame_tab)
+        self.addWidget(self.frame_tab)
+        # self.setLayout(layout)
+        self.setStretchFactor(1, 2)
+        self.setStretchFactor(2, 8)
+        self.setHandleWidth(1)
         self.operate_list.setObjectName('optsList')
         self.setStyleSheet("""
         #optsList{

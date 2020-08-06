@@ -14,10 +14,10 @@ import pandas as pd
 from collections import OrderedDict
 from PyQt5.QtWidgets import QApplication, qApp, QWidget, QHBoxLayout, QVBoxLayout, QListWidget, QListWidgetItem, QLabel, QComboBox, QTableWidget, \
     QPushButton, QAbstractItemView, QHeaderView, QTableWidgetItem, QDialog, QMessageBox, QLineEdit, QFileDialog,QMenu,QFrame, \
-    QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox, QListView
+    QGroupBox, QCheckBox, QTextEdit, QGridLayout, QSpinBox, QListView, QPlainTextEdit, QSplitter
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtWebChannel import QWebChannel
-from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins, QModelIndex
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint, QUrl, QThread, QTimer, QMargins
 from PyQt5.QtGui import QCursor, QIcon, QIntValidator, QBrush, QColor
 from PyQt5.QtNetwork import QNetworkRequest
 import settings
@@ -936,9 +936,87 @@ class GetTableSourceThread(QThread):
             self.source_data_signal.emit(self.table_id, self.variety_id,self.table_name, response['records'])
 
 
+class EditSourceNotePopup(QDialog):
+    """ 编辑备注和来源 """
+    def __init__(self, table_id, *args, **kwargs):
+        super(EditSourceNotePopup, self).__init__(*args, **kwargs)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.table_id = table_id
+        self.resize(600,300)
+        layout = QVBoxLayout()
+        self.source_edit = QPlainTextEdit(self)
+        self.source_edit.setPlaceholderText("在此输入数据来源...")
+        layout.addWidget(QLabel("数据来源:", self), alignment=Qt.AlignLeft)
+        layout.addWidget(self.source_edit)
+
+        self.note_edit = QPlainTextEdit(self)
+        self.note_edit.setPlaceholderText("在此输入想要备注的信息...")
+        layout.addWidget(QLabel("数据备注:", self), alignment=Qt.AlignLeft)
+        layout.addWidget(self.note_edit)
+
+        self.commit_button = QPushButton("确定", self)
+        self.commit_button.clicked.connect(self.commit_source_note)
+        layout.addWidget(self.commit_button, alignment=Qt.AlignRight)
+
+        self.setLayout(layout)
+
+        self._get_source_note()
+
+    def _get_source_note(self):
+        """ 获取数据表的来源和备注信息 """
+        network_manager = getattr(qApp, "_network")
+        url = settings.SERVER_ADDR + "trend/table/{}/message/".format(self.table_id)
+        req = QNetworkRequest(url=QUrl(url))
+        reply = network_manager.get(req)
+        reply.finished.connect(self.table_message_reply)
+
+    def table_message_reply(self):
+        reply = self.sender()
+        if reply.error():
+            settings.logger.error("获取表信息网络请求失败了")
+            return
+        data = reply.readAll().data()
+        data = json.loads(data.decode("utf-8"))
+        message_item = data["table_item"]
+        if message_item["origin"]:
+            self.source_edit.setPlainText(message_item["origin"])
+        if message_item["note"]:
+            self.note_edit.setPlainText(message_item["note"])
+        reply.deleteLater()
+
+    def commit_source_note(self):
+        """ 提交数据表的来源和备注信息 """
+        origin_text = self.source_edit.toPlainText().strip()
+        note_text = self.note_edit.toPlainText().strip()
+        if not all([origin_text, note_text]):
+            QMessageBox.information(self, "提示","数据不能为空...")
+            return
+        data_form = {
+            "origin_text": origin_text,
+            "note_text": note_text
+        }
+        url = settings.SERVER_ADDR + "trend/table/{}/message/".format(self.table_id)
+        req = QNetworkRequest(url=QUrl(url))
+        req.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.post(req, json.dumps(data_form).encode("utf-8"))
+        reply.finished.connect(self.commit_message_reply)
+
+    def commit_message_reply(self):
+        """ 修改信息返回 """
+        reply = self.sender()
+        if reply.error():
+            QMessageBox.information(self, "失败", "修改失败:\n{}".format(reply.error()))
+            reply.deleteLater()
+        else:
+            QMessageBox.information(self, "成功", "修改成功!")
+            self.close()
+
+
 # 显示当前的数据表和支持管理操作
 class InformationTable(QTableWidget):
     _current_variety = 0
+
     def __init__(self, *args):
         super(InformationTable, self).__init__(*args)
         self.get_source_thread = None
@@ -976,15 +1054,31 @@ class InformationTable(QTableWidget):
             menu = QMenu()
             charts_action = menu.addAction("进入绘图")
             charts_action.triggered.connect(self.enter_draw_charts)
+
+            source_note_action = menu.addAction("来源备注")
+            source_note_action.triggered.connect(self.edit_source_note)
+
             modify_action = menu.addAction("修改记录")
             modify_action.triggered.connect(self.modify_record)
+
             add_action = menu.addAction("增加记录")
             add_action.triggered.connect(self.add_new_records)
+
             delete_action = menu.addAction("删      除")
             delete_action.triggered.connect(self.delete_table)
+
             menu.exec_(QCursor.pos())
         else:
             super(InformationTable, self).mousePressEvent(event)
+
+    def edit_source_note(self):
+        """ 编辑来源和备注 """
+        current_row = self.currentRow()
+        table_id = self.item(current_row, 0).id
+        table_name = self.item(current_row, 1).text()
+        popup = EditSourceNotePopup(table_id=table_id, parent=self.parent())
+        popup.setWindowTitle(table_name)
+        popup.show()
 
     def modify_record(self):
         current_row = self.currentRow()
@@ -1062,7 +1156,7 @@ class InformationTable(QTableWidget):
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
         reply = network_manager.put(request, json.dumps(body).encode("utf-8"))
         reply.finished.connect(lambda: self.reset_table_index_reply(current_row))
-        print(body, self._current_variety)
+        # print(body, self._current_variety)
 
     def reset_table_index_reply(self, current_row):
         reply = self.sender()
@@ -1116,7 +1210,7 @@ class InformationTable(QTableWidget):
         self._current_variety = current_variety
         self.clear()
         # Tip:若修改表头注意修改点击移动行的函数内setCurrentCell()和右键事件内setCurrentCell()是否需变动
-        table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者', '最近新增', '']
+        table_headers = ["序号", '标题', '创建日期', '创建者', '最近更新','更新者', '本次新增', '']
         self.setColumnCount(len(table_headers))
         self.setRowCount(len(row_contents))
         self.setHorizontalHeaderLabels(table_headers)
@@ -1274,6 +1368,8 @@ class UpdateVarietyTableGroupThread(QThread):
                 continue
             for sheet_name in file.sheet_names():
                 time.sleep(0.3)
+                if sheet_name.lower().startswith("sheet"):  # 2020-08-06跳过名称Sheet开头的表
+                    continue
                 try:
                     sheet = file.sheet_by_name(sheet_name)
                     if not file.sheet_loaded(sheet_name) or sheet.nrows < 4:  # 读取失败就继续，或是空数据表
@@ -1388,7 +1484,9 @@ class UpdateTableConfigPage(QWidget):
                "<p>第1行：万得导出的表第一行不动;自己创建的表第一行可留空;</p>" \
                "<p>第2行：数据表表头;</p>" \
                "<p>第3行：不做限制,可填入单位等,也可直接留空.</p>" \
-               "<p>第4行：数据起始行,第一列为【日期】类型,非日期的行系统不会做读取.</p>"
+               "<p>第4行：数据起始行,第一列为【日期】类型,非日期的行系统不会做读取.</p>" \
+               "<p>特别注意: 表内以`Sheet`开头的表将不做读取.即不进行命名的表系统是忽略的."
+
         tips_label = QLabel(tips, self)
         tips_label.setStyleSheet("font-size:15px;color:rgb(180,100,100)")
         tips_label.setWordWrap(True)
@@ -1750,13 +1848,16 @@ class MyTrendChartTableManage(QTableWidget):
             try:
                 start = start_year.text().strip()
                 end = end_year.text().strip()
+                last_weeks = str(lastest_weeks.value()) if is_lastest_weeks.checkState() else ''
+                datetime.timedelta()
                 r = requests.post(
                     url=settings.SERVER_ADDR + 'trend/table-chart/' + str(chart_id) + '/',
                     headers={"Content-Type":"application/json;charset=utf8"},
                     data=json.dumps({
-                        "utoken":settings.app_dawn.value("AUTHORIZATION"),
+                        "utoken": settings.app_dawn.value("AUTHORIZATION"),
                         "start": start,
-                        "end": end
+                        "end": end,
+                        "last_weeks": last_weeks
                     })
                 )
                 response = json.loads(r.content.decode("utf-8"))
@@ -1772,6 +1873,7 @@ class MyTrendChartTableManage(QTableWidget):
         popup.setWindowTitle("取数修改")
         popup.setWindowFlags(Qt.Dialog)
         layout = QVBoxLayout(popup)
+        layout.setSpacing(5)
         h_layout = QHBoxLayout(popup)
         h_layout.addWidget(QLabel("开始年份:", popup))
         start_year = QLineEdit(popup)
@@ -1787,6 +1889,23 @@ class MyTrendChartTableManage(QTableWidget):
         h_layout.addWidget(QLabel("结束年份:"))
         h_layout.addWidget(end_year)
         layout.addLayout(h_layout)
+
+        # 最近几周
+        h_layout = QHBoxLayout()
+        h_layout.setSpacing(0)
+        is_lastest_weeks = QCheckBox(popup)
+        is_lastest_weeks.setText("只显示最近")
+        h_layout.addWidget(is_lastest_weeks)
+        lastest_weeks = QSpinBox(popup)
+        lastest_weeks.setValue(4)
+        lastest_weeks.setMaximum(999)
+        h_layout.addWidget(lastest_weeks)
+        h_layout.addWidget(QLabel("周的数据", popup))
+        h_layout.addWidget(QLabel("（*勾选生效）", popup, styleSheet="color:#A22216"))
+        h_layout.addStretch()
+        layout.addLayout(h_layout)
+
+        layout.addWidget(QLabel("系统先按年份范围取数,再按周取数.\n若最近几周不在年份范围内,则会无图形.", popup, styleSheet="color:#A22216"))
 
         commit_btn = QPushButton("确定", popup)
         commit_btn.clicked.connect(change_range_years)
@@ -2048,20 +2167,25 @@ class MyTrendTableChartPage(QWidget):
                 self.manage_table.show_charts_info(response['charts'])
 
 
-class BaseTrendAdmin(QWidget):
+class BaseTrendAdmin(QSplitter):
     def __init__(self, *args, **kwargs):
         super(BaseTrendAdmin, self).__init__(*args, **kwargs)
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(QMargins(0, 0, 0, 1))
-        layout.setSpacing(0)
+        # layout = QHBoxLayout(self)
+        # layout.setContentsMargins(QMargins(0, 0, 0, 1))
+        # layout.setSpacing(0)
         # 左侧管理菜单列表
         self.left_list = QListWidget(parent=self, clicked=self.left_list_clicked)
-        layout.addWidget(self.left_list, alignment=Qt.AlignLeft)
+        # layout.addWidget(self.left_list, alignment=Qt.AlignLeft)
+        self.addWidget(self.left_list)
         # 右侧显示的frame
         self.frame_loaded = LoadedPage(self)
         self.frame_loaded.remove_borders()
-        layout.addWidget(self.frame_loaded)
-        self.setLayout(layout)
+        # layout.addWidget(self.frame_loaded)
+        self.addWidget(self.frame_loaded)
+        # self.setLayout(layout)
+        self.setHandleWidth(1)
+        self.setStretchFactor(1, 2)
+        self.setStretchFactor(2, 10)
 
         self.left_list.setObjectName('leftList')
         self.setStyleSheet("""
