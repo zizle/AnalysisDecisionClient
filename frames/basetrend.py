@@ -209,10 +209,19 @@ class DataTableWidget(QTableWidget):
             btn.setStyleSheet("border:none;color:rgb(50,160,100)")
             btn.resize(50, 50)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setIcon(QIcon('media/nor_chart.png'))
+            btn.setIcon(QIcon('media/charts_active.png'))
             btn.row = row
             btn.clicked.connect(self.view_chart_of_table)
             self.setCellWidget(row, 6, btn)
+            if not row_item["is_active"]:
+                item0.setForeground(QBrush(QColor(80, 80, 80)))
+                item1.setForeground(QBrush(QColor(80, 80, 80)))
+                item2.setForeground(QBrush(QColor(80, 80, 80)))
+                item3.setForeground(QBrush(QColor(80, 80, 80)))
+                item4.setForeground(QBrush(QColor(80, 80, 80)))
+                item5.setForeground(QBrush(QColor(80, 80, 80)))
+                btn.setStyleSheet("border:none;color:rgb(80,80,80)")
+                btn.setIcon(QIcon('media/charts.png'))
 
     def show_loading_bar(self):
         if self.is_loading_data:
@@ -221,11 +230,14 @@ class DataTableWidget(QTableWidget):
             self.loading_process.hide()
 
     # 查看当前数据表下的图形
-    def view_chart_of_table(self, row=None, col=None):
+    def view_chart_of_table(self):
+        if isinstance(self.sender(), DataTableWidget):
+            row = self.currentRow()
+        else:
+            row = self.sender().row
         self.loading_process.move(self.frameGeometry().width() / 2 - 35, self.frameGeometry().height() / 2 - 35)
         self.loading_process.show()
-        if not row:
-            row = self.sender().row
+
         table_id = self.item(row, 0).id
         title = self.item(row, 1).text()
         # 线程获取数据
@@ -235,6 +247,7 @@ class DataTableWidget(QTableWidget):
         self.get_source_thread.source_data_signal.connect(self.table_source_back)
         self.get_source_thread.finished.connect(self.get_source_thread.deleteLater)
         self.get_source_thread.start()
+
 
     def table_source_back(self, table_id, title, table_source_data):
         popup = ChartOfTableWidget(table_id, table_source_data, self)

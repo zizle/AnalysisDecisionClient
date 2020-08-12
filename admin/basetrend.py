@@ -231,7 +231,7 @@ class DrawChartsDialog(QDialog):
         self.save_config = QPushButton('保存配置',self)
         menu = QMenu(self)
         normal_action = menu.addAction("普通图形")
-        normal_action.setIcon(QIcon("media/nor_chart.png"))
+        normal_action.setIcon(QIcon("media/charts_active.png"))
         normal_action.triggered.connect(self.save_chart_options_to_server)
         season_action = menu.addAction("季节图形")
         season_action.setIcon(QIcon("media/multi_chart.png"))
@@ -1245,13 +1245,21 @@ class InformationTable(QTableWidget):
                 item6.setForeground(QBrush(QColor(160, 160, 160)))
             item6.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 6, item6)
-            if row > 0:
+            if row > 0 and row_item["is_active"]:
                 move_btn = QPushButton(self)
                 move_btn.setCursor(Qt.PointingHandCursor)
                 move_btn.setIcon(QIcon('media/move_up.png'))
                 move_btn.row_index = row
                 move_btn.clicked.connect(self.reset_index_table)
                 self.setCellWidget(row, 7, move_btn)
+            if not row_item["is_active"]:
+                item0.setForeground(QBrush(QColor(140, 140, 140)))
+                item1.setForeground(QBrush(QColor(140, 140, 140)))
+                item2.setForeground(QBrush(QColor(140, 140, 140)))
+                item3.setForeground(QBrush(QColor(140, 140, 140)))
+                item4.setForeground(QBrush(QColor(140, 140, 140)))
+                item5.setForeground(QBrush(QColor(140, 140, 140)))
+                item6.setForeground(QBrush(QColor(140, 140, 140)))
 
 
 # 管理我的数据表
@@ -1269,6 +1277,14 @@ class UpdateTrendTablePage(QWidget):
         self.group_combobox = QComboBox(self)
         self.group_combobox.currentTextChanged.connect(self._get_current_tables)
         opts_layout.addWidget(self.group_combobox)
+
+        # 只看我上传选项
+        self.only_me_check = QCheckBox(self)
+        self.only_me_check.setText("只看我上传的")
+        self.only_me_check.setChecked(True)
+        self.only_me_check.stateChanged.connect(self._get_current_tables)
+        opts_layout.addWidget(self.only_me_check)
+
         opts_layout.addStretch()
         layout.addLayout(opts_layout)
         self.trend_table = InformationTable(self)
@@ -1278,7 +1294,8 @@ class UpdateTrendTablePage(QWidget):
         self._get_access_varieties()
         self.variety_combobox.setObjectName("varietyCombo")
         self.group_combobox.setObjectName("groupCombo")
-        self.setStyleSheet("#varietyCombo QAbstractItemView::item{height:20px;}#groupCombo QAbstractItemView::item{height:20px;}")
+        # groupCombo QAbstractItemView{min-height:20px;min-width:150px}
+        # self.setStyleSheet("#varietyCombo QAbstractItemView::item{height:20px;}")
         self.variety_combobox.setView(QListView())
         self.group_combobox.setView(QListView())
 
@@ -1311,17 +1328,26 @@ class UpdateTrendTablePage(QWidget):
         else:
             self.group_combobox.clear()
             self.group_combobox.addItem("全部", 0)
+            max_length = 2
             for group_item in response['groups']:
+                text_length = len(group_item['name'])
+                max_length = text_length if text_length > max_length else max_length
                 self.group_combobox.addItem(group_item['name'], group_item['id'])
+            self.group_combobox.setStyleSheet("QAbstractItemView::item{}")
 
     def _get_current_tables(self):
         current_group_id = self.group_combobox.currentData()
         current_variety_id = self.variety_combobox.currentData()
         if current_group_id is None or current_variety_id is None:
             return
+        if self.only_me_check.isChecked():
+            utoken = settings.app_dawn.value("AUTHORIZATION")
+            url = settings.SERVER_ADDR + 'variety/' + str(current_variety_id) + '/trend/table/only_me/?group=' + str(current_group_id) + '&token=' + utoken
+        else:
+            url = settings.SERVER_ADDR + 'variety/' + str(current_variety_id) + '/trend/table/?group=' + str(current_group_id)
         try:
             r = requests.get(
-                url=settings.SERVER_ADDR + 'variety/' + str(current_variety_id) + '/trend/table/?group=' + str(current_group_id)
+                url=url
             )
             response = json.loads(r.content.decode('utf8'))
             if r.status_code != 200:
@@ -1826,6 +1852,7 @@ class MyTrendChartTableManage(QTableWidget):
             return False
         else:
             QMessageBox.information(self, '成功', response['message'])
+            self.item(self.currentRow(), 3).setText(datetime.datetime.today().strftime("%Y-%m-%d"))
             return True
 
     # 首页显示
@@ -1867,6 +1894,7 @@ class MyTrendChartTableManage(QTableWidget):
                 QMessageBox.information(popup, '错误', str(e))
             else:
                 QMessageBox.information(popup, '成功', response['message'])
+                self.item(self.currentRow(), 3).setText(datetime.datetime.today().strftime("%Y-%m-%d"))
                 popup.close()
         popup = QWidget(self)
         popup.setAttribute(Qt.WA_DeleteOnClose)
@@ -1959,7 +1987,7 @@ class MyTrendChartTableManage(QTableWidget):
     def show_charts_info(self, contents):
         self.clear()
         # Tip:若修改表头注意修改点击移动行的函数内setCurrentCell()和右键事件内setCurrentCell()是否需变动
-        table_headers = ['序号','标题', '创建时间', '更新时间', '图形解说', '图形', '']
+        table_headers = ['序号','标题', '创建时间', '最近操作', '图形解说', '图形', '']
         self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.setRowCount(len(contents))
@@ -1995,7 +2023,7 @@ class MyTrendChartTableManage(QTableWidget):
 
             btn = QPushButton(self)
             btn.setCursor(Qt.PointingHandCursor)
-            btn.setIcon(QIcon('media/nor_chart.png'))
+            btn.setIcon(QIcon('media/charts_active.png'))
             btn.row_index = row
             # btn.chart_id = row_item['id']
             # btn.chart_title = row_item['title']
@@ -2073,8 +2101,9 @@ class MyTrendChartTableManage(QTableWidget):
         self.setCurrentCell(current_row - 1, 5)
 
     def view_chart_show(self):
-        sender = self.sender()
-        current_row = sender.row_index
+        # sender = self.sender()
+        # current_row = sender.row_index
+        current_row = self.currentRow()  # 20200810之前偶然出现错乱图形.20200810采用current_row获取当前数据行
         chart_id = self.item(current_row, 0).id
         chart_title = self.item(current_row, 1).text()
         chart_popup = QWebEngineView(self)
@@ -2082,7 +2111,7 @@ class MyTrendChartTableManage(QTableWidget):
         chart_popup.setAttribute(Qt.WA_DeleteOnClose)
         chart_popup.setWindowFlags(Qt.Dialog)
         chart_popup.resize(660, 420)
-        chart_popup.load(QUrl(settings.SERVER_ADDR + '/trend/table-chart/'+ str(chart_id) + '/?is_render=1'))
+        chart_popup.load(QUrl(settings.SERVER_ADDR + 'trend/table-chart/'+ str(chart_id) + '/?is_render=1'))
         chart_popup.show()
 
 
