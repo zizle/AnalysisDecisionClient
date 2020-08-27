@@ -4,7 +4,7 @@ import os
 import time
 import logging
 from PyQt5.QtCore import QSettings
-
+WINDOW_TITLE = '瑞达期货研究院分析决策系统管理端'  # 1.3.1
 # SERVER_ADDR = "http://210.13.218.130:9002/"
 SERVER_ADDR = "http://127.0.0.1:5000/"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +21,14 @@ IMAGE_SLIDER_RATE = 3000
 TITLE_BAR_HEIGHT = 32
 # 菜单栏高度
 NAVIGATION_BAR_HEIGHT = 24
+
+SYSTEM_MENUS = [
+    {"id": "0", "name": "首页", "logo": "", "children": None},
+    {"id": "2", "name": "产品服务", "logo": "", "children": None},
+    {"id": "111", "name": "测试", "logo": "", "children": [
+        {"id": "111_1", "name": "测试——1", "logo": "", "children": None},
+    ]},
+]
 
 
 # 设置日志记录

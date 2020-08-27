@@ -327,8 +327,8 @@ class TrendPage(QWidget):
         }
         """)
         self.setStyleSheet("""
-        #libBtn{border:none;color:rgb(50,120,180);padding:3px 8px;font-size:13px}
-        #libBtn:hover{color:rgb(50,150,230);font-weight:bold}
+        #libBtn{border:1px solid rgb(200,200,200);border-left:none;color:rgb(254,255,255);background-color:rgb(255,87,87);padding:5px 10px;font-size:14px;font-weight:bold;border-bottom-right-radius:5px}
+        #libBtn:hover{color:rgb(15,67,146);font-weight:bold;background-color:rgb(74,247,198)}
         """)
         self.charts_loader.load(QUrl(settings.SERVER_ADDR + 'trend/charts/'))
 
