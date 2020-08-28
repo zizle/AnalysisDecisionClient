@@ -5,6 +5,9 @@
 # Created: 2020-05-18
 # ---------------------------
 
+
+from .frameless import ClientMainApp
+
 import os
 import sys
 import json

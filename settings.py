@@ -18,9 +18,9 @@ STATIC_PREFIX = SERVER_ADDR + 'ads/'
 # 首页广告变化速率，单位毫秒
 IMAGE_SLIDER_RATE = 3000
 # 标题栏高度
-TITLE_BAR_HEIGHT = 32
+TITLE_BAR_HEIGHT = 27
 # 菜单栏高度
-NAVIGATION_BAR_HEIGHT = 24
+NAVIGATION_BAR_HEIGHT = 20
 
 SYSTEM_MENUS = [
     {"id": "0", "name": "首页", "logo": "", "children": None},
