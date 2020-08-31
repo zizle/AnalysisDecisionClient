@@ -56,6 +56,23 @@ class LoginUI(QWidget):
         self.password_error.setObjectName("psdError")
         layout.addWidget(self.password_error)
 
+        # 验证码
+        verify_layout = QHBoxLayout()
+        image_code_label = QLabel(self)
+        image_code_label.setPixmap(QPixmap('media/passport_icon/yanzheng.png'))
+        image_code_label.setScaledContents(True)
+        verify_layout.addWidget(image_code_label)
+        self.image_code_edit = QLineEdit(self)
+        self.image_code_edit.setPlaceholderText('填写右侧验证码')
+        self.image_code_edit.setFixedHeight(35)
+        verify_layout.addWidget(self.image_code_edit)
+        self.image_code_show = ImageCodeLabel("获取验证码···", self)
+        self.image_code_show.setMaximumSize(80, 36)
+        verify_layout.addWidget(self.image_code_show)
+        layout.addLayout(verify_layout)
+
+        layout.addWidget(QLabel(self))  # 占位撑开布局
+
         # 记住密码
         remember_layout = QHBoxLayout(spacing=2)
         self.remember_psd = QCheckBox('记住密码')

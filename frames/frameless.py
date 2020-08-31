@@ -42,9 +42,7 @@ class ClientMainApp(FrameLessWindowUI):
 
     def action_online_timer(self):
         """ 开启在线的统计计时器 """
-        client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
-        client_config = QSettings(client_ini_path, QSettings.IniFormat)
-        is_logged = client_config.value('USER/LOGGED')
+        is_logged = self.navigation_bar.get_user_login_status()
         if is_logged:  # 用户已登录了
             if not self.user_online_timer.isActive():
                 self.user_online_timer.start(120000)
@@ -52,9 +50,12 @@ class ClientMainApp(FrameLessWindowUI):
                 self.client_open_timer.stop()
         else:  # 用户未登录
             if not self.client_open_timer.isActive():
-                self.client_open_timer.start(120000)
+                self.client_open_timer.start(180000)
             if self.user_online_timer.isActive():
                 self.user_online_timer.stop()
+
+        print("用户定时器状态:", self.user_online_timer.isActive())
+        print("客户端定时器状态:", self.client_open_timer.isActive())
 
     def inaction_online_timer(self):
         """ 关闭统计计时器 """
@@ -71,8 +72,6 @@ class ClientMainApp(FrameLessWindowUI):
         elif state == Qt.ApplicationActive:
             print("应用程序活跃了")
             self.action_online_timer()
-        print("用户定时器状态:", self.user_online_timer.isActive())
-        print("客户端定时器状态:", self.client_open_timer.isActive())
 
     def _bind_global_network_manager(self):
         """ 绑定全局网络管理器 """
@@ -113,9 +112,6 @@ class ClientMainApp(FrameLessWindowUI):
         token_config.setValue("TOKEN/UUID", self.client_uuid)
         self.action_online_timer()                                      # 开启在线定时器
 
-        print("用户定时器状态:", self.user_online_timer.isActive())
-        print("客户端定时器状态:", self.client_open_timer.isActive())
-
     def update_client_open_time(self):
         """ 更新客户端开启时间 """
         network_manager = getattr(qApp, '_network')
@@ -124,7 +120,17 @@ class ClientMainApp(FrameLessWindowUI):
         reply.finished.connect(reply.deleteLater)
 
     def update_user_online_time(self):
-        """ 更新用户在线时间 (停止客户端计时)"""
+        """ 更新用户 (客户端)在线时间"""
+        client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        token_config = QSettings(client_ini_path, QSettings.IniFormat)
+        user_token = token_config.value("USER/ACCESS") if token_config.value("USER/ACCESS") else ""
+        token = "Bearer " + user_token
+        network_manager = getattr(qApp, '_network')
+        url = SERVER_API + "user/online/?machine_uuid=" + self.client_uuid
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), token.encode("utf-8"))
+        reply = network_manager.put(request, None)  # 此处不用post：发现Qt查询参数丢失
+        reply.finished.connect(reply.deleteLater)
 
     def set_default_homepage(self):
         c = QLabel("    默认主窗口")
@@ -139,12 +145,8 @@ class ClientMainApp(FrameLessWindowUI):
         if is_user_logged:
             center_widget = UserCenter()
         else:
-            try:
-                center_widget = UserPassport()
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
-                print(e)
+            center_widget = UserPassport()
+            center_widget.username_signal.connect(self.user_login_successfully)
         self.center_widget.setCentralWidget(center_widget)
 
     def user_login_successfully(self, username):
@@ -154,6 +156,8 @@ class ClientMainApp(FrameLessWindowUI):
         self.navigation_bar.logout_button.show()
         # 跳转到首页
         self.set_default_homepage()
+        # 开启用户在线时间的计时
+        self.action_online_timer()
 
     def user_logout(self):
         """ 用户退出 """
@@ -162,6 +166,8 @@ class ClientMainApp(FrameLessWindowUI):
         self.navigation_bar.logout_button.hide()
         # 跳转到首页
         self.set_default_homepage()
+        # 更改在线时间的计时器状态
+        self.action_online_timer()
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """

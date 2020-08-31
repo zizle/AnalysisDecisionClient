@@ -38,16 +38,19 @@ class TitleBarUI(QWidget):
         self.minimum_button = QPushButton('0', self)
         self.minimum_button.setFont(font)
         self.minimum_button.clicked.connect(self.window_shown_minimum)
+        self.minimum_button.setFocusPolicy(Qt.NoFocus)
         main_layout.addWidget(self.minimum_button, alignment=Qt.AlignRight | Qt.AlignTop)
 
         self.maximum_button = QPushButton('1', self)
         self.maximum_button.setFont(font)
         self.maximum_button.clicked.connect(self.window_shown_maximum)
+        self.maximum_button.setFocusPolicy(Qt.NoFocus)
         main_layout.addWidget(self.maximum_button, alignment=Qt.AlignRight | Qt.AlignTop)
 
         self.close_button = QPushButton('r', self)
         self.close_button.setFont(font)
         self.close_button.clicked.connect(self.window_closed)
+        self.close_button.setFocusPolicy(Qt.NoFocus)
         main_layout.addWidget(self.close_button, alignment=Qt.AlignRight | Qt.AlignTop)
 
         self.menu_bar_layout = QHBoxLayout()
@@ -148,10 +151,12 @@ class NavigationBar(QWidget):
 
         self.username_button = QPushButton("登录", self)
         setattr(self.username_button, 'is_logged', 0)
+        self.username_button.setFocusPolicy(Qt.NoFocus)
         user_bar_layout.addWidget(self.username_button)
 
         self.logout_button = QPushButton(self)
         self.logout_button.hide()
+        self.logout_button.setFocusPolicy(Qt.NoFocus)
         user_bar_layout.addWidget(self.logout_button)
 
         self.user_bar.setLayout(user_bar_layout)
@@ -215,6 +220,9 @@ class NavigationBar(QWidget):
         """ 设置用户的登录状态 """
         setattr(self.username_button, 'is_logged', status)
 
+    def get_user_login_status(self):
+        return getattr(self.username_button, 'is_logged')
+
 
 class FrameLessWindowUI(QWidget):
     """ 主窗口UI 无边框窗口的基本事件(放大缩小移动等)处理"""
@@ -226,6 +234,8 @@ class FrameLessWindowUI(QWidget):
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(QMargins(self.MARGIN, self.MARGIN, self.MARGIN, self.MARGIN))
         main_layout.setSpacing(0)
+        self.setWindowIcon(QIcon("media/logo.png"))
+        self.setWindowTitle("分析决策系统")
 
         # 基本事件属性设置
         self.setMouseTracking(True)

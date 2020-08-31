@@ -8,8 +8,8 @@ import uuid
 import json
 import base64
 from PyQt5.QtWidgets import qApp
-from PyQt5.QtCore import pyqtSignal, QUrl, QSettings, QTimer
-from PyQt5.QtNetwork import QNetworkRequest
+from PyQt5.QtCore import pyqtSignal, QUrl, QSettings, QTimer, Qt
+from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
 from PyQt5.QtGui import QPixmap
 from settings import SERVER_API, BASE_DIR
 from utils.multipart import generate_multipart_data
@@ -29,6 +29,10 @@ class UserPassport(PassportUI):
         self.login_widget.to_register_button.clicked.connect(self.to_register_page)             # 切换到注册页面
         self.register_widget.to_login_button.clicked.connect(self.to_login_page)                # 切换到登录页面
         self.register_widget.image_code_show.refresh_image_code.connect(self.get_image_code)    # 图片验证码点击更换
+        self.login_widget.image_code_show.refresh_image_code.connect(self.get_image_code)       # 登录界面点击图片验证码
+
+        self.login_widget.remember_psd.stateChanged.connect(self.remember_checked_changed)      # 记住密码状态栏变化
+        self.login_widget.remember_login.stateChanged.connect(self.remember_login_changed)      # 自动登录状态变化
 
         self.register_widget.check_phone_unique.connect(self.checking_phone_unique)             # 请求手机号是否唯一
 
@@ -36,6 +40,34 @@ class UserPassport(PassportUI):
         self.register_widget.register_button.clicked.connect(self.user_commit_register)         # 用户点击注册
 
         self.get_image_code()  # 初始获取验证码
+
+    def remember_checked_changed(self, state):
+        """ 记住密码状态改变 """
+        print("remember me")
+        client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        if state == Qt.Checked:
+            phone = self.login_widget.phone_edit.text().strip()
+            password = self.login_widget.password_edit.text().strip()
+            encrypt_phone = base64.b64encode(phone.encode('utf-8')).decode('utf-8')
+            encrypt_password = base64.b64encode(password.encode('utf-8')).decode('utf-8')
+            app_configs.setValue("USER/USER", encrypt_phone)
+            app_configs.setValue("USER/USERP", encrypt_password)
+        else:
+            self.login_widget.remember_login.setChecked(False)
+            app_configs.remove("USER/USER")
+            app_configs.remove("USER/USERP")
+
+    def remember_login_changed(self, state):
+        """ 自动登录状态改变 """
+        client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        if state == Qt.Checked:
+            self.login_widget.remember_psd.setChecked(True)
+            app_configs.setValue("USER/AUTOLOGIN", 1)
+        else:
+            # 移除自动登录标记
+            app_configs.remove("USER/AUTOLOGIN")
 
     def network_tip_animation(self):
         """ 网络请求中动态提示 """
@@ -53,10 +85,6 @@ class UserPassport(PassportUI):
                 self.login_widget.login_button.setText("正在登录 ")
             else:
                 self.login_widget.login_button.setText("正在登录 " + "·" * (len(tip_points) + 1))
-
-    def user_to_login(self):
-        """ 用户登录 """
-        self.username_signal.emit("用户名1")
 
     def to_register_page(self):
         """ 切换到注册页面 """
@@ -85,6 +113,7 @@ class UserPassport(PassportUI):
         del reply
         pix_map = QPixmap()
         pix_map.loadFromData(data)
+        self.login_widget.image_code_show.setPixmap(pix_map)  # 登录验证码
         self.register_widget.image_code_show.setPixmap(pix_map)  # 注册验证码
 
     def checking_phone_unique(self, phone):
@@ -174,4 +203,52 @@ class UserPassport(PassportUI):
 
     def user_commit_login(self):
         """ 用户登录 """
+        phone = self.login_widget.phone_edit.text().strip()
+        password = self.login_widget.password_edit.text().strip()
+        user_dict = {
+            "phone": base64.b64encode(phone.encode('utf-8')).decode('utf-8'),        # 加密
+            "password": base64.b64encode(password.encode('utf-8')).decode('utf-8'),
+            "input_code": self.login_widget.image_code_edit.text().strip(),
+            "code_uuid": self._code_uuid
+        }
+        self.login_widget.login_button.disconnect()    # 断开信号
+        if not self.text_animation_timer.isActive():
+            self.text_animation_timer.start(400)
 
+        multi_data = generate_multipart_data(user_dict)
+
+        network_manager = getattr(qApp, "_network")
+
+        url = SERVER_API + "login/"
+        request = QNetworkRequest(QUrl(url))
+
+        reply = network_manager.post(request, multi_data)
+        reply.finished.connect(self.user_login_back)
+        multi_data.setParent(reply)
+
+    def user_login_back(self):
+        """ 用户登录结果返回 """
+        self.text_animation_timer.stop()
+        self.login_widget.login_button.setText("登录 ")
+        self.login_widget.login_button.clicked.connect(self.user_commit_login)  # 恢复点击信号
+        reply = self.sender()
+        if reply.error():
+            if reply.error() == QNetworkReply.ProtocolInvalidOperationError:
+                message = "验证码错误!"
+            elif reply.error() == QNetworkReply.AuthenticationRequiredError:
+                message = "用户名或密码错误!"
+            else:
+                message = "登录失败:{}".format(reply.error())
+            self.login_widget.login_error.setText(message)
+            reply.deleteLater()
+            return
+        data = reply.readAll().data()
+        data = json.loads(data.decode("utf-8"))
+        reply.deleteLater()
+        # 写入token
+        client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        app_configs.setValue("USER/BEARER", data["access_token"])
+        app_configs.setValue("USER/TTYPE", "bearer")
+        # 发出登录成功的信号
+        self.username_signal.emit(data["show_username"])
