@@ -5,10 +5,11 @@
 
 """ 主窗口无边框的UI """
 
-from PyQt5.QtWidgets import (QHBoxLayout, QVBoxLayout, QWidget, QMainWindow, QVBoxLayout, QDesktopWidget, QLabel, QPushButton,
+from PyQt5.QtWidgets import (qApp, QHBoxLayout, QWidget, QMainWindow, QVBoxLayout, QDesktopWidget, QLabel, QPushButton,
                              QMenuBar)
 from PyQt5.QtGui import QColor, QPen, QPainter, QPixmap, QFont, QIcon, QEnterEvent
 from PyQt5.QtCore import Qt, QMargins, pyqtSignal
+from PyQt5.QtNetwork import QNetworkAccessManager
 from settings import TITLE_BAR_HEIGHT, NAVIGATION_BAR_HEIGHT, WINDOW_TITLE, SYSTEM_MENUS
 
 
@@ -248,7 +249,7 @@ class FrameLessWindowUI(QWidget):
         self.navigation_bar.installEventFilter(self)
         self.center_widget.installEventFilter(self)
 
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowSystemMenuHint | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint)
 
         available_size = QDesktopWidget().availableGeometry()               # 用户的桌面信息,来改变自身窗体大小
         available_width, available_height = available_size.width(), available_size.height()

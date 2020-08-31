@@ -7,8 +7,13 @@ from PyQt5.QtCore import QSettings
 WINDOW_TITLE = '瑞达期货研究院分析决策系统管理端'  # 1.3.1
 # SERVER_ADDR = "http://210.13.218.130:9002/"
 SERVER_ADDR = "http://127.0.0.1:5000/"
+
+SERVER_API = "http://127.0.0.1:8000/api/"
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 ADMINISTRATOR = True
+
 USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.1'
 # app设置
 app_dawn = QSettings('dawn/initial.ini', QSettings.IniFormat)
