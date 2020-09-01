@@ -14,6 +14,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 ADMINISTRATOR = True
 
+ONLINE_COUNT_INTERVAL = 120000  # 毫秒
+
 USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.1'
 # app设置
 app_dawn = QSettings('dawn/initial.ini', QSettings.IniFormat)
@@ -32,6 +34,15 @@ SYSTEM_MENUS = [
     {"id": "2", "name": "产品服务", "logo": "", "children": None},
     {"id": "111", "name": "测试", "logo": "", "children": [
         {"id": "111_1", "name": "测试——1", "logo": "", "children": None},
+    ]},
+    {"id": "-9", "name": "后台管理", "logo": "", "children": [
+        {"id": "-9_1", "name": "运营管理", "logo": "", "children": [
+            {"id": "-9_1_0", "name": "品种管理", "logo": "", "children": None},
+            {"id": "-9_1_1", "name": "用户管理", "logo": "", "children": None},
+        ]},
+        {"id": "-9_0", "name": "首页管理", "logo": "", "children": None},
+        {"id": "-9_2", "name": "产品服务", "logo": "", "children": None},
+        {"id": "-9_3", "name": "产业数据", "logo": "", "children": None},
     ]},
 ]
 

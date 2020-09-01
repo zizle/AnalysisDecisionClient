@@ -35,6 +35,7 @@ class LoginUI(QWidget):
         phone_label.setPixmap(QPixmap('media/passport_icon/phone.png'))
         phone_layout.addWidget(phone_label)
         self.phone_edit = QLineEdit(self)
+        self.phone_edit.setPlaceholderText("手机号/用户号")
         phone_layout.addWidget(self.phone_edit)
         layout.addLayout(phone_layout)
         # 手机号错误提示框
@@ -49,6 +50,7 @@ class LoginUI(QWidget):
         psd_layout.addWidget(password_label)
         self.password_edit = QLineEdit(self)
         self.password_edit.setEchoMode(QLineEdit.Password)
+        self.password_edit.setPlaceholderText("输入密码")
         psd_layout.addWidget(self.password_edit)
         layout.addLayout(psd_layout)
         # 密码错误提示框
@@ -159,11 +161,11 @@ class RegisterUI(QWidget):
         # 邮箱
         email_layout = QHBoxLayout()
         email_label = QLabel(self)
-        email_label.setPixmap(QPixmap('media/passport_icon/phone.png'))
+        email_label.setPixmap(QPixmap('media/passport_icon/email.png'))
         email_layout.addWidget(email_label)
         self.email_edit = QLineEdit(self)
         self.email_edit.setFixedHeight(35)
-        self.email_edit.setPlaceholderText("邮箱")
+        self.email_edit.setPlaceholderText("邮箱(用于找回密码)")
         email_layout.addWidget(self.email_edit)
         layout.addLayout(email_layout)
         # 手机号错误提示框
@@ -264,13 +266,6 @@ class RegisterUI(QWidget):
         self.phone_error.setText("")
 
 
-
-
-
-
-
-
-
 class PassportUI(QStackedWidget):
     def __init__(self, *args, **kwargs):
         super(PassportUI, self).__init__(*args, **kwargs)
@@ -293,6 +288,6 @@ class PassportUI(QStackedWidget):
         self.addWidget(login_)
         self.addWidget(register_)
 
-    # def paintEvent(self, event):
-    #     painter = QPainter(self)
-    #     painter.drawPixmap(self.rect(), QPixmap("media/passport_icon/passport_bg.jpg"), QRect())
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.drawPixmap(self.rect(), QPixmap("media/passport_icon/passport_bg.png"), QRect())

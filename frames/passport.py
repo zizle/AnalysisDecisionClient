@@ -31,9 +31,6 @@ class UserPassport(PassportUI):
         self.register_widget.image_code_show.refresh_image_code.connect(self.get_image_code)    # 图片验证码点击更换
         self.login_widget.image_code_show.refresh_image_code.connect(self.get_image_code)       # 登录界面点击图片验证码
 
-        self.login_widget.remember_psd.stateChanged.connect(self.remember_checked_changed)      # 记住密码状态栏变化
-        self.login_widget.remember_login.stateChanged.connect(self.remember_login_changed)      # 自动登录状态变化
-
         self.register_widget.check_phone_unique.connect(self.checking_phone_unique)             # 请求手机号是否唯一
 
         self.login_widget.login_button.clicked.connect(self.user_commit_login)                  # 用户点击登录
@@ -41,11 +38,27 @@ class UserPassport(PassportUI):
 
         self.get_image_code()  # 初始获取验证码
 
-    def remember_checked_changed(self, state):
-        """ 记住密码状态改变 """
-        print("remember me")
+        self.initialize_account()  # 初始填写用户名和密码
+
+    def initialize_account(self):
+        """ 初始化填充用户名和密码 """
         client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
         app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        phone = app_configs.value("USER/USER")
+        password = app_configs.value("USER/USERP")
+        if phone:
+            phone = base64.b64decode(phone.encode('utf-8')).decode('utf-8')  # 解码
+            self.login_widget.phone_edit.setText(phone)
+            if password:
+                password = base64.b64decode(password.encode('utf-8')).decode('utf-8')  # 解码
+                self.login_widget.password_edit.setText(password)
+                self.login_widget.remember_psd.setChecked(True)
+
+    def remember_checked_handler(self):
+        """ 记住密码状态改变 """
+        client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        state = self.login_widget.remember_psd.checkState()
         if state == Qt.Checked:
             phone = self.login_widget.phone_edit.text().strip()
             password = self.login_widget.password_edit.text().strip()
@@ -54,16 +67,19 @@ class UserPassport(PassportUI):
             app_configs.setValue("USER/USER", encrypt_phone)
             app_configs.setValue("USER/USERP", encrypt_password)
         else:
-            self.login_widget.remember_login.setChecked(False)
             app_configs.remove("USER/USER")
             app_configs.remove("USER/USERP")
+            app_configs.remove("USER/AUTOLOGIN")
 
-    def remember_login_changed(self, state):
+    def remember_login_handler(self):
         """ 自动登录状态改变 """
         client_config_path = os.path.join(BASE_DIR, "dawn/client.ini")
         app_configs = QSettings(client_config_path, QSettings.IniFormat)
+        state = self.login_widget.remember_login.checkState()
         if state == Qt.Checked:
-            self.login_widget.remember_psd.setChecked(True)
+            if not self.login_widget.remember_psd.isChecked():
+                self.login_widget.remember_psd.setChecked(True)
+            self.remember_checked_handler()   # 记住登录,手动调用记住密码
             app_configs.setValue("USER/AUTOLOGIN", 1)
         else:
             # 移除自动登录标记
@@ -168,7 +184,8 @@ class UserPassport(PassportUI):
             "password": base64.b64encode(password_1.encode('utf-8')).decode('utf-8'),
             "client_token": client_configs.value('TOKEN/UUID'),
             "input_code": self.register_widget.image_code_edit.text().strip(),
-            "code_uuid": self._code_uuid
+            "code_uuid": self._code_uuid,
+            "client_uuid": client_configs.value("TOKEN/UUID")
         }
         self.register_widget.register_button.disconnect()   # 屏蔽再次点击信号
 
@@ -203,13 +220,20 @@ class UserPassport(PassportUI):
 
     def user_commit_login(self):
         """ 用户登录 """
+        self.remember_checked_handler()  # 处理是否记住密码
+        self.remember_login_handler()    # 处理是否自动登录
+
+        config_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        client_configs = QSettings(config_path, QSettings.IniFormat)
+
         phone = self.login_widget.phone_edit.text().strip()
         password = self.login_widget.password_edit.text().strip()
         user_dict = {
             "phone": base64.b64encode(phone.encode('utf-8')).decode('utf-8'),        # 加密
             "password": base64.b64encode(password.encode('utf-8')).decode('utf-8'),
             "input_code": self.login_widget.image_code_edit.text().strip(),
-            "code_uuid": self._code_uuid
+            "code_uuid": self._code_uuid,
+            "client_uuid": client_configs.value("TOKEN/UUID")
         }
         self.login_widget.login_button.disconnect()    # 断开信号
         if not self.text_animation_timer.isActive():
@@ -237,6 +261,8 @@ class UserPassport(PassportUI):
                 message = "验证码错误!"
             elif reply.error() == QNetworkReply.AuthenticationRequiredError:
                 message = "用户名或密码错误!"
+            elif reply.error() == QNetworkReply.ContentAccessDenied:
+                message = "您不能在此客户端登录!"
             else:
                 message = "登录失败:{}".format(reply.error())
             self.login_widget.login_error.setText(message)

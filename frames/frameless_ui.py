@@ -250,6 +250,7 @@ class FrameLessWindowUI(QWidget):
         main_layout.addWidget(self.navigation_bar, alignment=Qt.AlignTop)
 
         self.center_widget = QMainWindow()                              # 模块窗体显示窗口
+        self.center_widget.setContentsMargins(QMargins(3, 0, 2, 2))
         main_layout.addWidget(self.center_widget)
 
         self.setLayout(main_layout)
