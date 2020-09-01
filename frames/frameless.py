@@ -95,7 +95,10 @@ class ClientMainApp(FrameLessWindowUI):
         """ 更新用户 (客户端)在线时间"""
         client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
         token_config = QSettings(client_ini_path, QSettings.IniFormat)
-        user_token = token_config.value("USER/BEARER") if token_config.value("USER/BEARER") else ""
+        is_logged = self.navigation_bar.get_user_login_status()
+        user_token = ""
+        if is_logged:
+            user_token = token_config.value("USER/BEARER") if token_config.value("USER/BEARER") else ""
         token = "Bearer " + user_token
         network_manager = getattr(qApp, '_network')
         url = SERVER_API + "user/online/?machine_uuid=" + self.client_uuid
@@ -170,8 +173,6 @@ class ClientMainApp(FrameLessWindowUI):
         self.navigation_bar.logout_button.hide()
         # 跳转到首页
         self.set_default_homepage()
-        # 更改在线时间的计时器状态
-        self.action_online_timer()
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """

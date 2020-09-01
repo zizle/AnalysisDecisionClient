@@ -23,8 +23,16 @@ class UserManager(UserManagerUI):
 
     def __init__(self, *args, **kwargs):
         super(UserManager, self).__init__(*args, **kwargs)
-        self._get_current_role_users()
+        self.user_list_widget.query_button.clicked.connect(self._get_current_role_users)
 
+        self._get_current_role_users()
+        self.currentChanged.connect(self.current_tab_changed)
+
+    def current_tab_changed(self, tab_index):
+        """ 当前标签改变 """
+        print(tab_index)
+        if tab_index == 0:
+            self.removeTab(1)
 
     def _get_current_role_users(self):
         """ 获取当前角色的用户 """
@@ -87,26 +95,44 @@ class UserManager(UserManagerUI):
             self.user_list_widget.show_user_table.setItem(row, 6, item6)
             item6.setTextAlignment(Qt.AlignCenter)
 
-            variety_button = QPushButton("编辑", self)
+            variety_button = QPushButton("编辑", self)   # 登录权限
             setattr(variety_button, "row_index", row)
-            variety_button.clicked.connect(self.to_variety_authority)
+            variety_button.clicked.connect(self.to_login_authority)
             self.user_list_widget.show_user_table.setCellWidget(row, 7, variety_button)
 
-            login_button = QPushButton("编辑", self)
-            setattr(login_button, "row_index", row)
-            login_button.clicked.connect(self.to_login_authority)
-            self.user_list_widget.show_user_table.setCellWidget(row, 8, login_button)
+            module_button = QPushButton("编辑", self)     # 模块权限
+            setattr(module_button, "row_index", row)
+            module_button.clicked.connect(self.to_module_authority)
+            self.user_list_widget.show_user_table.setCellWidget(row, 8, module_button)
 
-            item9 = QTableWidgetItem(str(row_item["note"]))
-            item9.setTextAlignment(Qt.AlignCenter)
-            self.user_list_widget.show_user_table.setItem(row, 9, item9)
+            login_button = QPushButton("编辑", self)     # 品种权限
+            setattr(login_button, "row_index", row)
+            login_button.clicked.connect(self.to_variety_authority)
+            self.user_list_widget.show_user_table.setCellWidget(row, 9, login_button)
+
+            item10 = QTableWidgetItem(str(row_item["note"]))
+            item10.setTextAlignment(Qt.AlignCenter)
+            self.user_list_widget.show_user_table.setItem(row, 10, item10)
 
     def to_variety_authority(self):
         """ 跳转品种权限页面 """
-        tab_index = self.addTab(QWidget(self), "品种权限")
+        current_row = getattr(self.sender(), "row_index")
+        if current_row is None:
+            return
+        current_user_id = self.user_list_widget.show_user_table.item(current_row, 0).text()
+
+        self.variety_auth.current_user_id = current_user_id
+
+        tab_index = self.addTab(self.variety_auth, "品种权限")
         self.setCurrentIndex(tab_index)
+        # 请求用户的品种权限
 
     def to_login_authority(self):
         """ 跳转登录页面 """
-        tab_index = self.addTab(QWidget(self), "登录权限")
+        tab_index = self.addTab(self.client_auth, "登录权限")
+        self.setCurrentIndex(tab_index)
+
+    def to_module_authority(self):
+        """ 跳转模块权限页面 """
+        tab_index = self.addTab(self.module_auth, "模块权限")
         self.setCurrentIndex(tab_index)
