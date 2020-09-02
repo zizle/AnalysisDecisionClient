@@ -17,6 +17,7 @@ from utils.client import get_client_uuid
 from .frameless_ui import FrameLessWindowUI
 
 from admin.user_manager import UserManager
+from admin.variety import VarietyAdmin
 
 
 class ClientMainApp(FrameLessWindowUI):
@@ -224,7 +225,9 @@ class ClientMainApp(FrameLessWindowUI):
     def get_module_page(module_id, module_text):
         """ 通过权限验证,进入功能页面 """
         print(module_id, module_text, "允许进入")
-        if module_id == "-9_1_1":                                  # 后台管理-用户管理
+        if module_id == "-9_1_0":
+            page = VarietyAdmin()                                    # 后台管理-品种管理
+        elif module_id == "-9_1_1":                                  # 后台管理-用户管理
             page = UserManager()
         else:
             page = QLabel(

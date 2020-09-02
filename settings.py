@@ -29,6 +29,7 @@ TITLE_BAR_HEIGHT = 27
 # 菜单栏高度
 NAVIGATION_BAR_HEIGHT = 20
 
+# 只支持3级(模块权限会影响)
 SYSTEM_MENUS = [
     {"id": "0", "name": "首页", "logo": "", "children": None},
     {"id": "2", "name": "产品服务", "logo": "", "children": None},
