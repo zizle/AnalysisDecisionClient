@@ -166,14 +166,15 @@ class ClientMainApp(FrameLessWindowUI):
             self.user_login_successfully(data["show_username"])
         reply.deleteLater()
 
-    def user_logout(self):
+    def user_logout(self, to_homepage=True):
         """ 用户退出
         """
         self.navigation_bar.username_button.setText('登录')
         self.navigation_bar.set_user_login_status(status=0)
         self.navigation_bar.logout_button.hide()
         # 跳转到首页
-        self.set_default_homepage()
+        if to_homepage:
+            self.set_default_homepage()
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """
@@ -208,6 +209,9 @@ class ClientMainApp(FrameLessWindowUI):
                 styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
                 alignment=Qt.AlignCenter
             )
+            if reply.error() == 201 and self.navigation_bar.get_user_login_status():
+                self.user_logout(to_homepage=False)  # 不跳转首页
+
         else:
             if data["authenticate"]:
                 # 进入相应模块

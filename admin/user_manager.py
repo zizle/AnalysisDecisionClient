@@ -156,10 +156,18 @@ class UserManager(UserManagerUI):
         else:
             data = reply.readAll().data()
             data = json.loads(data.decode("utf-8"))
-            current_user_info = data["user"]
-            self.client_auth.current_user_id = current_user_info["id"]  # 绑定当前用户的ID到界面
-            self.client_auth.current_username.setText(current_user_info["username"])
-            self.client_auth.current_user_code.setText(current_user_info["user_code"])
+            current_user_info = data.get("user")
+            if current_user_info:
+                self.client_auth.current_user_id = current_user_info["id"]  # 绑定当前用户的ID到界面
+                self.client_auth.current_username.setText(current_user_info["username"])
+                self.client_auth.current_user_code.setText(current_user_info["user_code"])
+                self.client_auth.network_message.setText("")
+            else:                                                           # 操作用户登录过期了
+                self.client_auth.current_user_id = None
+                self.client_auth.current_username.setText("")
+                self.client_auth.current_user_code.setText("")
+                self.client_auth.network_message.setText("登录信息已过期,重新登录后再操作!")
+                self.parent().parent().user_logout(to_homepage=False)       # 退出navigationBar的用户名显示
             self.client_auth_show_clients(data["clients"])
             self.client_auth.client_auth_table.cellChanged.connect(self.client_auth_status)  # 连接开启和关闭改变的信号
         reply.deleteLater()
@@ -301,15 +309,24 @@ class UserManager(UserManagerUI):
         data = reply.readAll().data()
         data = json.loads(data.decode("utf-8"))
         reply.deleteLater()
-        current_user_info = data["user"]
-        self.module_auth.current_user_id = current_user_info["id"]                      # 绑定当前用户的ID到界面
-        self.module_auth.current_username.setText(current_user_info["username"])
-        self.module_auth.current_user_code.setText(current_user_info["user_code"])
+        current_user_info = data.get("user")
+        if current_user_info:
+            self.module_auth.current_user_id = current_user_info["id"]                      # 绑定当前用户的ID到界面
+            self.module_auth.current_username.setText(current_user_info["username"])
+            self.module_auth.current_user_code.setText(current_user_info["user_code"])
+            self.module_auth.network_message.setText('')
+            current_user_role = current_user_info["role"]
+        else:
+            self.module_auth.current_user_id = None
+            self.module_auth.current_username.setText('')
+            self.module_auth.current_user_code.setText('')
+            self.module_auth.network_message.setText('登录信息已过期,重新登录后再操作!')
+            self.parent().parent().user_logout(to_homepage=False)
+            current_user_role = None
 
         # 将后端返回的模块转为module_id为KEY,expire_date为VALUE的字典
         auth_modules = {module_item["module_id"]: module_item["expire_date"] for module_item in data["modules"]}
-
-        self.module_auth_show_modules(current_user_info["role"], auth_modules)
+        self.module_auth_show_modules(current_user_role, auth_modules)
 
         self.module_auth.module_auth_table.cellChanged.connect(self.module_auth_status)  # 连接开启和关闭改变的信号
 
@@ -317,7 +334,8 @@ class UserManager(UserManagerUI):
         """ 在模块管理页面显示所有功能模块 """
         self.module_auth.module_auth_table.clearContents()
         self.module_auth.module_auth_table.setRowCount(0)
-
+        if user_role is None:   # 操作用户登录过期,不再往下执行
+            return
         for module_item in SYSTEM_MENUS:
             if user_role == "research" and module_item["id"] >= "0":
                 continue
@@ -525,10 +543,19 @@ class UserManager(UserManagerUI):
         else:
             data = reply.readAll().data()
             data = json.loads(data.decode("utf-8"))
-            current_user_info = data["user"]
-            self.variety_auth.current_user_id = current_user_info["id"]  # 绑定当前用户的ID到界面
-            self.variety_auth.current_username.setText(current_user_info["username"])
-            self.variety_auth.current_user_code.setText(current_user_info["user_code"])
+            current_user_info = data.get('user')
+            if current_user_info:
+                self.variety_auth.current_user_id = current_user_info["id"]  # 绑定当前用户的ID到界面
+                self.variety_auth.current_username.setText(current_user_info["username"])
+                self.variety_auth.current_user_code.setText(current_user_info["user_code"])
+                self.variety_auth.network_message.setText('')
+            else:
+                self.variety_auth.current_user_id = None
+                self.variety_auth.current_username.setText("")
+                self.variety_auth.current_user_code.setText("")
+                self.variety_auth.network_message.setText("登录信息已过期,重新登录后再操作!")
+                self.parent().parent().user_logout(to_homepage=False)
+
             self.variety_auth_show_varieties(data["varieties"])
             self.variety_auth.variety_auth_table.cellChanged.connect(self.variety_auth_status)  # 连接开启和关闭改变的信号
         reply.deleteLater()

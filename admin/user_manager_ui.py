@@ -6,40 +6,6 @@
 from PyQt5.QtWidgets import QTabWidget, QWidget, QHBoxLayout, QVBoxLayout, QTableWidget, QLabel, QComboBox, QPushButton, QAbstractItemView, QHeaderView
 
 
-class UserVarietyAuthUI(QWidget):
-    """ 用户品种权限管理 """
-    def __init__(self, *args, **kwargs):
-        super(UserVarietyAuthUI, self).__init__(*args, **kwargs)
-        self.current_user_id = None
-
-        main_layout = QVBoxLayout()
-        info_layout = QHBoxLayout()
-
-        info_layout.addWidget(QLabel("当前用户:", self))
-        self.current_username = QLabel(self)
-        info_layout.addWidget(self.current_username)
-
-        info_layout.addWidget(QLabel("用户号:", self))
-        self.current_user_code = QLabel(self)
-        info_layout.addWidget(self.current_user_code)
-
-        self.network_message = QLabel(self)
-        info_layout.addWidget(self.network_message)
-
-        info_layout.addStretch()
-
-        main_layout.addLayout(info_layout)
-
-        self.variety_auth_table = QTableWidget(self)
-        self.variety_auth_table.setColumnCount(8)
-        self.variety_auth_table.setColumnWidth(3, 180)
-        self.variety_auth_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        self.variety_auth_table.setHorizontalHeaderLabels(["ID", "名称", "交易代码", "交易所", "组别", "权限", "有效期", "操作"])
-        main_layout.addWidget(self.variety_auth_table)
-
-        self.setLayout(main_layout)
-
-
 class UserClientAuthUI(QWidget):
     """ 用户客户端登录权限管理 """
 
@@ -51,13 +17,16 @@ class UserClientAuthUI(QWidget):
 
         info_layout.addWidget(QLabel("当前用户:", self))
         self.current_username = QLabel(self)
+        self.current_username.setObjectName("userName")
         info_layout.addWidget(self.current_username)
 
         info_layout.addWidget(QLabel("用户号:", self))
         self.current_user_code = QLabel(self)
+        self.current_user_code.setObjectName("userCode")
         info_layout.addWidget(self.current_user_code)
 
         self.network_message = QLabel(self)
+        self.network_message.setObjectName("networkMessage")
         info_layout.addWidget(self.network_message)
 
         info_layout.addStretch()
@@ -109,6 +78,43 @@ class UserModuleAuthUI(QWidget):
         self.module_auth_table.setHorizontalHeaderLabels(["ID", "名称", "权限", "到期日", "操作"])
 
         main_layout.addWidget(self.module_auth_table)
+
+        self.setLayout(main_layout)
+
+
+class UserVarietyAuthUI(QWidget):
+    """ 用户品种权限管理 """
+    def __init__(self, *args, **kwargs):
+        super(UserVarietyAuthUI, self).__init__(*args, **kwargs)
+        self.current_user_id = None
+
+        main_layout = QVBoxLayout()
+        info_layout = QHBoxLayout()
+
+        info_layout.addWidget(QLabel("当前用户:", self))
+        self.current_username = QLabel(self)
+        self.current_username.setObjectName("userName")
+        info_layout.addWidget(self.current_username)
+
+        info_layout.addWidget(QLabel("用户号:", self))
+        self.current_user_code = QLabel(self)
+        self.current_user_code.setObjectName("userCode")
+        info_layout.addWidget(self.current_user_code)
+
+        self.network_message = QLabel(self)
+        self.network_message.setObjectName("networkMessage")
+        info_layout.addWidget(self.network_message)
+
+        info_layout.addStretch()
+
+        main_layout.addLayout(info_layout)
+
+        self.variety_auth_table = QTableWidget(self)
+        self.variety_auth_table.setColumnCount(8)
+        self.variety_auth_table.setColumnWidth(3, 180)
+        self.variety_auth_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.variety_auth_table.setHorizontalHeaderLabels(["ID", "名称", "交易代码", "交易所", "组别", "权限", "有效期", "操作"])
+        main_layout.addWidget(self.variety_auth_table)
 
         self.setLayout(main_layout)
 
@@ -185,7 +191,7 @@ class UserManagerUI(QTabWidget):
         self.tabBar().setObjectName("tabBar")
         self.setStyleSheet(
             "#tabBar::tab{min-width:25px;}"
-            "#networkMessage{margin-left: 20px;color:rgb(233,66,66)}"
-            "#userName,#userCode{color:rgb(77,144,254)}"
+            "#networkMessage{margin-left:20px;color:rgb(233,66,66)}"
+            "#userName,#userCode{color:rgb(77,144,254);font-weight:bold;font-size:13px}"
         )
 
