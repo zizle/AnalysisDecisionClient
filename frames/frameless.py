@@ -34,7 +34,7 @@ class ClientMainApp(FrameLessWindowUI):
         self.user_online_timer.timeout.connect(self.update_user_online_time)
 
         self.navigation_bar.username_button.clicked.connect(self.clicked_username_button)  # 点击登录或跳转个人中心
-        self.navigation_bar.logout_button.clicked.connect(self.user_logout)                # 用户退出
+        self.navigation_bar.logout_button.clicked.connect(self.user_logout_proxy)          # 用户退出
         self.navigation_bar.menu_clicked.connect(self.enter_module_page)
 
         self._bind_global_network_manager()                                               # 绑定全局网络管理器
@@ -168,9 +168,16 @@ class ClientMainApp(FrameLessWindowUI):
             self.user_login_successfully(data["show_username"])
         reply.deleteLater()
 
+    def user_logout_proxy(self):
+        """ 用户主动点击退出
+            由于QPushButton的clicked信号默认传过来的参数为False。此函数为代理
+        """
+        self.user_logout()
+
     def user_logout(self, to_homepage=True):
         """ 用户退出
         """
+        print(to_homepage)
         self.navigation_bar.username_button.setText('登录')
         self.navigation_bar.set_user_login_status(status=0)
         self.navigation_bar.logout_button.hide()

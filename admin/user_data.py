@@ -2,13 +2,16 @@
 # @File  : user_data.py
 # @Time  : 2020-09-03 14:12
 # @Author: zizle
+import os
 import json
+import sqlite3
 from datetime import datetime
-from PyQt5.QtWidgets import qApp, QListWidgetItem
+from PyQt5.QtWidgets import qApp, QListWidgetItem, QTableWidgetItem, QPushButton
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtNetwork import QNetworkRequest
-from settings import SERVER_API, logger
-from utils.client import get_user_token
+from settings import SERVER_API, logger, BASE_DIR
+from utils.client import get_user_token, get_client_uuid
+from popup.industry_popup import UpdateFolderPopup
 from .user_data_ui import UserDataMaintainUI, SheetChartUI
 
 
@@ -33,6 +36,9 @@ class UserDataMaintain(UserDataMaintainUI):
         # 数据表显示页品种选择变化信号连接放在请求完品种权限返回添加完数据之后(不在__init__内连接信号可以减少一次请求分组的网络)
 
         self._get_user_variety()  # 获取用户有权限的品种(置于信号连接之后确保首次信号执行)
+
+        self.source_config_widget.new_config_button.clicked.connect(self.config_update_folder)  # 调整配置更新文件夹
+        self.source_config_widget.group_combobox.currentTextChanged.connect(self.show_groups_folder_list)  # 显示品种组的更新文件夹
 
     def _get_user_variety(self):
         """ 获取用户有权限的品种信息 """
@@ -90,6 +96,102 @@ class UserDataMaintain(UserDataMaintainUI):
         if self.is_ready:
             self.variety_combobox_changed()  # 手动调用请求品种下的分组(否则第一次切换到品种表页面没有分组)
 
+    def config_update_folder(self):
+        """ 调整配置更新的文件夹 """
+        variety_text, variety_en = self.source_config_widget.variety_combobox.currentText(), self.source_config_widget.variety_combobox.currentData()
+        group_text, group_id = self.source_config_widget.group_combobox.currentText(), self.source_config_widget.group_combobox.currentData()
+        if not all([variety_text, variety_en, group_text, group_id]):
+            self.source_config_widget.tips_message.setText("选择正确的品种分组再配置.")
+            return
+        self.source_config_widget.tips_message.setText("")
+        popup = UpdateFolderPopup(variety_text=variety_text, variety_en=variety_en, group_text=group_text, group_id=group_id, parent=self)
+        popup.successful_signal.connect(self.config_folder_successfully)
+        popup.exec_()
+
+    def config_folder_successfully(self, text):
+        """ 调整文件夹配置成功 """
+        self.source_config_widget.tips_message.setText(text)
+        self.sender().close()
+        # 刷新
+        self.show_groups_folder_list()
+
+    def show_groups_folder_list(self):
+        variety_en, variety_text = self.source_config_widget.variety_combobox.currentData(), self.source_config_widget.variety_combobox.currentText()
+        group_id = self.source_config_widget.group_combobox.currentData()
+        client = get_client_uuid()
+        db_path = os.path.join(BASE_DIR, "dawn/local_data.db")
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        if group_id == 0:
+            cursor.execute(
+                "SELECT ID,VARIETY_EN,GROUP_ID,FOLDER FROM UPDATE_FOLDER WHERE VARIETY_EN=? AND CLIENT=?;",
+                (variety_en, client)
+            )
+        else:
+            cursor.execute(
+                "SELECT ID,VARIETY_EN,GROUP_ID,FOLDER FROM UPDATE_FOLDER WHERE VARIETY_EN=? AND GROUP_ID=? AND CLIENT=?;",
+                (variety_en, group_id, client)
+            )
+        folder_list = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        group_dict = dict()
+        for i in range(self.source_config_widget.group_combobox.count()):
+            group_dict[self.source_config_widget.group_combobox.itemData(i)] = self.source_config_widget.group_combobox.itemText(i)
+        self.source_config_widget.config_table.clearContents()
+        self.source_config_widget.config_table.setRowCount(len(folder_list))
+        for row, row_item in enumerate(folder_list):
+            item0 = QTableWidgetItem(str(row_item[0]))
+            item0.setTextAlignment(Qt.AlignCenter)
+            self.source_config_widget.config_table.setItem(row, 0, item0)
+
+            item1 = QTableWidgetItem(variety_text)
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.source_config_widget.config_table.setItem(row, 1, item1)
+
+            text2 = group_dict.get(row_item[2], '')
+            item2 = QTableWidgetItem(text2)
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.source_config_widget.config_table.setItem(row, 2, item2)
+
+            item3 = QTableWidgetItem(row_item[3])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.source_config_widget.config_table.setItem(row, 3, item3)
+
+            item4_button = QPushButton("点击更新", self.source_config_widget.config_table)
+            setattr(item4_button, "row_index", row)
+            item4_button.clicked.connect(self.updating_sheets_of_folder)
+            self.source_config_widget.config_table.setCellWidget(row, 4, item4_button)
+
+    def updating_sheets_of_folder(self):
+        """ 更新文件夹内的所有数据表 """
+        if self.source_config_widget.is_updating:
+            self.source_config_widget.tips_message.setText("当前有数据正在更新,完成后再进行操作! ")
+            return
+        button_clicked = self.sender()
+        current_row = getattr(button_clicked, "row_index")
+        variety_en = self.source_config_widget.variety_combobox.currentData()
+        group_text = self.source_config_widget.config_table.item(current_row, 2).text()
+        folder_path = self.source_config_widget.config_table.item(current_row, 3).text()
+        group_id = None
+        for i in range(self.source_config_widget.group_combobox.count()):
+            if self.source_config_widget.group_combobox.itemText(i) == group_text:
+                group_id = self.source_config_widget.group_combobox.itemData(i)
+        if not group_id:
+            self.source_config_widget.tips_message.setText("数据组别错误,无法更新数据!")
+            return
+        # 关闭按钮的点击事件
+        button_clicked.setEnabled(False)
+        # 开启数据更新的文字提示
+        self.source_config_widget.tips_message.setText("正在更新数据,请稍候 ")
+        self.source_config_widget.updating_timer.start(400)
+        self.source_config_widget.is_updating = True
+        print(variety_en, group_id, folder_path)
+
+    def update_folder_sheets_to_server(self, folder_path):
+        """ 读取数据,更新数据到服务端 """
+
+
     def variety_combobox_changed(self):
         """ 界面品种变化 """
         current_widget = self.maintain_frame.currentWidget()
@@ -136,4 +238,6 @@ class UserDataMaintain(UserDataMaintainUI):
             for group_item in data["groups"]:
                 current_widget.group_combobox.addItem(group_item["group_name"], group_item["id"])
         reply.deleteLater()
+        # 再次调用数据源配置页的查询已配置的文件夹内容项(由于变化了就连接信号,获取组不全需手动再次调用)
+        self.show_groups_folder_list()
 

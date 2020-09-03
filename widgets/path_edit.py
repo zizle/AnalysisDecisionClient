@@ -18,6 +18,18 @@ class FilePathLineEdit(QLineEdit):
         self.setText(file_path)
 
 
+class FolderPathLineEdit(QLineEdit):
+    def __init__(self,*args):
+        super(FolderPathLineEdit, self).__init__(*args)
+        self.setReadOnly(True)
+        self.setPlaceholderText("点击选择文件夹路径")
+
+    def mousePressEvent(self, event):
+        folder_path = QFileDialog.getExistingDirectory(self, "选择文件夹")
+        if folder_path:
+            self.setText(folder_path + "/")
+
+
 class ImagePathLineEdit(QLineEdit):
     def __init__(self,*args):
         super(ImagePathLineEdit, self).__init__(*args)

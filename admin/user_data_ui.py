@@ -6,14 +6,18 @@
 """ 用户数据维护 (产业数据库) """
 
 from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox, QPushButton,
-                             QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox)
-from PyQt5.QtCore import QMargins, Qt
+                             QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView)
+from PyQt5.QtCore import QMargins, Qt, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 
 class ConfigSourceUI(QWidget):
     def __init__(self, *args, **kwargs):
         super(ConfigSourceUI, self).__init__(*args, **kwargs)
+        self.is_updating = False  # 标记是否正在执行更新
+        self.updating_timer = QTimer(self)
+        self.updating_timer.timeout.connect(self.show_updating_tips)
+
         main_layout = QVBoxLayout()
         opt_layout = QHBoxLayout()
         opt_layout.addWidget(QLabel("品种:", self))
@@ -42,30 +46,39 @@ class ConfigSourceUI(QWidget):
         self.confirm_group_button = QPushButton("确定", self)
         self.confirm_group_button.hide()
         opt_layout.addWidget(self.confirm_group_button)
+
+        # 信息提示
+        self.tips_message = QLabel(self)
+        self.tips_message.setObjectName("messageLabel")
+        opt_layout.addWidget(self.tips_message)
         opt_layout.addStretch()
 
-        self.new_config_button = QPushButton('配置', self)
+        self.new_config_button = QPushButton('调整配置', self)
         opt_layout.addWidget(self.new_config_button)
         main_layout.addLayout(opt_layout)
 
         self.config_table = QTableWidget(self)
         self.config_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.config_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.config_table.setFocusPolicy(Qt.NoFocus)
         self.config_table.setFrameShape(QFrame.NoFrame)
         self.config_table.setAlternatingRowColors(True)
-
+        self.config_table.setColumnCount(5)
+        self.config_table.setHorizontalHeaderLabels(["编号", "品种", "组别", "更新路径", ""])
+        self.config_table.verticalHeader().hide()
+        self.config_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         main_layout.addWidget(self.config_table)
 
         self.config_table.setObjectName('configsTable')
 
-        tips = "<p>1 点击右上角'配置'按钮，配置数据组文件所在的文件夹.</p>" \
+        tips = "<p>1 点击右上角'更新配置'按钮，配置当前品种当前数据组更新文件所在的文件夹.</p>" \
                "<p>2 '点击更新'让系统读取文件夹内的数据表自动上传.</p>" \
                "<p>2-1 文件夹内表格格式:</p>" \
                "<p>第1行：万得导出的表第一行不动;自己创建的表第一行可留空;</p>" \
                "<p>第2行：数据表表头;</p>" \
                "<p>第3行：不做限制,可填入单位等,也可直接留空.</p>" \
                "<p>第4行：数据起始行,第一列为【日期】类型,非日期的行系统不会做读取.</p>" \
-               "<p>特别注意: 表内以`Sheet`开头的表将不做读取.即不进行命名的表系统是忽略的."
+               "<p>特别注意: 文件内以`Sheet`开头的表将不做读取.即不进行命名的表系统是忽略的."
 
         tips_label = QLabel(tips, self)
         tips_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -76,7 +89,8 @@ class ConfigSourceUI(QWidget):
         self.setLayout(main_layout)
         self.setStyleSheet(
             "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
-            "#configsTable{background-color:rgb(240,240,240);font-size: 13px;selection-color: rgb(180,60,60);alternate-background-color: rgb(245, 250, 248);}"
+            "#configsTable{background-color:rgb(240,240,240);font-size:13px;selection-color:rgb(180,60,60);"
+            "alternate-background-color:rgb(245,250,248);}"
         )
 
     def to_create_new_group(self):
@@ -95,6 +109,17 @@ class ConfigSourceUI(QWidget):
         self.new_group_edit.hide()
         self.new_group_edit.clear()
         self.confirm_group_button.hide()
+
+    def show_updating_tips(self):
+        """ 正在更新数据的文字提示 """
+        tips = self.tips_message.text()
+        tip_points = tips.split(' ')[1]
+        if len(tip_points) > 2:
+            self.tips_message.setText("正在更新数据,请稍候 ")
+        else:
+            self.tips_message.setText("正在更新数据,请稍候 " + "·" * (len(tip_points) + 1))
+
+
 
 
 class VarietySheetUI(QWidget):
@@ -189,6 +214,7 @@ class UserDataMaintainUI(QWidget):
             "#leftList{outline:none;border:none;border-right: 1px solid rgb(180,180,180);}"
             "#leftList::item{height:25px;}"
             "#leftList::item:selected{border-left:3px solid rgb(100,120,150);color:#000;background-color:rgb(180,220,230);}"
+            "#messageLabel{color:rgb(233,66,66);font-weight:bold}"
         )
 
         # 实例化3个待显示的界面
