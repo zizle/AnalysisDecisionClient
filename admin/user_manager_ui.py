@@ -143,6 +143,10 @@ class UserListUI(QWidget):
         self.query_button = QPushButton("查询", self)
         options_layout.addWidget(self.query_button)
 
+        self.network_message = QLabel(self)
+        self.network_message.setObjectName("networkMessage")
+        options_layout.addWidget(self.network_message)
+
         options_layout.addStretch()
 
         main_layout.addLayout(options_layout)
@@ -150,16 +154,19 @@ class UserListUI(QWidget):
         self.show_user_table = QTableWidget(self)
         self.show_user_table.setFrameShape(QAbstractItemView.NoFrame)
         self.show_user_table.verticalHeader().hide()
-        self.show_user_table.setColumnCount(11)
+        self.show_user_table.setColumnCount(12)
         self.show_user_table.setColumnWidth(3, 150)
         self.show_user_table.setColumnWidth(4, 120)
-        self.show_user_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.show_user_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.show_user_table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
+        self.show_user_table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         self.show_user_table.horizontalHeader().setSectionResizeMode(7, QHeaderView.ResizeToContents)
         self.show_user_table.horizontalHeader().setSectionResizeMode(8, QHeaderView.ResizeToContents)
         self.show_user_table.horizontalHeader().setSectionResizeMode(9, QHeaderView.ResizeToContents)
+        self.show_user_table.horizontalHeader().setSectionResizeMode(11, QHeaderView.ResizeToContents)
         self.show_user_table.setHorizontalHeaderLabels(
-            ["ID", "用户名", "手机", "用户号", "邮箱", "角色", "状态", "登录权限", "模块权限", "品种权限", "备注"]
+            ["ID", "用户名", "手机", "用户号", "邮箱", "角色", "状态", "登录权限", "模块权限", "品种权限",
+             "备注", ""]
         )
         self.show_user_table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeToContents)
         main_layout.addWidget(self.show_user_table)
@@ -172,7 +179,6 @@ class UserManagerUI(QTabWidget):
 
     def __init__(self, *args, **kwargs):
         super(UserManagerUI, self).__init__(*args, **kwargs)
-        self.current_user_id = None
 
         self.setTabPosition(QTabWidget.West)
         self.setTabShape(QTabWidget.Triangular)

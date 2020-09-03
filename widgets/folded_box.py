@@ -35,6 +35,7 @@ class FoldedBodyButton(QPushButton):
         #button:hover{
             color:rgb(200,120,200);
             background-color:rgb(200,200,200);
+            background-color:rgb(200,200,200);
             border-radius:3px;
         }
         #button:pressed{
@@ -69,13 +70,7 @@ class FoldedHead(QWidget):
         # 样式
         self.setAutoFillBackground(True)  # 受父窗口影响(父窗口已设置透明)会透明,填充默认颜色
         self.setAttribute(Qt.WA_StyledBackground, True)  # 支持qss设置背景颜色(受父窗口透明影响qss会透明)
-        # self.setStyleSheet("""
-        # #headLabel{
-        #     padding:8px 5px;
-        #     font-weight: bold;
-        #     font-size:12px;
-        # }
-        # """)
+
         self.moreButtonStyle()
 
     # 折叠的button样式
@@ -123,28 +118,11 @@ class FoldedBody(QWidget):
         layout = QGridLayout(margin=0)
         self.button_list = list()
         self.setLayout(layout)
-        # 样式
-        self.setAutoFillBackground(True)  # 受父窗口影响(父窗口已设置透明)会透明,填充默认颜色
-        self.setAttribute(Qt.WA_StyledBackground, True)  # 支持qss设置背景颜色(受父窗口透明影响qss会透明)
 
     def addButton(self, id, name, name_en=None):
         button = FoldedBodyButton(text=name, bid=id, name_en=name_en, parent=self)
         button.mouse_clicked.connect(self.body_button_clicked)
         self.button_list.append(button)
-
-    # # 添加按钮
-    # def addButtons(self, button_list, horizontal_count=3):
-    #     self.button_list.clear()
-    #
-    #     for button_item in button_list:
-    #         button = FoldedBodyButton(
-    #             text=button_item['name'],
-    #             bid=button_item['id'],
-    #             name_en=button_item.get('name_en', None),
-    #             parent=self
-    #         )
-    #         button.mouse_clicked.connect(self.body_button_clicked)
-    #         self.button_list.append(button)
 
     # 按钮被点击
     def body_button_clicked(self, bid, name_en):

@@ -18,6 +18,8 @@ from .frameless_ui import FrameLessWindowUI
 
 from admin.user_manager import UserManager
 from admin.variety import VarietyAdmin
+from admin.user_data import UserDataMaintain
+from frames.industry.variety_data import VarietyData
 
 
 class ClientMainApp(FrameLessWindowUI):
@@ -229,10 +231,14 @@ class ClientMainApp(FrameLessWindowUI):
     def get_module_page(module_id, module_text):
         """ 通过权限验证,进入功能页面 """
         print(module_id, module_text, "允许进入")
-        if module_id == "-9_1_0":
+        if module_id == "2_0":
+            page = VarietyData()
+        elif module_id == "-9_1_0":
             page = VarietyAdmin()                                    # 后台管理-品种管理
         elif module_id == "-9_1_1":                                  # 后台管理-用户管理
             page = UserManager()
+        elif module_id == "-9_3_0":                                  # 后台管理-产业数据库
+            page = UserDataMaintain()
         else:
             page = QLabel(
                 "「" + module_text + "」暂未开放···\n更多资讯请访问【首页】查看.",

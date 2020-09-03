@@ -29,21 +29,33 @@ TITLE_BAR_HEIGHT = 27
 # 菜单栏高度
 NAVIGATION_BAR_HEIGHT = 20
 
-# 只支持3级(模块权限会影响)
+# 支持多级(但模块权限仅遍历3级)
 SYSTEM_MENUS = [
     {"id": "0", "name": "首页", "logo": "", "children": None},
-    {"id": "2", "name": "产品服务", "logo": "", "children": None},
-    {"id": "111", "name": "测试", "logo": "", "children": [
-        {"id": "111_1", "name": "测试——1", "logo": "", "children": None},
+    {"id": "1", "name": "产品服务", "logo": "", "children": None},
+    {"id": "2", "name": "行业数据", "logo": "", "children": [
+        {"id": "2_0", "name": "产业数据库", "logo": "", "children": None},
+        {"id": "2_1", "name": "交易所数据", "logo": "", "children": None},
+        {"id": "2_2", "name": "品种净持仓", "logo": "", "children": None},
     ]},
     {"id": "-9", "name": "后台管理", "logo": "", "children": [
         {"id": "-9_1", "name": "运营管理", "logo": "", "children": [
             {"id": "-9_1_0", "name": "品种管理", "logo": "", "children": None},
             {"id": "-9_1_1", "name": "用户管理", "logo": "", "children": None},
         ]},
-        {"id": "-9_0", "name": "首页管理", "logo": "", "children": None},
+        {"id": "-9_0", "name": "首页管理", "logo": "", "children": [
+            {"id": "-9_0_0", "name": "公告信息", "logo": "", "children": None},
+            {"id": "-9_0_1", "name": "广告展示", "logo": "", "children": None},
+            {"id": "-9_0_2", "name": "常规报告", "logo": "", "children": None},
+            {"id": "-9_0_3", "name": "交易通知", "logo": "", "children": None},
+            {"id": "-9_0_4", "name": "现货数据", "logo": "", "children": None},
+            {"id": "-9_0_5", "name": "财经日历", "logo": "", "children": None},
+        ]},
         {"id": "-9_2", "name": "产品服务", "logo": "", "children": None},
-        {"id": "-9_3", "name": "产业数据", "logo": "", "children": None},
+        {"id": "-9_3", "name": "行业数据", "logo": "", "children": [
+            {"id": "-9_3_0", "name": "产业数据库", "logo": "", "children": None},
+            {"id": "-9_3_1", "name": "交易所数据", "logo": "", "children": None},
+        ]},
     ]},
 ]
 
