@@ -6,7 +6,7 @@
 """ 用户数据维护 (产业数据库) """
 
 from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox, QPushButton,
-                             QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView)
+                             QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView, QProgressBar)
 from PyQt5.QtCore import QMargins, Qt, QTimer
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
@@ -15,8 +15,10 @@ class ConfigSourceUI(QWidget):
     def __init__(self, *args, **kwargs):
         super(ConfigSourceUI, self).__init__(*args, **kwargs)
         self.is_updating = False  # 标记是否正在执行更新
-        self.updating_timer = QTimer(self)
-        self.updating_timer.timeout.connect(self.show_updating_tips)
+        self.current_button = None
+
+        # 更新数据的线程
+        self.updating_thread = None
 
         main_layout = QVBoxLayout()
         opt_layout = QHBoxLayout()
@@ -51,6 +53,12 @@ class ConfigSourceUI(QWidget):
         self.tips_message = QLabel(self)
         self.tips_message.setObjectName("messageLabel")
         opt_layout.addWidget(self.tips_message)
+
+        # 更新数据的进度条
+        self.updating_process = QProgressBar(self)
+        self.updating_process.hide()
+        self.updating_process.setFixedHeight(15)
+        opt_layout.addWidget(self.updating_process)
         opt_layout.addStretch()
 
         self.new_config_button = QPushButton('调整配置', self)
@@ -110,22 +118,12 @@ class ConfigSourceUI(QWidget):
         self.new_group_edit.clear()
         self.confirm_group_button.hide()
 
-    def show_updating_tips(self):
-        """ 正在更新数据的文字提示 """
-        tips = self.tips_message.text()
-        tip_points = tips.split(' ')[1]
-        if len(tip_points) > 2:
-            self.tips_message.setText("正在更新数据,请稍候 ")
-        else:
-            self.tips_message.setText("正在更新数据,请稍候 " + "·" * (len(tip_points) + 1))
-
-
-
 
 class VarietySheetUI(QWidget):
     def __init__(self, *args, **kwargs):
         super(VarietySheetUI, self).__init__(*args, **kwargs)
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(QMargins(0, 1, 2, 1))
         opts_layout = QHBoxLayout()
         opts_layout.addWidget(QLabel("品种:", self))
         self.variety_combobox = QComboBox(self)
@@ -147,15 +145,15 @@ class VarietySheetUI(QWidget):
         opts_layout.addStretch()
         main_layout.addLayout(opts_layout)
         self.sheet_table = QTableWidget(self)
+        self.sheet_table.setFrameShape(QFrame.NoFrame)
+        self.sheet_table.verticalHeader().hide()
+        self.sheet_table.setEditTriggers(QHeaderView.NoEditTriggers)
+        self.sheet_table.setColumnCount(6)
+        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "名称", "更新日期", "增量", ""])
+        self.sheet_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.sheet_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
         main_layout.addWidget(self.sheet_table)
         self.setLayout(main_layout)
-
-        # self.variety_combobox.setObjectName("varietyCombo")
-        # self.group_combobox.setObjectName("groupCombo")
-        # # groupCombo QAbstractItemView{min-height:20px;min-width:150px}
-        # # self.setStyleSheet("#varietyCombo QAbstractItemView::item{height:20px;}")
-        # self.variety_combobox.setView(QListView())
-        # self.group_combobox.setView(QListView())
 
 
 class SheetChartUI(QWidget):

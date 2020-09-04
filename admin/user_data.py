@@ -2,17 +2,101 @@
 # @File  : user_data.py
 # @Time  : 2020-09-03 14:12
 # @Author: zizle
+""" 用户产业数据模块后台维护 """
 import os
 import json
 import sqlite3
+import sys
+import numpy as np
+import pandas as pd
 from datetime import datetime
 from PyQt5.QtWidgets import qApp, QListWidgetItem, QTableWidgetItem, QPushButton
-from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtNetwork import QNetworkRequest
+from PyQt5.QtCore import Qt, QUrl, QThread, pyqtSignal
+from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
 from settings import SERVER_API, logger, BASE_DIR
 from utils.client import get_user_token, get_client_uuid
 from popup.industry_popup import UpdateFolderPopup
 from .user_data_ui import UserDataMaintainUI, SheetChartUI
+
+pd.set_option('mode.chained_assignment', None)      # pandas不提示警告
+
+
+class UpdatingSheetsThread(QThread):
+    """ 更新数据表的线程 """
+    single_finished = pyqtSignal(int)   # 单个完成的信号(2020-09-04预留更新进度条使用)
+
+    def __init__(self, variety_en, group_id, path_list, *args, **kwargs):
+        super(UpdatingSheetsThread, self).__init__(*args, **kwargs)
+        self.variety_en = variety_en
+        self.group_id = group_id
+        self.path_list = path_list
+        self.network_manager = getattr(qApp, '_network')
+
+    def run(self):
+        """ 读取数据,清洗数据 """
+        for index, excel_path in enumerate(self.path_list):
+            try:
+                excel_file = pd.ExcelFile(excel_path)
+            except Exception as e:
+                logger.error("打开Excel文件失败:{}".format(e))
+                continue
+            for sheet_name in excel_file.sheet_names:
+                if sheet_name.lower().startswith("sheet"):
+                    continue
+                # converters参数 第0列为时间格式
+                sheet_df = excel_file.parse(sheet_name=sheet_name, skiprows=[0], converters={0: self.date_converter})
+                sheet_df.iloc[:1].fillna('', inplace=True)                       # 替换第一行中有的nan
+                sheet_df.iloc[:, 1:sheet_df.shape[1]].fillna('', inplace=True)   # 替换除第一列以外的nan为空
+                sheet_df.dropna(axis=0, how='any', inplace=True)                 # 删除含nan的行
+                if sheet_df.empty:  # 处理后为空的数据继续下一个
+                    continue
+                sheet_df = sheet_df.applymap(str)
+                # 读取数据的表头
+                sheet_headers = sheet_df.columns.values.tolist()
+                # 生成新的columns名称
+                sheet_df.columns = ["column_{}".format(i) for i in range(len(sheet_headers))]
+                # 将数据转为dict
+                sheet_source = {
+                    "variety_en": self.variety_en,
+                    "group_id": self.group_id,
+                    "sheet_name": sheet_name.strip(),
+                    "sheet_headers": sheet_headers,
+                    "sheet_values": sheet_df.to_dict(orient="records")
+                }
+                # self.loop.exec_()
+                self.to_server_updating(sheet_source)
+            excel_file.close()
+            self.single_finished.emit(index + 1)
+
+    @staticmethod
+    def date_converter(column_content):
+        """ 时间类型转换器 """
+        if isinstance(column_content, datetime):
+            return column_content.strftime("%Y-%m-%d")
+        else:
+            return np.nan
+
+    def to_server_updating(self, source_data):
+        """ 将数据上传到服务器进行更新 """
+        url = SERVER_API + "variety/{}/sheet/".format(self.variety_en)
+        user_token = get_user_token()
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = self.network_manager.post(request, json.dumps(source_data).encode("utf-8"))
+        reply.finished.connect(self.sheet_data_server_reply)
+        self.exec_()        # 开启事件循环才能接受到返回的信号,必须再reply之后
+
+    def sheet_data_server_reply(self):
+        """ 数据上传到服务器返回 """
+        reply = self.sender()
+        if reply.error() == QNetworkReply.AuthenticationRequiredError:
+            logger.error("登录过期或没有品种权限,更新数据失败!")
+        if reply.error() == QNetworkReply.ProtocolInvalidOperationError:
+            logger.error("提交的数据内容有误,更新失败!")
+        if reply.error():
+            logger.error("其他未知情况,更新数据失败:{}".format(reply.error()))
+        reply.deleteLater()
+        self.quit()    # 事件循环退出，继续下一个
 
 
 class UserDataMaintain(UserDataMaintainUI):
@@ -39,6 +123,7 @@ class UserDataMaintain(UserDataMaintainUI):
 
         self.source_config_widget.new_config_button.clicked.connect(self.config_update_folder)  # 调整配置更新文件夹
         self.source_config_widget.group_combobox.currentTextChanged.connect(self.show_groups_folder_list)  # 显示品种组的更新文件夹
+        self.variety_sheet_widget.group_combobox.currentIndexChanged.connect(self.get_show_variety_sheets)  # 获取品种的数据表
 
     def _get_user_variety(self):
         """ 获取用户有权限的品种信息 """
@@ -184,13 +269,43 @@ class UserDataMaintain(UserDataMaintainUI):
         button_clicked.setEnabled(False)
         # 开启数据更新的文字提示
         self.source_config_widget.tips_message.setText("正在更新数据,请稍候 ")
-        self.source_config_widget.updating_timer.start(400)
         self.source_config_widget.is_updating = True
+        self.source_config_widget.current_button = button_clicked
+        self.source_config_widget.updating_process.setMaximum(0)
+        self.source_config_widget.updating_process.setValue(0)
+        self.source_config_widget.updating_process.show()
         print(variety_en, group_id, folder_path)
+        try:
+            self.update_folder_sheets_to_server(variety_en, group_id, folder_path)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
 
-    def update_folder_sheets_to_server(self, folder_path):
+    def update_folder_sheets_to_server(self,variety_en, group_id, folder_path):
         """ 读取数据,更新数据到服务端 """
+        file_path_list = list()
+        for file_path in os.listdir(folder_path):
+            filename, file_suffix = os.path.splitext(file_path)
+            if filename.startswith("~$"):  # Excel的打开缓存文件
+                continue
+            if file_suffix in [".xlsx", '.xls']:
+                file_path_list.append(os.path.join(folder_path, file_path))
+        self.source_config_widget.updating_thread = UpdatingSheetsThread(variety_en=variety_en, group_id=group_id, path_list=file_path_list)
+        self.source_config_widget.updating_thread.finished.connect(self.folder_update_finished)
+        self.source_config_widget.updating_thread.single_finished.connect(self.source_config_widget.updating_process.setValue)
+        self.source_config_widget.updating_thread.start()
+        self.source_config_widget.updating_process.setMaximum(len(file_path_list))
+        self.source_config_widget.updating_process.setValue(0)
 
+    def folder_update_finished(self):
+        """ 文件夹更新完毕 """
+        if self.source_config_widget.updating_thread is not None:
+            self.source_config_widget.updating_thread.deleteLater()
+            self.source_config_widget.updating_thread = None
+        self.source_config_widget.is_updating = False
+        self.source_config_widget.tips_message.setText("数据更新完成! ")
+        if self.source_config_widget.current_button is not None:
+            self.source_config_widget.current_button.setEnabled(True)
 
     def variety_combobox_changed(self):
         """ 界面品种变化 """
@@ -240,4 +355,58 @@ class UserDataMaintain(UserDataMaintainUI):
         reply.deleteLater()
         # 再次调用数据源配置页的查询已配置的文件夹内容项(由于变化了就连接信号,获取组不全需手动再次调用)
         self.show_groups_folder_list()
+
+    """ 品种数据表界面 """
+
+    def get_show_variety_sheets(self):
+        variety_en = self.variety_sheet_widget.variety_combobox.currentData()
+        group_id = self.variety_sheet_widget.group_combobox.currentData()
+        is_own = 1 if self.variety_sheet_widget.only_me_check.checkState() else 0
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "variety/{}/sheet/?group_id={}&is_own={}".format(variety_en, group_id, is_own)
+        request = QNetworkRequest(QUrl(url))
+        user_token = get_user_token()
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = network_manager.get(request)
+        reply.finished.connect(self.get_variety_sheets_reply)
+
+    def get_variety_sheets_reply(self):
+        """ 获取品种数据表返回了 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("用户获取品种数据表失败{}".format(reply.error()))
+        else:
+            data = reply.readAll().data()
+            data = json.loads(data.decode("utf-8"))
+            self.show_variety_sheets(data["sheets"])
+
+        reply.deleteLater()
+
+    def show_variety_sheets(self, sheets):
+        """ 显示当前条件下的品种表 """
+        self.variety_sheet_widget.sheet_table.clearContents()
+        self.variety_sheet_widget.sheet_table.setRowCount(len(sheets))
+        for row, row_item in enumerate(sheets):
+            item0 = QTableWidgetItem(str(row_item["id"]))
+            item0.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 0, item0)
+
+            item1 = QTableWidgetItem(row_item["create_date"])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 1, item1)
+
+            item2 = QTableWidgetItem(row_item["sheet_name"])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 2, item2)
+
+            item3 = QTableWidgetItem(row_item["update_date"])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 3, item3)
+
+            item4 = QTableWidgetItem(str(row_item["update_count"]))
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 4, item4)
+
+
+
 

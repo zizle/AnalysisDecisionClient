@@ -77,8 +77,9 @@ def config_logger_handler():
 
     handler = logging.FileHandler(log_file_path, encoding='UTF-8')
     handler.setLevel(logging.ERROR)
+    # "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s[line:%(lineno)d]"
     logger_format = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s[line:%(lineno)d]"
+        "%(asctime)s - %(levelname)s : %(message)s]"
     )
     handler.setFormatter(logger_format)
     return handler
