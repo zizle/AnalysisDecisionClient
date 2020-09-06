@@ -6,16 +6,17 @@
 import os
 import json
 import sqlite3
-import sys
+import time
 import numpy as np
 import pandas as pd
 from datetime import datetime
 from PyQt5.QtWidgets import qApp, QListWidgetItem, QTableWidgetItem, QPushButton
 from PyQt5.QtCore import Qt, QUrl, QThread, pyqtSignal
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
+from PyQt5.QtGui import QBrush, QColor
 from settings import SERVER_API, logger, BASE_DIR
 from utils.client import get_user_token, get_client_uuid
-from popup.industry_popup import UpdateFolderPopup
+from popup.industry_popup import UpdateFolderPopup, DisposeChartPopup
 from .user_data_ui import UserDataMaintainUI, SheetChartUI
 
 pd.set_option('mode.chained_assignment', None)      # pandas不提示警告
@@ -43,11 +44,15 @@ class UpdatingSheetsThread(QThread):
             for sheet_name in excel_file.sheet_names:
                 if sheet_name.lower().startswith("sheet"):
                     continue
+                time.sleep(0.03)
                 # converters参数 第0列为时间格式
                 sheet_df = excel_file.parse(sheet_name=sheet_name, skiprows=[0], converters={0: self.date_converter})
-                sheet_df.iloc[:1].fillna('', inplace=True)                       # 替换第一行中有的nan
-                sheet_df.iloc[:, 1:sheet_df.shape[1]].fillna('', inplace=True)   # 替换除第一列以外的nan为空
+                sheet_df.iloc[:1] = sheet_df.iloc[:1].fillna('')                       # 替换第一行中有的nan
+                # 替换除第一列以外的nan为空(这里直接inplace=True填充失败(原因:未知))
+                sheet_df.iloc[:, 1:sheet_df.shape[1]] = sheet_df.iloc[:, 1:sheet_df.shape[1]].fillna('')
                 sheet_df.dropna(axis=0, how='any', inplace=True)                 # 删除含nan的行
+                if sheet_name == "日-柳糖期现价差":
+                    print(sheet_df)
                 if sheet_df.empty:  # 处理后为空的数据继续下一个
                     continue
                 sheet_df = sheet_df.applymap(str)
@@ -63,7 +68,6 @@ class UpdatingSheetsThread(QThread):
                     "sheet_headers": sheet_headers,
                     "sheet_values": sheet_df.to_dict(orient="records")
                 }
-                # self.loop.exec_()
                 self.to_server_updating(sheet_source)
             excel_file.close()
             self.single_finished.emit(index + 1)
@@ -124,6 +128,7 @@ class UserDataMaintain(UserDataMaintainUI):
         self.source_config_widget.new_config_button.clicked.connect(self.config_update_folder)  # 调整配置更新文件夹
         self.source_config_widget.group_combobox.currentTextChanged.connect(self.show_groups_folder_list)  # 显示品种组的更新文件夹
         self.variety_sheet_widget.group_combobox.currentIndexChanged.connect(self.get_show_variety_sheets)  # 获取品种的数据表
+        self.variety_sheet_widget.sheet_table.cellDoubleClicked.connect(self.popup_option_chart)  # 双击弹窗设置数据图
 
     def _get_user_variety(self):
         """ 获取用户有权限的品种信息 """
@@ -201,6 +206,7 @@ class UserDataMaintain(UserDataMaintainUI):
         self.show_groups_folder_list()
 
     def show_groups_folder_list(self):
+        """ 显示组配置的更新文件夹 """
         variety_en, variety_text = self.source_config_widget.variety_combobox.currentData(), self.source_config_widget.variety_combobox.currentText()
         group_id = self.source_config_widget.group_combobox.currentData()
         client = get_client_uuid()
@@ -258,6 +264,9 @@ class UserDataMaintain(UserDataMaintainUI):
         variety_en = self.source_config_widget.variety_combobox.currentData()
         group_text = self.source_config_widget.config_table.item(current_row, 2).text()
         folder_path = self.source_config_widget.config_table.item(current_row, 3).text()
+        if not os.path.exists(folder_path):
+            self.source_config_widget.tips_message.setText("文件夹路径不存在!")
+            return
         group_id = None
         for i in range(self.source_config_widget.group_combobox.count()):
             if self.source_config_widget.group_combobox.itemText(i) == group_text:
@@ -274,12 +283,7 @@ class UserDataMaintain(UserDataMaintainUI):
         self.source_config_widget.updating_process.setMaximum(0)
         self.source_config_widget.updating_process.setValue(0)
         self.source_config_widget.updating_process.show()
-        print(variety_en, group_id, folder_path)
-        try:
-            self.update_folder_sheets_to_server(variety_en, group_id, folder_path)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
+        self.update_folder_sheets_to_server(variety_en, group_id, folder_path)
 
     def update_folder_sheets_to_server(self,variety_en, group_id, folder_path):
         """ 读取数据,更新数据到服务端 """
@@ -395,18 +399,36 @@ class UserDataMaintain(UserDataMaintainUI):
             item1.setTextAlignment(Qt.AlignCenter)
             self.variety_sheet_widget.sheet_table.setItem(row, 1, item1)
 
-            item2 = QTableWidgetItem(row_item["sheet_name"])
+            item2 = QTableWidgetItem(row_item["creator"])
             item2.setTextAlignment(Qt.AlignCenter)
             self.variety_sheet_widget.sheet_table.setItem(row, 2, item2)
 
-            item3 = QTableWidgetItem(row_item["update_date"])
+            item3 = QTableWidgetItem(row_item["sheet_name"])
             item3.setTextAlignment(Qt.AlignCenter)
             self.variety_sheet_widget.sheet_table.setItem(row, 3, item3)
 
-            item4 = QTableWidgetItem(str(row_item["update_count"]))
+            item4 = QTableWidgetItem(row_item["update_date"])
             item4.setTextAlignment(Qt.AlignCenter)
             self.variety_sheet_widget.sheet_table.setItem(row, 4, item4)
 
+            item5 = QTableWidgetItem(row_item["update_by"])
+            item5.setTextAlignment(Qt.AlignCenter)
+            self.variety_sheet_widget.sheet_table.setItem(row, 5, item5)
+
+            update_count = row_item["update_count"]
+            item6 = QTableWidgetItem(str(update_count))
+            item6.setTextAlignment(Qt.AlignCenter)
+            item6.setForeground(QBrush(QColor(233, 66, 66))) if update_count > 0 else item6.setForeground(QBrush(QColor(66, 66, 66)))
+            self.variety_sheet_widget.sheet_table.setItem(row, 6, item6)
+
+    def popup_option_chart(self, row, col):
+        """ 品种表界面双击表名称进入绘图 """
+        sheet_id = int(self.variety_sheet_widget.sheet_table.item(row, 0).text())
+        sheet_name = self.variety_sheet_widget.sheet_table.item(row, 3).text()
+        if col == 3:    # 双击sheet_name才能进入
+            dispose_popup = DisposeChartPopup(sheet_id, self)
+            dispose_popup.setWindowTitle(sheet_name)
+            dispose_popup.exec_()
 
 
 

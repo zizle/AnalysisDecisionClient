@@ -95,9 +95,18 @@ class ConfigSourceUI(QWidget):
         main_layout.addWidget(tips_label)
 
         self.setLayout(main_layout)
+        self.config_table.horizontalHeader().setStyleSheet(
+            "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            "stop:0 #80cc42, stop: 0.5 #ccddff,stop: 0.6 #ccddff, stop:1 #80cc42);"
+            "border:1px solid rgb(201,202,202);border-left:none;"
+            "min-height:25px;min-width:26px;font-weight:bold;font-size:13px};"
+        )
+
         self.setStyleSheet(
             "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
             "#configsTable{background-color:rgb(240,240,240);font-size:13px;selection-color:rgb(180,60,60);"
+            "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
+            "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
             "alternate-background-color:rgb(245,250,248);}"
         )
 
@@ -139,21 +148,38 @@ class VarietySheetUI(QWidget):
         self.only_me_check = QCheckBox(self)
         self.only_me_check.setText("只看我上传的")
         self.only_me_check.setChecked(True)
-        # self.only_me_check.stateChanged.connect(self._get_current_tables)
         opts_layout.addWidget(self.only_me_check)
 
         opts_layout.addStretch()
         main_layout.addLayout(opts_layout)
         self.sheet_table = QTableWidget(self)
         self.sheet_table.setFrameShape(QFrame.NoFrame)
+        self.sheet_table.setFocusPolicy(Qt.NoFocus)
         self.sheet_table.verticalHeader().hide()
         self.sheet_table.setEditTriggers(QHeaderView.NoEditTriggers)
-        self.sheet_table.setColumnCount(6)
-        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "名称", "更新日期", "增量", ""])
+        self.sheet_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.sheet_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.sheet_table.setAlternatingRowColors(True)
+        self.sheet_table.setColumnCount(8)
+        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "创建人", "名称", "更新日期", "更新人", "增量", ""])
         self.sheet_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.sheet_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.sheet_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         main_layout.addWidget(self.sheet_table)
         self.setLayout(main_layout)
+        self.sheet_table.setObjectName("sheetTable")
+        self.sheet_table.horizontalHeader().setStyleSheet(
+            "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            "stop:0 #34adf3, stop: 0.5 #ccddff,stop: 0.6 #ccddff, stop:1 #34adf3);"
+            "border:1px solid rgb(201,202,202);border-left:none;"
+            "min-height:25px;min-width:40px;font-weight:bold;font-size:13px};"
+        )
+        self.setStyleSheet(
+            "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
+            "#sheetTable{background-color:rgb(240,240,240);font-size:13px;selection-color:rgb(180,60,60);"
+            "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
+            "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
+            "alternate-background-color:rgb(245,250,248);}"
+        )
 
 
 class SheetChartUI(QWidget):

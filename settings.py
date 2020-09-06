@@ -79,7 +79,7 @@ def config_logger_handler():
     handler.setLevel(logging.ERROR)
     # "%(asctime)s - %(levelname)s - %(message)s - %(pathname)s[line:%(lineno)d]"
     logger_format = logging.Formatter(
-        "%(asctime)s - %(levelname)s : %(message)s]"
+        "%(asctime)s - %(levelname)s : %(message)s"
     )
     handler.setFormatter(logger_format)
     return handler
