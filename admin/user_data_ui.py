@@ -7,7 +7,7 @@
 
 from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox, QPushButton,
                              QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView, QProgressBar)
-from PyQt5.QtCore import QMargins, Qt, QTimer
+from PyQt5.QtCore import QMargins, Qt
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 
 
@@ -21,6 +21,7 @@ class ConfigSourceUI(QWidget):
         self.updating_thread = None
 
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(QMargins(0, 1, 0, 2))
         opt_layout = QHBoxLayout()
         opt_layout.addWidget(QLabel("品种:", self))
         self.variety_combobox = QComboBox(self)
@@ -67,6 +68,7 @@ class ConfigSourceUI(QWidget):
 
         self.config_table = QTableWidget(self)
         self.config_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.config_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.config_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.config_table.setFocusPolicy(Qt.NoFocus)
         self.config_table.setFrameShape(QFrame.NoFrame)
@@ -97,17 +99,18 @@ class ConfigSourceUI(QWidget):
         self.setLayout(main_layout)
         self.config_table.horizontalHeader().setStyleSheet(
             "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-            "stop:0 #80cc42, stop: 0.5 #ccddff,stop: 0.6 #ccddff, stop:1 #80cc42);"
+            "stop:0 #80cc42, stop: 0.5 #ccffdd,stop: 0.6 #ccffdd, stop:1 #80cc42);"
             "border:1px solid rgb(201,202,202);border-left:none;"
             "min-height:25px;min-width:26px;font-weight:bold;font-size:13px};"
         )
 
         self.setStyleSheet(
             "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
-            "#configsTable{background-color:rgb(240,240,240);font-size:13px;selection-color:rgb(180,60,60);"
+            "#configsTable{background-color:rgb(240,240,240);font-size:13px;"
             "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
             "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
             "alternate-background-color:rgb(245,250,248);}"
+            "#operateButton{border:none;}#operateButton:hover{color:rgb(233,66,66)}"
         )
 
     def to_create_new_group(self):
@@ -132,7 +135,7 @@ class VarietySheetUI(QWidget):
     def __init__(self, *args, **kwargs):
         super(VarietySheetUI, self).__init__(*args, **kwargs)
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(QMargins(0, 1, 2, 1))
+        main_layout.setContentsMargins(QMargins(0, 1, 0, 1))
         opts_layout = QHBoxLayout()
         opts_layout.addWidget(QLabel("品种:", self))
         self.variety_combobox = QComboBox(self)
@@ -175,10 +178,11 @@ class VarietySheetUI(QWidget):
         )
         self.setStyleSheet(
             "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
-            "#sheetTable{background-color:rgb(240,240,240);font-size:13px;selection-color:rgb(180,60,60);"
+            "#sheetTable{background-color:rgb(240,240,240);font-size:13px;"
             "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
             "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
             "alternate-background-color:rgb(245,250,248);}"
+            "#operateButton{border:none;}#operateButton:hover{color:rgb(233,66,66)}"
         )
 
 
@@ -186,6 +190,7 @@ class SheetChartUI(QWidget):
     def __init__(self, *args, **kwargs):
         super(SheetChartUI, self).__init__(*args, **kwargs)
         main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(QMargins(0, 1, 0, 1))
         opts_layout = QHBoxLayout()
         opts_layout.addWidget(QLabel("品种:", self))
         self.variety_combobox = QComboBox(self)
@@ -196,19 +201,42 @@ class SheetChartUI(QWidget):
         self.only_me_check = QCheckBox(self)
         self.only_me_check.setText("只看我配置的")
         self.only_me_check.setChecked(True)
-        # self.only_me_check.stateChanged.connect(self._get_current_tables)
         opts_layout.addWidget(self.only_me_check)
 
         opts_layout.addStretch()
         main_layout.addLayout(opts_layout)
         self.chart_table = QTableWidget(self)
-        self.chart_table.hide()
+        self.chart_table.setFrameShape(QFrame.NoFrame)
+        self.chart_table.setFocusPolicy(Qt.NoFocus)
+        self.chart_table.verticalHeader().hide()
+        self.chart_table.setEditTriggers(QHeaderView.NoEditTriggers)
+        self.chart_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.chart_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.chart_table.setAlternatingRowColors(True)
+        self.chart_table.setColumnCount(7)
+        self.chart_table.setHorizontalHeaderLabels(["编号", "创建者", "创建日期", "标题", "图形解读", '', ''])
+        self.chart_table.horizontalHeader().setDefaultSectionSize(80)
+        self.chart_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.chart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.chart_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
         main_layout.addWidget(self.chart_table)
 
-        # 显示所有图的网页
-        self.web_container = QWebEngineView(self)
-        main_layout.addWidget(self.web_container)
         self.setLayout(main_layout)
+        self.chart_table.setObjectName("chartTable")
+        self.chart_table.horizontalHeader().setStyleSheet(
+            "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            "stop:0 #fea356, stop: 0.5 #eeeeee,stop: 0.6 #eeeeee, stop:1 #fea356);"
+            "border:1px solid rgb(201,202,202);border-left:none;"
+            "min-height:25px;min-width:40px;font-weight:bold;font-size:13px};"
+        )
+        self.setStyleSheet(
+            "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
+            "#chartTable{background-color:rgb(240,240,240);font-size:13px;"
+            "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
+            "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
+            "alternate-background-color:rgb(245,250,248);}"
+            "#operateButton{border:none;}#operateButton:hover{color:rgb(233,66,66)}"
+        )
 
 
 class UserDataMaintainUI(QWidget):
@@ -249,6 +277,13 @@ class UserDataMaintainUI(QWidget):
         self.maintain_frame.addTab(self.variety_sheet_widget, "数据表")
 
         self.sheet_chart_widget = SheetChartUI(self)
-        self.maintain_frame.addTab(self.sheet_chart_widget, "数据图")
+        self.chart_tab = QTabWidget(self)
+        self.chart_tab.setDocumentMode(True)
+        self.chart_tab.setTabPosition(QTabWidget.East)
+        self.chart_tab.addTab(self.sheet_chart_widget, "列表")
+        self.charts_container = QWebEngineView(self)
+        self.chart_tab.addTab(self.charts_container, "全览")
+
+        self.maintain_frame.addTab(self.chart_tab, "数据图")
 
 

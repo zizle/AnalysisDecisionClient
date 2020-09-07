@@ -122,6 +122,7 @@ class UserDataMaintain(UserDataMaintainUI):
         # 数据源配置页品种选择变化信号连接(请求当前品种下的分组)
         self.source_config_widget.variety_combobox.currentTextChanged.connect(self.variety_combobox_changed)
         # 数据表显示页品种选择变化信号连接放在请求完品种权限返回添加完数据之后(不在__init__内连接信号可以减少一次请求分组的网络)
+        # 数据图形显示页品种选择变化信号连接放在请求完品种权限返回添加完数据之后(不在__init__内连接信号可以减少一次请求分组的网络)
 
         self._get_user_variety()  # 获取用户有权限的品种(置于信号连接之后确保首次信号执行)
 
@@ -169,6 +170,8 @@ class UserDataMaintain(UserDataMaintainUI):
 
         # 数据表显示页品种选择变化(不在__init__内连接信号可以减少一次网络请求)
         self.variety_sheet_widget.variety_combobox.currentTextChanged.connect(self.variety_combobox_changed)
+        # 数据图形显示页品种选择变化(不在__init__内连接信号可以减少一次网络请求)
+        self.sheet_chart_widget.variety_combobox.currentTextChanged.connect(self.chart_page_variety_changed)
         self.is_ready = True
 
     def selected_maintain_menu(self):
@@ -180,11 +183,13 @@ class UserDataMaintain(UserDataMaintainUI):
             self.maintain_frame.setCurrentIndex(1)
         elif current_menu == "sheet_chart":
             self.maintain_frame.setCurrentIndex(2)
+            self.chart_page_variety_changed()  # 手动调用请求品种的图形(否则第一次切换到图形页没有数据列表)
             return   # 图形界面无需再请求品种下的数据分组
         else:
             return
         if self.is_ready:
             self.variety_combobox_changed()  # 手动调用请求品种下的分组(否则第一次切换到品种表页面没有分组)
+
 
     def config_update_folder(self):
         """ 调整配置更新的文件夹 """
@@ -250,6 +255,8 @@ class UserDataMaintain(UserDataMaintainUI):
             self.source_config_widget.config_table.setItem(row, 3, item3)
 
             item4_button = QPushButton("点击更新", self.source_config_widget.config_table)
+            item4_button.setObjectName("operateButton")
+            item4_button.setCursor(Qt.PointingHandCursor)
             setattr(item4_button, "row_index", row)
             item4_button.clicked.connect(self.updating_sheets_of_folder)
             self.source_config_widget.config_table.setCellWidget(row, 4, item4_button)
@@ -383,7 +390,6 @@ class UserDataMaintain(UserDataMaintainUI):
             data = reply.readAll().data()
             data = json.loads(data.decode("utf-8"))
             self.show_variety_sheets(data["sheets"])
-
         reply.deleteLater()
 
     def show_variety_sheets(self, sheets):
@@ -426,9 +432,67 @@ class UserDataMaintain(UserDataMaintainUI):
         sheet_id = int(self.variety_sheet_widget.sheet_table.item(row, 0).text())
         sheet_name = self.variety_sheet_widget.sheet_table.item(row, 3).text()
         if col == 3:    # 双击sheet_name才能进入
-            dispose_popup = DisposeChartPopup(sheet_id, self)
+            variety_en = self.variety_sheet_widget.variety_combobox.currentData()
+            dispose_popup = DisposeChartPopup(variety_en, sheet_id, self)
             dispose_popup.setWindowTitle(sheet_name)
             dispose_popup.exec_()
 
+    def chart_page_variety_changed(self):
+        """ 图形显示页品种变化 """
+        current_variety = self.sheet_chart_widget.variety_combobox.currentData()
+        is_own = 1 if self.sheet_chart_widget.only_me_check.checkState() else 0
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "variety/{}/chart/?is_own={}".format(current_variety, is_own)
+        user_token = get_user_token()
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = network_manager.get(request)
+        reply.finished.connect(self.variety_charts_reply)
 
+    def variety_charts_reply(self):
+        """ 品种的数据图形返回 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("用户获取品种的数据图形信息失败:{}".format(reply.error()))
+        else:
+            data = reply.readAll().data()
+            data = json.loads(data.decode("utf-8"))
+            self.show_sheet_charts(data["data"])
+        reply.deleteLater()
+
+    def show_sheet_charts(self, charts_list):
+        """ 显示所有已配置的品种表 """
+        self.sheet_chart_widget.chart_table.clearContents()
+        self.sheet_chart_widget.chart_table.setRowCount(len(charts_list))
+        for row, row_item in enumerate(charts_list):
+            item0 = QTableWidgetItem(str(row_item["id"]))
+            item0.setTextAlignment(Qt.AlignCenter)
+            self.sheet_chart_widget.chart_table.setItem(row, 0, item0)
+
+            item1 = QTableWidgetItem(row_item["creator"])
+            item1.setTextAlignment(Qt.AlignCenter)
+            self.sheet_chart_widget.chart_table.setItem(row, 1, item1)
+
+            item2 = QTableWidgetItem(row_item["create_time"])
+            item2.setTextAlignment(Qt.AlignCenter)
+            self.sheet_chart_widget.chart_table.setItem(row, 2, item2)
+
+            item3 = QTableWidgetItem(row_item["title"])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.sheet_chart_widget.chart_table.setItem(row, 3, item3)
+
+            item4_button = QPushButton("编辑", self.sheet_chart_widget.chart_table)
+            item4_button.setCursor(Qt.PointingHandCursor)
+            item4_button.setObjectName("operateButton")
+            self.sheet_chart_widget.chart_table.setCellWidget(row, 4, item4_button)
+            # 图形
+            item5_button = QPushButton("图形", self.sheet_chart_widget.chart_table)
+            item5_button.setCursor(Qt.PointingHandCursor)
+            item5_button.setObjectName("operateButton")
+            self.sheet_chart_widget.chart_table.setCellWidget(row, 5, item5_button)
+            # 置顶
+            item6_button = QPushButton("置顶", self.sheet_chart_widget.chart_table)
+            item6_button.setCursor(Qt.PointingHandCursor)
+            item6_button.setObjectName("operateButton")
+            self.sheet_chart_widget.chart_table.setCellWidget(row, 6, item6_button)
 

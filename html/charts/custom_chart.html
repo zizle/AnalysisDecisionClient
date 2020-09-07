@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>K线</title>
+    <script src="js/jquery-1.7.2.min.js"></script>
+    <script src="js/echarts.min.js"></script>
+    <script src="js/qwebchannel.js"></script>
+</head>
+<style>
+html,body{margin: 0;padding: 0}
+#chartBox{width: 100%;height: 100vh;background-color: azure}
+</style>
+<body>
+    <div id="chartBox"></div>
+</body>
+<script>
+// 生成series和图例的函数
+function getSeriesLegend(seriesData, sourceData) {
+    let len = seriesData.length;
+    let seriesArray = [];
+    let legend = {"type": "scroll", "bottom": 16, "height": 20, "data":[]};
+    for(let i = 0; i < len; i++) {
+        let optData = seriesData[i];
+        let seriesOption = {
+            type: optData.chart_type,
+            name: optData.chart_name,
+            yAxisIndex: optData.axis_index,
+            data: sourceData.map(item=>{return parseFloat(item[optData.column_index])})
+        };
+        seriesArray.push(seriesOption);
+        legend.data.push(optData.chart_name);
+    }
+    return {
+        seriesData: seriesArray,
+        legendData: legend
+    }
+}
+
+// 实例化echarts option的函数
+function generateOption(baseOption, sourceData){
+    let chartTitle = baseOption["title"];
+    let seriesLegend = getSeriesLegend(baseOption.series_data, sourceData);
+    return {
+        grid: {
+            top: chartTitle["font_size"] + 15,
+            left: 5,
+            right: 5,
+            bottom: 46,
+            show: false,
+            containLabel: true
+        },
+        title:{
+            text: chartTitle["text"],
+            textStyle: {fontSize: chartTitle["font_size"]},
+            left: 'center'
+        },
+        xAxis:{
+            type: 'category',
+            data: sourceData.map(item=>item.column_0),
+            axisLabel: {
+                rotate: 90,
+                fontSize: 11
+            }
+        },
+        yAxis: baseOption.y_axis,
+        tooltip:{
+            trigger: 'axis',
+            axisPointer: {
+                type: 'cross',
+            }
+        },
+        dataZoom: [
+            {
+                show: true,
+                type: 'slider',
+                height: 20,
+                bottom:0,
+                start: 0,
+                end: 100,
+            }
+        ],
+        series: seriesLegend.seriesData,
+        legend: seriesLegend.legendData
+    };
+}
+
+// 获取图形序列和图例
+function getSeasonSeriesLegend(seriesData, sourceData){
+    let optData = seriesData[0];
+    let seriesArray = [];
+    let legend = {"type": "scroll", "bottom": 16, "height": 20, "data":[]};
+    for(let yearKey in sourceData){
+        if (yearKey === "xAxisData"){continue}
+        let yearData = sourceData[yearKey];
+        let seriesOption = {
+            type: "line",
+            name: yearKey,
+            yAxisIndex: 0,
+            data: yearData.map(item=>{return [item["column_0"], item[optData.column_index]]})
+        };
+        seriesArray.push(seriesOption);
+        legend.data.push(yearKey)
+    }
+
+    return {
+        seriesData: seriesArray,
+        legendData: legend
+    }
+}
+
+
+// 生成季节图形的配置
+function generateSeasonOption(baseOption, sourceData){
+    let chartTitle = baseOption["title"];
+    let seriesLegend = getSeasonSeriesLegend(baseOption.series_data, sourceData);
+    return {
+        grid: {
+            top: chartTitle["font_size"] + 15,
+            left: 5,
+            right: 5,
+            bottom: 46,
+            show: false,
+            containLabel: true
+        },
+        title:{
+            text: chartTitle["text"],
+            textStyle: {fontSize: chartTitle["font_size"]},
+            left: 'center'
+        },
+        xAxis:{
+            type: 'category',
+            data: sourceData.xAxisData,
+            axisLabel: {
+                rotate: 90,
+                fontSize: 11
+            }
+        },
+        yAxis: baseOption.y_axis,
+        tooltip:{
+            trigger: 'axis',
+            axisPointer: {
+                type: 'cross',
+            }
+        },
+        dataZoom: [
+            {
+                show: true,
+                type: 'slider',
+                height: 20,
+                bottom:0,
+                start: 0,
+                end: 100,
+            }
+        ],
+        series: seriesLegend.seriesData,
+        legend: seriesLegend.legendData
+    };
+}
+
+// 主入口函数
+$(function () {
+    let chartObj = echarts.init(document.getElementById('chartBox'));
+    // 与UI界面通讯的实例
+    new QWebChannel(qt.webChannelTransport, function(channel)
+        {
+            let pageContact = channel.objects.pageContactChannel;
+            pageContact.chartSource.connect(function (chart_type, baseOption, sourceData) {
+                let option = {};
+                if (chart_type === "normal"){
+                    alert("normal")
+                    option = generateOption(JSON.parse(baseOption), JSON.parse(sourceData));
+                }
+                if (chart_type === "season"){
+                    alert("season")
+                    option = generateSeasonOption(JSON.parse(baseOption), JSON.parse(sourceData));
+                }
+                chartObj.setOption(option, true)
+            });
+        }
+    );
+})
+</script>
+</html>

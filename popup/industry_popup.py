@@ -6,20 +6,20 @@
 import os
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import pandas as pd
 from PyQt5.QtWidgets import (qApp, QDesktopWidget, QDialog, QWidget, QGridLayout, QHBoxLayout, QVBoxLayout, QLabel,
                              QPushButton, QSplitter, QLineEdit, QSpinBox, QComboBox, QGroupBox, QTableWidget, QCheckBox,
-                             QListWidget, QListWidgetItem, QTableWidgetItem, QHeaderView, QMenu)
+                             QListWidget, QListWidgetItem, QTableWidgetItem, QHeaderView, QMenu, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal, QMargins, QUrl
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QIntValidator
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtWebChannel import QWebChannel
 from widgets.path_edit import FolderPathLineEdit
 from widgets.cover import CoverWidget
 from channels.chart import ChartOptionChannel
-from utils.client import get_client_uuid
+from utils.client import get_client_uuid, get_user_token
 from settings import BASE_DIR, SERVER_API, logger
 
 
@@ -120,12 +120,12 @@ class OptionWidget(QWidget):
 
         x_format = QHBoxLayout()
         x_format.addWidget(QLabel("格式:", self))
-        self.date_format = QComboBox(self)
-        self.date_format.addItem('年-月-日', '%Y-%m-%d')
-        self.date_format.addItem('年-月', '%Y-%m')
-        self.date_format.addItem('年', '%Y')
-        self.date_format.setMinimumWidth(150)
-        x_format.addWidget(self.date_format)
+        self.date_length = QComboBox(self)
+        self.date_length.addItem('年-月-日', 10)
+        self.date_length.addItem('年-月', 7)
+        self.date_length.addItem('年', 4)
+        self.date_length.setMinimumWidth(150)
+        x_format.addWidget(self.date_length)
         x_format.addStretch()
         main_layout.addLayout(x_format)
 
@@ -230,6 +230,7 @@ class OptionWidget(QWidget):
             "column_index": indicator_column,
             "axis_index": axis_index,
             "chart_type": chart_type,
+            "chart_name": indicator_text,
             "contain_zero": 1
         }
         # 重复指标和类型不再添加了
@@ -271,20 +272,28 @@ class OptionWidget(QWidget):
     def get_base_option(self):
         """ 图形的基本配置 """
         option = dict()
+        # 标题
         option["title"] = {
             "text": self.title_edit.text().strip(),
-            "textStyle": {
-                "fontSize": self.title_fontsize.value()
-            }
+            "font_size": self.title_fontsize.value()
         }
+        # x轴
         option["x_axis"] = {
             "column_index": self.x_axis_combobox.currentData(),
-            "date_format": self.date_format.currentData()
+            "date_length": self.date_length.currentData()
         }
+        # y轴
+        option["y_axis"] = [
+            {"type": "value", "name": ""}
+        ]
+        # 数据序列
         series_data = []
         for item_at in range(self.current_indicator_list.count()):
             item = self.current_indicator_list.item(item_at)
-            series_data.append(item.data(Qt.UserRole))
+            item_data = item.data(Qt.UserRole)
+            if item_data["axis_index"] == 1 and len(option["y_axis"]) == 1:  # 如果有右轴添加右轴
+                option["y_axis"].append({"type": "value", "name": ""})
+            series_data.append(item_data)
         option["series_data"] = series_data
 
         option["water_text"] = ""
@@ -298,6 +307,89 @@ class OptionWidget(QWidget):
         return option
 
 
+class MoreDisposePopup(QDialog):
+    """ 更多配置参数弹窗 """
+    def __init__(self, *args, **kwargs):
+        super(MoreDisposePopup, self).__init__(*args, **kwargs)
+        self.setWindowTitle("更多参数")
+        integer_validate = QIntValidator(self)
+
+        main_layout = QVBoxLayout()
+
+        left_label = QLabel('左轴调整:', self)
+        left_label.setObjectName("axisTile")
+        main_layout.addWidget(left_label)
+        left_unit_layout = QHBoxLayout()
+        left_unit_layout.setContentsMargins(7, 0, 0, 0)
+        left_unit_layout.addWidget(QLabel("名称:", self))
+        self.left_name_edit = QLineEdit(self)
+        left_unit_layout.addWidget(self.left_name_edit)
+
+        left_unit_layout.addWidget(QLabel("最小值:", self))
+        self.left_min_edit = QLineEdit(self)
+        self.left_min_edit.setValidator(integer_validate)
+        left_unit_layout.addWidget(self.left_min_edit)
+
+        left_unit_layout.addWidget(QLabel("最大值:", self))
+        self.left_max_edit = QLineEdit(self)
+        self.left_max_edit.setValidator(integer_validate)
+        left_unit_layout.addWidget(self.left_max_edit)
+
+        left_unit_layout.addStretch()
+        main_layout.addLayout(left_unit_layout)
+
+        right_label = QLabel('右轴调整:', self)
+        right_label.setObjectName("axisTile")
+        main_layout.addWidget(right_label)
+        right_unit_layout = QHBoxLayout()
+        right_unit_layout.setContentsMargins(7, 0, 0, 0)
+        right_unit_layout.addWidget(QLabel("名称:", self))
+        self.right_name_edit = QLineEdit(self)
+        right_unit_layout.addWidget(self.right_name_edit)
+
+        right_unit_layout.addWidget(QLabel("最小值:", self))
+        self.right_min_edit = QLineEdit(self)
+        self.right_min_edit.setValidator(integer_validate)
+        right_unit_layout.addWidget(self.right_min_edit)
+
+        right_unit_layout.addWidget(QLabel("最大值:", self))
+        self.right_max_edit = QLineEdit(self)
+        self.right_max_edit.setValidator(integer_validate)
+        right_unit_layout.addWidget(self.right_max_edit)
+
+        right_unit_layout.addStretch()
+        main_layout.addLayout(right_unit_layout)
+
+        close_btn = QPushButton("确定", self)
+        close_btn.clicked.connect(self.close)
+        main_layout.addWidget(close_btn, alignment=Qt.AlignRight)
+
+        self.setLayout(main_layout)
+        self.setMaximumWidth(420)
+        self.setStyleSheet(
+            "#axisTile{padding:3px;font-size:14px;background:rgb(200,220,230);border-radius:3px}"
+        )
+
+    def get_more_option(self):
+        """ 返回更多参数数据 """
+        left_min = int(self.left_min_edit.text()) if self.left_min_edit.text() else None
+        left_max = int(self.left_max_edit.text()) if self.left_max_edit.text() else None
+        right_min = int(self.right_min_edit.text()) if self.right_min_edit.text() else None
+        right_max = int(self.right_max_edit.text()) if self.right_max_edit.text() else None
+        return {
+            "left_axis": {
+                "name": self.left_name_edit.text().strip(),
+                "min_value": left_min,
+                "max_value": left_max
+            },
+            "right_axis": {
+                "name": self.right_name_edit.text().strip(),
+                "min_value": right_min,
+                "max_value": right_max
+            }
+        }
+
+
 class ChartWidget(QWidget):
     """ 图形显示控件 """
     save_option_signal = pyqtSignal(str)
@@ -308,10 +400,10 @@ class ChartWidget(QWidget):
         main_layout.setContentsMargins(QMargins(0, 0, 0, 0))
 
         self.chart_container = QWebEngineView(self)
-
+        self.chart_container.load(QUrl("file:///html/charts/custom_chart.html"))   # 加载页面
         # 设置与页面信息交互的通道
-        channel_qt_obj = QWebChannel(self.web_container.page())  # 实例化qt信道对象,必须传入页面参数
-        self.contact_channel = ChartOptionChannel()              # 页面信息交互通道
+        channel_qt_obj = QWebChannel(self.chart_container.page())                  # 实例化qt信道对象,必须传入页面参数
+        self.contact_channel = ChartOptionChannel()                                # 页面信息交互通道
         self.chart_container.page().setWebChannel(channel_qt_obj)
         channel_qt_obj.registerObject("pageContactChannel", self.contact_channel)  # 信道对象注册信道，只能注册一个
 
@@ -321,6 +413,11 @@ class ChartWidget(QWidget):
         self.decipherment_edit = QLineEdit(self)
         self.decipherment_edit.setPlaceholderText("此处填写对图形的文字解读(非必填)")
         other_layout.addWidget(self.decipherment_edit)
+
+        self.private_check = QCheckBox(self)
+        self.private_check.setText("仅自己可见")
+        other_layout.addWidget(self.private_check)
+
         save_button = QPushButton("保存图形", self)
         save_menu = QMenu(save_button)
         chart_action = save_menu.addAction("普通图形")
@@ -341,24 +438,25 @@ class ChartWidget(QWidget):
         normal = getattr(action, "chart_type")
         self.save_option_signal.emit(normal)
 
-    def show_chart(self, option, values):
+    def show_chart(self, chart_type, option, values):
         """ 显示图形
         option:(json字符串)基础的图形配置,
         values:(json字符串)用于绘图的数据
         """
-        self.contact_channel.emit(option, values)
+        self.contact_channel.chartSource.emit(chart_type, option, values)
 
 
 class DisposeChartPopup(QDialog):
-    """ 配置(生成)图形json信息 """
-    CHARTS = {
-        'line': '线形图',
-        'bar': '柱状图'
-    }  # 支持的图形
+    """ 配置图形json信息进行绘图或保存 """
 
-    def __init__(self, sheet_id, *args, **kwargs):
+    def __init__(self, variety_en, sheet_id, *args, **kwargs):
         super(DisposeChartPopup, self).__init__(*args, **kwargs)
         self.source_dataframe = None
+
+        # 更多配置弹窗
+        self.more_dispose_popup = MoreDisposePopup(self)
+        self.more_dispose_popup.close()
+
         # 初始化大小
         available_size = QDesktopWidget().availableGeometry()  # 用户的桌面信息,来改变自身窗体大小
         available_width, available_height = available_size.width(), available_size.height()
@@ -366,6 +464,7 @@ class DisposeChartPopup(QDialog):
 
         self.setAttribute(Qt.WA_DeleteOnClose)
 
+        self.variety_en = variety_en
         self.sheet_id = sheet_id
 
         main_layout = QHBoxLayout()
@@ -374,6 +473,7 @@ class DisposeChartPopup(QDialog):
 
         self.option_widget = OptionWidget(self)
         self.option_widget.resize(self.width() * 0.4, self.height())
+        self.option_widget.more_dispose_button.clicked.connect(self.show_more_dispose)
         main_splitter.addWidget(self.option_widget)
 
         chart_sheet_splitter = QSplitter(self)
@@ -412,6 +512,7 @@ class DisposeChartPopup(QDialog):
         )
 
         self.option_widget.chart_drawer.clicked.connect(self.preview_chart_with_option)        # 在右侧图形窗口显示图形信号
+        self.option_widget.season_drawer.clicked.connect(self.preview_chart_with_option)       # 季节图形
 
     def resizeEvent(self, event):
         if not self.cover_widget.isHidden():
@@ -433,12 +534,17 @@ class DisposeChartPopup(QDialog):
             data = json.loads(data.decode("utf-8"))
             self.cover_widget.set_text(text="正在处理数据 ")
             # 使用pandas处理数据到弹窗相应参数中
-            self.handler_sheet_values(data["sheet_values"])
+            try:
+                self.handler_sheet_values(data["sheet_values"])
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
 
     def handler_sheet_values(self, values):
         """ pandas处理数据到弹窗相应参数中 """
         value_df = pd.DataFrame(values)
-        if value_df.empty:
+        if value_df.iloc[2:].empty:                                             # 从第3行起取数,为空
+            logger.error("该数据表最多存在3行数据,遂取绘图数据失败!")
             self.cover_widget.hide()
             return
         self.source_dataframe = value_df.copy()                                 # 将源数据复制一份关联到窗口(用于作图)
@@ -452,7 +558,6 @@ class DisposeChartPopup(QDialog):
             indicator_item.setData(Qt.UserRole, col_index)
             self.option_widget.indicator_list.addItem(indicator_item)           # 填入指标选择框
             col_index_list.append(col_index)
-
         # 根据最值填入起终值的范围
         max_date = value_df.iloc[2:]["column_0"].max()                          # 取日期最大值
         min_date = value_df.iloc[2:]["column_0"].min()                          # 取日期最小值
@@ -473,8 +578,9 @@ class DisposeChartPopup(QDialog):
         self.sheet_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
 
         table_show_df = value_df.iloc[1:]
-        table_show_df.sort_values("column_0", inplace=True)
-        for row, row_item in table_show_df.iterrows():                          # 遍历数据(填入表格显示)
+        table_show_df = table_show_df.sort_values(by="column_0")
+        table_show_df.reset_index(inplace=True)                                  # 重置索引,让排序生效(赋予row正确的值)
+        for row, row_item in table_show_df.iterrows():                           # 遍历数据(填入表格显示)
             for col, col_key in enumerate(col_index_list):
                 # print(row_item[col_key], end=' ')
                 item = QTableWidgetItem(str(row_item[col_key]))
@@ -482,34 +588,146 @@ class DisposeChartPopup(QDialog):
                 if col < 2:
                     item.setFlags(Qt.ItemIsEditable)                            # ID,日期不可编辑
                     item.setForeground(QBrush(QColor(60, 60, 60)))
-                self.sheet_table.setItem(row - 1, col, item)
+                self.sheet_table.setItem(row, col, item)
             # print()
         self.cover_widget.hide()
 
+    def show_more_dispose(self):
+        """ 更多的配置参数 """
+        self.more_dispose_popup.exec_()
+
     def save_option_to_server(self, chart_type):
         """ 保存图形的配置到服务器 """
-        print(chart_type)
-        base_option = self.option_widget.get_base_option()
-        print(base_option)
+        chart_option = self.get_chart_option()  # 作图配置
+        chart_option["chart_category"] = chart_type  # 图表类型(普通图形:normal,季节图形:season)
+        title = chart_option["title"]["text"]
+        if not title:
+            QMessageBox.information(self, "提示", "请填写图形标题!")
+            return
+        is_private = 1 if self.chart_widget.private_check.checkState() else 0
+        json_option = {
+            "title": title,
+            "variety_en": self.variety_en,
+            "decipherment": self.chart_widget.decipherment_edit.text().strip(),
+            "is_private": is_private,
+            "option": chart_option.copy()
+        }
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "sheet/{}/chart/".format(self.sheet_id)
+        request = QNetworkRequest(QUrl(url))
+        user_token = get_user_token()
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = network_manager.post(request, json.dumps(json_option).encode("utf-8"))
+        reply.finished.connect(self.save_option_reply)
+
+    def save_option_reply(self):
+        """ 保存配置返回 """
+        reply = self.sender()
+        if reply.error():
+            QMessageBox.information(self, "失败", "保存配置失败!")
+            logger.error("用户保存图形配置失败:{}".format(reply.error()))
+        else:
+            QMessageBox.information(self, "成功", "保存配置成功!")
+        reply.deleteLater()
 
     def preview_chart_with_option(self):
         """ 在当前窗口预览显示图形 """
         chart_button = self.sender()
         chart_type = getattr(chart_button, "chart_type")
-        print("作图类型:", chart_type)
-        base_option = self.option_widget.get_base_option()
-        print("作图基本配置:\n", base_option)
-        print("作图源数据:\n", self.source_dataframe)
+        print("作图类型:\n", chart_type)
+        chart_option = self.get_chart_option()  # 作图配置
+        chart_source_json = self.get_chart_source_json(chart_type, chart_option, self.source_dataframe)
+        print("作图配置:\n", chart_option)
+        print("作图源数据:\n", chart_source_json)
         # 将数据和配置传入echarts绘图
+        self.chart_widget.show_chart(chart_type, json.dumps(chart_option), json.dumps(chart_source_json))
 
-    def handler_chart_values(self, base_option, source_datframe):
+    def get_chart_option(self):
+        """ 获取图形的配置 """
+        base_option = self.option_widget.get_base_option()       # 作图基本配置
+        more_option = self.more_dispose_popup.get_more_option()  # 作图更多配置
+        # 将更多配置添加入基本配置中
+        y_axis = base_option["y_axis"]
+        # 左轴
+        left_more_op = more_option["left_axis"]
+        y_axis[0]["name"] = left_more_op["name"]
+        if left_more_op["min_value"]:
+            y_axis[0]["min"] = left_more_op["min_value"]
+        if left_more_op["max_value"]:
+            y_axis[0]["max"] = left_more_op["max_value"]
+        # 右轴
+        if len(y_axis) > 1:
+            right_more_op = more_option["right_axis"]
+            y_axis[1]["name"] = right_more_op["name"]
+            if right_more_op["min_value"]:
+                y_axis[1]["min"] = right_more_op["min_value"]
+            if right_more_op["max_value"]:
+                y_axis[1]["max"] = right_more_op["max_value"]
+
+        return base_option
+
+    def get_chart_source_json(self, chart_type, base_option, source_dataframe):
         """ 处理出绘图的最终数据 """
-        values_df = source_datframe.iloc[2:]
+        values_df = source_dataframe.iloc[2:]
         # 取最大值和最小值
         start_year = base_option["start_year"]
         end_year = base_option["end_year"]
-        start_date, end_date = None, None
-        if start_year > '1970':
-            start_date = datetime.strptime(start_year, "%Y").strftime("%Y-%m-%d")
-        if end_year > '1970':
-            end_date = datetime.strptime(start_year, "%Y").strftime("%Y-%m-%d")
+        if start_year > "0":
+            start_date = str(start_year) + "-01-01"
+            # 切出大于开始日期的数据
+            values_df = values_df[values_df["column_0"] >= start_date]
+        if end_year > "0":
+            # 切出小于结束日期的数据
+            end_date = str(end_year) + "-12-31"  # 含结束年份end_year + 1
+            values_df = values_df[values_df["column_0"] <= end_date]
+        # 数据是否去0处理
+        for series_item in base_option["series_data"]:
+            column_index = series_item["column_index"]
+            contain_zero = series_item["contain_zero"]
+            if not contain_zero:  # 数据不含0,去0处理
+                values_df = values_df[values_df[column_index] != "0"]
+        values_df = values_df.sort_values(by="column_0")  # 最后进行数据从小到大的时间排序
+        # table_show_df.reset_index(inplace=True)  # 重置索引,让排序生效(赋予row正确的值。可不操作,转为json后,索引无用处了)
+        #
+        # 普通图形返回结果数据
+        if chart_type == "normal":
+            # 处理横轴的格式
+            date_length = base_option["x_axis"]["date_length"]
+            values_df["column_0"] = values_df["column_0"].apply(lambda x: x[:date_length])
+            values_json = values_df.to_dict(orient="record")
+        elif chart_type == "season":    # 季节图形将数据分为{year1: values1, year2: values2}型
+            values_json = self.get_season_chart_source(values_df.copy())
+        else:
+            values_json = []
+        return values_json
+
+    def get_season_chart_source(self, source_df):
+        """ 获取季节图形的作图源数据 """
+        target_values = dict()  # 保存最终数据的字典
+        target_values["xAxisData"] = self.generate_days_of_year()
+        # 获取column_0的最大值和最小值
+        min_date = source_df["column_0"].min()
+        max_date = source_df["column_0"].max()
+        start_year = int(min_date[:4])
+        end_year = int(max_date[:4])
+        for year in range(start_year, end_year + 1):
+            # 获取当年的第一天和最后一天
+            current_first = str(year) + "-01-01"
+            current_last = str(year) + "-12-31"
+            # 从data frame中取本年度的数据并转为列表字典格式
+            current_year_df = source_df[(source_df["column_0"] >= current_first) & (source_df["column_0"] <= current_last)]
+            current_year_df["column_0"] = current_year_df["column_0"].apply(lambda x: x[5:])
+            # target_values[str(year)] = current_year_df.to_dict(orient="record")
+            target_values[str(year)] = current_year_df.to_dict(orient="record")
+        return target_values
+
+    @staticmethod
+    def generate_days_of_year():
+        """ 生成一年的每一月每一天 """
+        days_list = list()
+        start_day = datetime.strptime("2020-01-01", "%Y-%m-%d")
+        end_day = datetime.strptime("2020-12-31", "%Y-%m-%d")
+        while start_day <= end_day:
+            days_list.append(start_day.strftime("%m-%d"))
+            start_day += timedelta(days=1)
+        return days_list
