@@ -109,7 +109,6 @@ function getSeasonSeriesLegend(seriesData, sourceData){
     }
 }
 
-
 // 生成季节图形的配置
 function generateSeasonOption(baseOption, sourceData){
     let chartTitle = baseOption["title"];
@@ -168,11 +167,9 @@ $(function () {
             pageContact.chartSource.connect(function (chart_type, baseOption, sourceData) {
                 let option = {};
                 if (chart_type === "normal"){
-                    alert("normal")
                     option = generateOption(JSON.parse(baseOption), JSON.parse(sourceData));
                 }
                 if (chart_type === "season"){
-                    alert("season")
                     option = generateSeasonOption(JSON.parse(baseOption), JSON.parse(sourceData));
                 }
                 chartObj.setOption(option, true)

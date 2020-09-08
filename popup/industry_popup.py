@@ -534,11 +534,7 @@ class DisposeChartPopup(QDialog):
             data = json.loads(data.decode("utf-8"))
             self.cover_widget.set_text(text="正在处理数据 ")
             # 使用pandas处理数据到弹窗相应参数中
-            try:
-                self.handler_sheet_values(data["sheet_values"])
-            except Exception as e:
-                import traceback
-                traceback.print_exc()
+            self.handler_sheet_values(data["sheet_values"])
 
     def handler_sheet_values(self, values):
         """ pandas处理数据到弹窗相应参数中 """

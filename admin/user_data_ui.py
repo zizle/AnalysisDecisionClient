@@ -7,8 +7,27 @@
 
 from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox, QPushButton,
                              QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView, QProgressBar)
-from PyQt5.QtCore import QMargins, Qt
+from PyQt5.QtCore import QMargins, Qt, QUrl
+from PyQt5.QtGui import QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+
+
+class OperateButton(QPushButton):
+    """ 置顶按钮 """
+    def __init__(self, icon_path, hover_icon_path, *args):
+        super(OperateButton, self).__init__(*args)
+        self.icon_path = icon_path
+        self.hover_icon_path = hover_icon_path
+        self.setCursor(Qt.PointingHandCursor)
+        self.setIcon(QIcon(self.icon_path))
+        self.setObjectName("operateButton")
+        self.setStyleSheet("#operateButton{border:none}#operateButton:hover{color:#d81e06}")
+
+    def enterEvent(self, *args, **kwargs):
+        self.setIcon(QIcon(self.hover_icon_path))
+
+    def leaveEvent(self, *args, **kwargs):
+        self.setIcon(QIcon(self.icon_path))
 
 
 class ConfigSourceUI(QWidget):
@@ -74,9 +93,11 @@ class ConfigSourceUI(QWidget):
         self.config_table.setFrameShape(QFrame.NoFrame)
         self.config_table.setAlternatingRowColors(True)
         self.config_table.setColumnCount(5)
-        self.config_table.setHorizontalHeaderLabels(["编号", "品种", "组别", "更新路径", ""])
+        self.config_table.setHorizontalHeaderLabels(["编号", "品种", "组别", "更新路径", "操作"])
         self.config_table.verticalHeader().hide()
+        self.config_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         self.config_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
+        self.config_table.setWordWrap(True)
         main_layout.addWidget(self.config_table)
 
         self.config_table.setObjectName('configsTable')
@@ -101,7 +122,7 @@ class ConfigSourceUI(QWidget):
             "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
             "stop:0 #80cc42, stop: 0.5 #ccffdd,stop: 0.6 #ccffdd, stop:1 #80cc42);"
             "border:1px solid rgb(201,202,202);border-left:none;"
-            "min-height:25px;min-width:26px;font-weight:bold;font-size:13px};"
+            "min-height:25px;min-width:40px;font-weight:bold;font-size:13px};"
         )
 
         self.setStyleSheet(
@@ -163,8 +184,8 @@ class VarietySheetUI(QWidget):
         self.sheet_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self.sheet_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.sheet_table.setAlternatingRowColors(True)
-        self.sheet_table.setColumnCount(8)
-        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "创建人", "名称", "更新日期", "更新人", "增量", ""])
+        self.sheet_table.setColumnCount(9)
+        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "创建人", "名称", "更新时间", "更新人", "增量", "图形", "上移"])
         self.sheet_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.sheet_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         main_layout.addWidget(self.sheet_table)
@@ -182,7 +203,6 @@ class VarietySheetUI(QWidget):
             "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"
             "stop:0 #cccccc,stop:0.5 white,stop:0.6 white,stop: 1 #cccccc);"
             "alternate-background-color:rgb(245,250,248);}"
-            "#operateButton{border:none;}#operateButton:hover{color:rgb(233,66,66)}"
         )
 
 
@@ -214,12 +234,20 @@ class SheetChartUI(QWidget):
         self.chart_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.chart_table.setAlternatingRowColors(True)
         self.chart_table.setColumnCount(7)
-        self.chart_table.setHorizontalHeaderLabels(["编号", "创建者", "创建日期", "标题", "图形解读", '', ''])
-        self.chart_table.horizontalHeader().setDefaultSectionSize(80)
+        self.chart_table.setHorizontalHeaderLabels(["编号", "创建者", "创建日期", "标题", "解读", '图形', '上移'])
         self.chart_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.chart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
-        self.chart_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
-        main_layout.addWidget(self.chart_table)
+
+        self.swap_tab = QTabWidget(self)
+
+        self.swap_tab.addTab(self.chart_table, "列表")
+        self.swap_tab.setDocumentMode(True)
+        self.swap_tab.setTabPosition(QTabWidget.East)
+        self.chart_container = QWebEngineView(self)
+
+        self.swap_tab.addTab(self.chart_container, "全览")
+
+        main_layout.addWidget(self.swap_tab)
 
         self.setLayout(main_layout)
         self.chart_table.setObjectName("chartTable")
@@ -277,13 +305,5 @@ class UserDataMaintainUI(QWidget):
         self.maintain_frame.addTab(self.variety_sheet_widget, "数据表")
 
         self.sheet_chart_widget = SheetChartUI(self)
-        self.chart_tab = QTabWidget(self)
-        self.chart_tab.setDocumentMode(True)
-        self.chart_tab.setTabPosition(QTabWidget.East)
-        self.chart_tab.addTab(self.sheet_chart_widget, "列表")
-        self.charts_container = QWebEngineView(self)
-        self.chart_tab.addTab(self.charts_container, "全览")
 
-        self.maintain_frame.addTab(self.chart_tab, "数据图")
-
-
+        self.maintain_frame.addTab(self.sheet_chart_widget, "数据图")

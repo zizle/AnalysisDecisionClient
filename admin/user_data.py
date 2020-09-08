@@ -10,21 +10,22 @@ import time
 import numpy as np
 import pandas as pd
 from datetime import datetime
-from PyQt5.QtWidgets import qApp, QListWidgetItem, QTableWidgetItem, QPushButton
+from PyQt5.QtWidgets import qApp, QListWidgetItem, QTableWidgetItem
 from PyQt5.QtCore import Qt, QUrl, QThread, pyqtSignal
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
-from PyQt5.QtGui import QBrush, QColor
+from PyQt5.QtGui import QBrush, QColor, QIcon
 from settings import SERVER_API, logger, BASE_DIR
 from utils.client import get_user_token, get_client_uuid
 from popup.industry_popup import UpdateFolderPopup, DisposeChartPopup
-from .user_data_ui import UserDataMaintainUI, SheetChartUI
+from popup.sheet_charts import SheetChartsPopup, DeciphermentPopup, ChartPopup
+from .user_data_ui import UserDataMaintainUI, SheetChartUI, OperateButton
 
-pd.set_option('mode.chained_assignment', None)      # pandas不提示警告
+pd.set_option('mode.chained_assignment', None)  # pandas不提示警告
 
 
 class UpdatingSheetsThread(QThread):
     """ 更新数据表的线程 """
-    single_finished = pyqtSignal(int)   # 单个完成的信号(2020-09-04预留更新进度条使用)
+    single_finished = pyqtSignal(int)  # 单个完成的信号(2020-09-04预留更新进度条使用)
 
     def __init__(self, variety_en, group_id, path_list, *args, **kwargs):
         super(UpdatingSheetsThread, self).__init__(*args, **kwargs)
@@ -47,10 +48,10 @@ class UpdatingSheetsThread(QThread):
                 time.sleep(0.03)
                 # converters参数 第0列为时间格式
                 sheet_df = excel_file.parse(sheet_name=sheet_name, skiprows=[0], converters={0: self.date_converter})
-                sheet_df.iloc[:1] = sheet_df.iloc[:1].fillna('')                       # 替换第一行中有的nan
+                sheet_df.iloc[:1] = sheet_df.iloc[:1].fillna('')  # 替换第一行中有的nan
                 # 替换除第一列以外的nan为空(这里直接inplace=True填充失败(原因:未知))
                 sheet_df.iloc[:, 1:sheet_df.shape[1]] = sheet_df.iloc[:, 1:sheet_df.shape[1]].fillna('')
-                sheet_df.dropna(axis=0, how='any', inplace=True)                 # 删除含nan的行
+                sheet_df.dropna(axis=0, how='any', inplace=True)  # 删除含nan的行
                 if sheet_name == "日-柳糖期现价差":
                     print(sheet_df)
                 if sheet_df.empty:  # 处理后为空的数据继续下一个
@@ -88,7 +89,7 @@ class UpdatingSheetsThread(QThread):
         request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
         reply = self.network_manager.post(request, json.dumps(source_data).encode("utf-8"))
         reply.finished.connect(self.sheet_data_server_reply)
-        self.exec_()        # 开启事件循环才能接受到返回的信号,必须再reply之后
+        self.exec_()  # 开启事件循环才能接受到返回的信号,必须再reply之后
 
     def sheet_data_server_reply(self):
         """ 数据上传到服务器返回 """
@@ -100,7 +101,7 @@ class UpdatingSheetsThread(QThread):
         if reply.error():
             logger.error("其他未知情况,更新数据失败:{}".format(reply.error()))
         reply.deleteLater()
-        self.quit()    # 事件循环退出，继续下一个
+        self.quit()  # 事件循环退出，继续下一个
 
 
 class UserDataMaintain(UserDataMaintainUI):
@@ -117,7 +118,7 @@ class UserDataMaintain(UserDataMaintainUI):
             menu.setData(Qt.UserRole, menu_item["name_en"])
             self.maintain_menu.addItem(menu)
 
-        self.maintain_menu.clicked.connect(self.selected_maintain_menu)   # 选择操作菜单
+        self.maintain_menu.clicked.connect(self.selected_maintain_menu)  # 选择操作菜单
         self.source_config_widget.confirm_group_button.clicked.connect(self.create_new_sheet_group)  # 确定新增分组
         # 数据源配置页品种选择变化信号连接(请求当前品种下的分组)
         self.source_config_widget.variety_combobox.currentTextChanged.connect(self.variety_combobox_changed)
@@ -130,6 +131,7 @@ class UserDataMaintain(UserDataMaintainUI):
         self.source_config_widget.group_combobox.currentTextChanged.connect(self.show_groups_folder_list)  # 显示品种组的更新文件夹
         self.variety_sheet_widget.group_combobox.currentIndexChanged.connect(self.get_show_variety_sheets)  # 获取品种的数据表
         self.variety_sheet_widget.sheet_table.cellDoubleClicked.connect(self.popup_option_chart)  # 双击弹窗设置数据图
+        self.sheet_chart_widget.swap_tab.tabBarClicked.connect(self.swap_to_render_variety_charts)  # 切换渲染品种下的图形
 
     def _get_user_variety(self):
         """ 获取用户有权限的品种信息 """
@@ -184,12 +186,11 @@ class UserDataMaintain(UserDataMaintainUI):
         elif current_menu == "sheet_chart":
             self.maintain_frame.setCurrentIndex(2)
             self.chart_page_variety_changed()  # 手动调用请求品种的图形(否则第一次切换到图形页没有数据列表)
-            return   # 图形界面无需再请求品种下的数据分组
+            return  # 图形界面无需再请求品种下的数据分组
         else:
             return
         if self.is_ready:
             self.variety_combobox_changed()  # 手动调用请求品种下的分组(否则第一次切换到品种表页面没有分组)
-
 
     def config_update_folder(self):
         """ 调整配置更新的文件夹 """
@@ -254,9 +255,7 @@ class UserDataMaintain(UserDataMaintainUI):
             item3.setTextAlignment(Qt.AlignCenter)
             self.source_config_widget.config_table.setItem(row, 3, item3)
 
-            item4_button = QPushButton("点击更新", self.source_config_widget.config_table)
-            item4_button.setObjectName("operateButton")
-            item4_button.setCursor(Qt.PointingHandCursor)
+            item4_button = OperateButton("media/icons/update.png", "media/icons/update_hover.png", "点击更新", self.source_config_widget.config_table)
             setattr(item4_button, "row_index", row)
             item4_button.clicked.connect(self.updating_sheets_of_folder)
             self.source_config_widget.config_table.setCellWidget(row, 4, item4_button)
@@ -292,7 +291,7 @@ class UserDataMaintain(UserDataMaintainUI):
         self.source_config_widget.updating_process.show()
         self.update_folder_sheets_to_server(variety_en, group_id, folder_path)
 
-    def update_folder_sheets_to_server(self,variety_en, group_id, folder_path):
+    def update_folder_sheets_to_server(self, variety_en, group_id, folder_path):
         """ 读取数据,更新数据到服务端 """
         file_path_list = list()
         for file_path in os.listdir(folder_path):
@@ -427,22 +426,94 @@ class UserDataMaintain(UserDataMaintainUI):
             item6.setForeground(QBrush(QColor(233, 66, 66))) if update_count > 0 else item6.setForeground(QBrush(QColor(66, 66, 66)))
             self.variety_sheet_widget.sheet_table.setItem(row, 6, item6)
 
+            item7_button = OperateButton("media/icons/chart.png", "media/icons/chart_hover.png", self)
+            setattr(item7_button, "row_index", row)
+            item7_button.clicked.connect(self.show_sheet_charts_values)
+            self.variety_sheet_widget.sheet_table.setCellWidget(row, 7, item7_button)
+
+            if row > 0:
+                item8_button = OperateButton("media/icons/swap.png", "media/icons/swap_hover.png", self)
+                setattr(item8_button, "row_index", row)
+                item8_button.clicked.connect(self.sheet_to_top_show)
+                self.variety_sheet_widget.sheet_table.setCellWidget(row, 8, item8_button)
+
     def popup_option_chart(self, row, col):
         """ 品种表界面双击表名称进入绘图 """
         sheet_id = int(self.variety_sheet_widget.sheet_table.item(row, 0).text())
         sheet_name = self.variety_sheet_widget.sheet_table.item(row, 3).text()
-        if col == 3:    # 双击sheet_name才能进入
+        if col == 3:  # 双击sheet_name才能进入
             variety_en = self.variety_sheet_widget.variety_combobox.currentData()
             dispose_popup = DisposeChartPopup(variety_en, sheet_id, self)
             dispose_popup.setWindowTitle(sheet_name)
             dispose_popup.exec_()
 
+    def show_sheet_charts_values(self):
+        """ 弹窗显示表的图形和数据 """
+        row_index = getattr(self.sender(), "row_index")
+        sheet_id = self.variety_sheet_widget.sheet_table.item(row_index, 0).text()
+        sheet_name = self.variety_sheet_widget.sheet_table.item(row_index, 3).text()
+        is_own = 1 if self.variety_sheet_widget.only_me_check.checkState() else 0
+        popup = SheetChartsPopup(sheet_id, is_own, self)
+        popup.setWindowTitle(sheet_name)
+        popup.exec_()
+
+    def sheet_to_top_show(self):
+        """ 将数据记录置顶 """
+        # 取得上行的数据id和当前行的数据id
+        row_index = getattr(self.sender(), "row_index")
+        swap_id = self.variety_sheet_widget.sheet_table.item(row_index, 0).text()
+        to_swap = self.variety_sheet_widget.sheet_table.item(row_index - 1, 0).text()
+        body_data = {
+            "swap_id": swap_id,
+            "to_swap": to_swap,
+            "swap_row": row_index
+        }
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "sheet/suffix-swap/"
+        reply = network_manager.put(QNetworkRequest(QUrl(url)), json.dumps(body_data).encode("utf-8"))
+        reply.finished.connect(self.swap_suffix_reply)
+
+    def swap_suffix_reply(self):
+        """ 交换后缀返回(指定) """
+        reply = self.sender()
+        if reply.error():
+            logger.error("用户上移数据表错误:{}".format(reply.error()))
+            return
+        else:  # 取出当前行数据,并且移除,在首行插入
+            # 从后端返回的数据取得行
+            data = reply.readAll().data()
+            data = json.loads(data.decode("utf-8"))
+            current_row = data["swap_row"]
+            # 交换上下行的值
+            up_row = current_row - 1
+            self.swap_variety_sheet_table_row(current_row, up_row)
+        reply.deleteLater()
+
+    def swap_variety_sheet_table_row(self, current_row, up_row):
+        """ 数据表交换行数据行 """
+        for col_index in range(7):
+            current_item = self.variety_sheet_widget.sheet_table.item(current_row, col_index)
+            up_row_item = self.variety_sheet_widget.sheet_table.item(up_row, col_index)
+            current_text, up_text = current_item.text(), up_row_item.text()
+            current_item.setText(up_text)
+            up_row_item.setText(current_text)
+            if col_index == 6:
+                if int(up_text) > 0:
+                    current_item.setForeground(QBrush(QColor(233,66,66)))
+                else:
+                    current_item.setForeground(QBrush(QColor(0, 0, 0)))
+                if int(current_text) > 0:
+                    up_row_item.setForeground(QBrush(QColor(233,66,66)))
+                else:
+                    up_row_item.setForeground(QBrush(QColor(0, 0, 0)))
+
     def chart_page_variety_changed(self):
         """ 图形显示页品种变化 """
         current_variety = self.sheet_chart_widget.variety_combobox.currentData()
         is_own = 1 if self.sheet_chart_widget.only_me_check.checkState() else 0
+        user_token = get_user_token().split(" ")[1]
         network_manager = getattr(qApp, "_network")
-        url = SERVER_API + "variety/{}/chart/?is_own={}".format(current_variety, is_own)
+        url = SERVER_API + "variety/{}/chart/?is_own={}&token={}".format(current_variety, is_own, user_token)
         user_token = get_user_token()
         request = QNetworkRequest(QUrl(url))
         request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
@@ -457,10 +528,10 @@ class UserDataMaintain(UserDataMaintainUI):
         else:
             data = reply.readAll().data()
             data = json.loads(data.decode("utf-8"))
-            self.show_sheet_charts(data["data"])
+            self.show_variety_charts(data["data"])
         reply.deleteLater()
 
-    def show_sheet_charts(self, charts_list):
+    def show_variety_charts(self, charts_list):
         """ 显示所有已配置的品种表 """
         self.sheet_chart_widget.chart_table.clearContents()
         self.sheet_chart_widget.chart_table.setRowCount(len(charts_list))
@@ -481,18 +552,88 @@ class UserDataMaintain(UserDataMaintainUI):
             item3.setTextAlignment(Qt.AlignCenter)
             self.sheet_chart_widget.chart_table.setItem(row, 3, item3)
 
-            item4_button = QPushButton("编辑", self.sheet_chart_widget.chart_table)
-            item4_button.setCursor(Qt.PointingHandCursor)
-            item4_button.setObjectName("operateButton")
+            item4_button = OperateButton("media/icons/edit.png", "media/icons/edit_hover.png", self.sheet_chart_widget.chart_table)
+            setattr(item4_button, "row_index", row)
+            item4_button.clicked.connect(self.edit_chart_decipherment)
             self.sheet_chart_widget.chart_table.setCellWidget(row, 4, item4_button)
             # 图形
-            item5_button = QPushButton("图形", self.sheet_chart_widget.chart_table)
-            item5_button.setCursor(Qt.PointingHandCursor)
-            item5_button.setObjectName("operateButton")
+            item5_button = OperateButton("media/icons/chart.png", "media/icons/chart_hover.png", self.sheet_chart_widget.chart_table)
+            setattr(item5_button, "row_index", row)
+            item5_button.clicked.connect(self.show_current_chart)
             self.sheet_chart_widget.chart_table.setCellWidget(row, 5, item5_button)
-            # 置顶
-            item6_button = QPushButton("置顶", self.sheet_chart_widget.chart_table)
-            item6_button.setCursor(Qt.PointingHandCursor)
-            item6_button.setObjectName("operateButton")
-            self.sheet_chart_widget.chart_table.setCellWidget(row, 6, item6_button)
+            # 上移
+            if row > 0:
+                item6_button = OperateButton("media/icons/swap.png", "media/icons/swap_hover.png", self.sheet_chart_widget.chart_table)
+                setattr(item6_button, "row_index", row)
+                item6_button.clicked.connect(self.swap_chart_suffix)
+                self.sheet_chart_widget.chart_table.setCellWidget(row, 6, item6_button)
 
+    def edit_chart_decipherment(self):
+        """ 编辑当前图形的解说 """
+        current_row = getattr(self.sender(), "row_index")
+        chart_id = self.sheet_chart_widget.chart_table.item(current_row, 0).text()
+        popup = DeciphermentPopup(chart_id, self)
+        popup.show()
+
+    def show_current_chart(self):
+        """ 显示当前的图形 """
+        current_row = getattr(self.sender(), "row_index")
+        chart_id = self.sheet_chart_widget.chart_table.item(current_row, 0).text()
+        chart_name = self.sheet_chart_widget.chart_table.item(current_row, 3).text()
+        popup = ChartPopup(chart_id, self)
+        popup.setWindowTitle(chart_name)
+        popup.setWindowIcon(QIcon("media/icons/chart.png"))
+        popup.show()
+
+    def swap_chart_suffix(self):
+        """ 交换上移行 """
+        row_index = getattr(self.sender(), "row_index")
+        swap_id = self.sheet_chart_widget.chart_table.item(row_index, 0).text()
+        to_swap = self.sheet_chart_widget.chart_table.item(row_index - 1, 0).text()
+        body_data = {
+            "swap_id": swap_id,
+            "to_swap": to_swap,
+            "swap_row": row_index
+        }
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "chart/suffix-swap/"
+        reply = network_manager.put(QNetworkRequest(QUrl(url)), json.dumps(body_data).encode("utf-8"))
+        reply.finished.connect(self.swap_chart_suffix_reply)
+
+    def swap_chart_suffix_reply(self):
+        """ 交换数据图形后缀返回 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("用户上移图形错误:{}".format(reply.error()))
+            return
+        else:  # 取出当前行数据,并且移除,在首行插入
+            # 从后端返回的数据取得行
+            data = reply.readAll().data()
+            data = json.loads(data.decode("utf-8"))
+            current_row = data["swap_row"]
+            # 交换上下行的值
+            up_row = current_row - 1
+            self.swap_variety_chart_table_row(current_row, up_row)
+        reply.deleteLater()
+
+    def swap_variety_chart_table_row(self, current_row, up_row):
+        """ 图形表交换行数据行 """
+        for col_index in range(4):
+            current_item = self.sheet_chart_widget.chart_table.item(current_row, col_index)
+            up_row_item = self.sheet_chart_widget.chart_table.item(up_row, col_index)
+            current_text, up_text = current_item.text(), up_row_item.text()
+            current_item.setText(up_text)
+            up_row_item.setText(current_text)
+
+    def load_variety_charts_render(self):
+        """ 加载品种的所有图形 """
+        user_token = get_user_token().split(' ')[1]
+        is_own = 1 if self.sheet_chart_widget.only_me_check.checkState() else 0
+        variety_en = self.sheet_chart_widget.variety_combobox.currentData()
+        url = SERVER_API + "variety/{}/chart/?is_own={}&render=1&token={}".format(variety_en, is_own, user_token)
+        self.sheet_chart_widget.chart_container.load(QUrl(url))
+
+    def swap_to_render_variety_charts(self, tab_index):
+        """ 切换渲染品种下的图形 """
+        if tab_index == 1:
+            self.load_variety_charts_render()
