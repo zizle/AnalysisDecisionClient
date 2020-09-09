@@ -18,6 +18,7 @@ from settings import SERVER_API, logger, BASE_DIR
 from utils.client import get_user_token, get_client_uuid
 from popup.industry_popup import UpdateFolderPopup, DisposeChartPopup
 from popup.sheet_charts import SheetChartsPopup, DeciphermentPopup, ChartPopup
+from popup.message import InformationPopup
 from .user_data_ui import UserDataMaintainUI, SheetChartUI, OperateButton
 
 pd.set_option('mode.chained_assignment', None)  # pandas不提示警告
@@ -573,7 +574,15 @@ class UserDataMaintain(UserDataMaintainUI):
 
             # 主页
             item7 = QTableWidgetItem()
-            checked, text = (Qt.Checked, "开启") if row_item["is_principal"] else( Qt.Unchecked, "隐藏")
+            if row_item["is_principal"] == "0":
+                text = "隐藏"
+                checked = Qt.Unchecked
+            elif row_item["is_principal"] == "1":
+                text = "审核"
+                checked = Qt.PartiallyChecked
+            else:
+                text = "开启"
+                checked = Qt.Checked
             item7.setText(text)
             item7.setCheckState(checked)
             self.sheet_chart_widget.chart_table.setItem(row, 7, item7)
@@ -659,7 +668,45 @@ class UserDataMaintain(UserDataMaintainUI):
 
     def chart_table_cell_changed(self, row, col):
         """ 数据图形单元格变化 """
-        print(row, col)
-        if col > 6:
-            print("改变状态")
+        # 断开信号
+        self.sheet_chart_widget.chart_table.cellChanged.disconnect()  # 图形表单元格变化
+        if col in [7, 8]:
+            chart_id = self.sheet_chart_widget.chart_table.item(row, 0).text()
+            is_principal = self.sheet_chart_widget.chart_table.item(row, 7).checkState()
+            is_petit = 1 if self.sheet_chart_widget.chart_table.item(row, 8).checkState() else 0
+            self.change_chart_display_position(chart_id, is_principal, is_petit)
+            if is_principal == 1:
+                text = "审核"
+            elif is_principal == 2:
+                text = "开启"
+            else:
+                text = "隐藏"
+            self.sheet_chart_widget.chart_table.item(row, 7).setText(text)
+            text = "开启" if is_petit else "隐藏"
+            self.sheet_chart_widget.chart_table.item(row, 8).setText(text)
+        # 再次链接信号
+        self.sheet_chart_widget.chart_table.cellChanged.connect(self.chart_table_cell_changed)  # 图形表单元格变化
+
+
+    def change_chart_display_position(self, chart_id, is_principal, is_petit):
+        """ 修改图形的显示位置 """
+        user_token = get_user_token()
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + 'chart/{}/display/?is_principal={}&is_petit={}'.format(chart_id, is_principal, is_petit)
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = network_manager.put(request, None)
+        reply.finished.connect(self.change_chart_display_reply)
+
+    def change_chart_display_reply(self):
+        """ 设置图形的显示位置返回 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("用户修改图形显示失败:{}".format(reply.error()))
+        else:
+            p = InformationPopup("设置成功!", self)
+            p.exec_()
+        reply.deleteLater()
+
+
 
