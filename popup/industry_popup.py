@@ -296,9 +296,9 @@ class OptionWidget(QWidget):
             series_data.append(item_data)
         option["series_data"] = series_data
 
-        option["water_text"] = ""
+        option["watermark"] = ""
         if self.has_graphic.isChecked():
-            option["water_text"] = self.water_graphic.text().strip()
+            option["watermark"] = self.water_graphic.text().strip()
         option["start_year"] = "0"
         option["end_year"] = "0"
         if self.range_check.isChecked():

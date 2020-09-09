@@ -133,6 +133,8 @@ class UserDataMaintain(UserDataMaintainUI):
         self.variety_sheet_widget.sheet_table.cellDoubleClicked.connect(self.popup_option_chart)  # 双击弹窗设置数据图
         self.sheet_chart_widget.swap_tab.tabBarClicked.connect(self.swap_to_render_variety_charts)  # 切换渲染品种下的图形
 
+        self.sheet_chart_widget.chart_table.cellChanged.connect(self.chart_table_cell_changed)    # 图形表单元格变化
+
     def _get_user_variety(self):
         """ 获取用户有权限的品种信息 """
         network_manager = getattr(qApp, "_network")
@@ -533,6 +535,7 @@ class UserDataMaintain(UserDataMaintainUI):
 
     def show_variety_charts(self, charts_list):
         """ 显示所有已配置的品种表 """
+        self.sheet_chart_widget.chart_table.cellChanged.disconnect()  # 关闭单元格变化的信号
         self.sheet_chart_widget.chart_table.clearContents()
         self.sheet_chart_widget.chart_table.setRowCount(len(charts_list))
         for row, row_item in enumerate(charts_list):
@@ -567,6 +570,22 @@ class UserDataMaintain(UserDataMaintainUI):
                 setattr(item6_button, "row_index", row)
                 item6_button.clicked.connect(self.swap_chart_suffix)
                 self.sheet_chart_widget.chart_table.setCellWidget(row, 6, item6_button)
+
+            # 主页
+            item7 = QTableWidgetItem()
+            checked, text = (Qt.Checked, "开启") if row_item["is_principal"] else( Qt.Unchecked, "隐藏")
+            item7.setText(text)
+            item7.setCheckState(checked)
+            self.sheet_chart_widget.chart_table.setItem(row, 7, item7)
+            # 品种页
+            item8 = QTableWidgetItem()
+            checked, text = (Qt.Checked, "开启") if row_item["is_petit"] else (Qt.Unchecked, "隐藏")
+            item8.setText(text)
+            item8.setCheckState(checked)
+            self.sheet_chart_widget.chart_table.setItem(row, 8, item8)
+
+        # 重新连接单元格变化的信号
+        self.sheet_chart_widget.chart_table.cellChanged.connect(self.chart_table_cell_changed)  # 图形表单元格变化
 
     def edit_chart_decipherment(self):
         """ 编辑当前图形的解说 """
@@ -637,3 +656,10 @@ class UserDataMaintain(UserDataMaintainUI):
         """ 切换渲染品种下的图形 """
         if tab_index == 1:
             self.load_variety_charts_render()
+
+    def chart_table_cell_changed(self, row, col):
+        """ 数据图形单元格变化 """
+        print(row, col)
+        if col > 6:
+            print("改变状态")
+

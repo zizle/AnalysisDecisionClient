@@ -184,9 +184,7 @@ class UserManager(UserManagerUI):
         """ 修改用户基本信息返回 """
         reply = self.sender()
         data = reply.readAll().data()
-        print(data)
         data = json.loads(data.decode("utf-8"))
-        print(data)
         if reply.error():
             self.user_list_widget.network_message.setText(str(data["detail"]))
         else:
