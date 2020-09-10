@@ -4,8 +4,8 @@
 # @Author: zizle
 import uuid
 from PyQt5.QtWidgets import QWidget, QStackedWidget, QGridLayout, QLabel, QLineEdit, QHBoxLayout, QVBoxLayout, QPushButton, QCheckBox
-from PyQt5.QtGui import QBrush, QPixmap, QPainter
-from PyQt5.QtCore import QRect, Qt, QMargins, pyqtSignal
+from PyQt5.QtGui import QPixmap, QPainter
+from PyQt5.QtCore import QRect, Qt, pyqtSignal, QSettings
 
 
 # 图片验证码控件

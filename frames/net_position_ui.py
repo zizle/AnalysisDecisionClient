@@ -40,7 +40,6 @@ class NetPositionUI(QWidget):
         self.data_table = QTableWidget(self)
         self.data_table.setFrameShape(QFrame.NoFrame)
         self.data_table.setEditTriggers(QAbstractItemView.NoEditTriggers)   # 不可编辑
-        # self.data_table.setSelectionBehavior(QAbstractItemView.SelectRows)  # 选择为一行
         self.data_table.setFocusPolicy(Qt.NoFocus)                          # 去选中时的虚线框
         self.data_table.setAlternatingRowColors(True)                       # 交替行颜色
         self.data_table.horizontalHeader().setDefaultSectionSize(85)        # 默认的标题头宽
@@ -56,15 +55,16 @@ class NetPositionUI(QWidget):
         self.data_table.horizontalScrollBar().setStyleSheet(
             "QScrollBar{background:transparent;height:10px;}"
             "QScrollBar::handle{background:lightgray;border:0px solid transparent;border-radius:2px}"
-            "QScrollBar:left-arrow:horizontal,QScrollBar::right-arrow:horizontal{width:0}"
+            "QScrollBar:left-arrow:horizontal{width:10px;height:10px;background:url('media/scrollbar/scrollbar_arrowleft_normal.png')}"
             "QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none}"
         )
-
-        self.data_table.horizontalHeader().setStyleSheet("QHeaderView::section,"
-                                                         "QTableCornerButton::section{height:25px;background-color:rgb(243,245,248);font-weight:bold;font-size:13px}")
+        self.data_table.horizontalHeader().setStyleSheet(
+            "QHeaderView::section,QTableCornerButton::section{height:25px;background-color:rgb(243,245,248);"
+            "font-weight:bold;font-size:13px}"
+        )
         self.setStyleSheet(
             "#tipLabel{color:rgb(230,50,50);font-weight:bold;}"
+            "#dataTable{selection-color:rgb(80,100,200);selection-background-color:rgb(220,220,220);"
+            "alternate-background-color:rgb(245,250,248)}"
             "#dataTable::item{padding:2px}"
-            "#dataTable{selection-color:rgb(80,100,200);selection-background-color:rgb(220,220,220);alternate-background-color:rgb(245,250,248)}"
         )
-

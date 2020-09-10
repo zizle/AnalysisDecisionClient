@@ -17,9 +17,14 @@ from utils.client import get_client_uuid
 from .frameless_ui import FrameLessWindowUI
 
 from admin.user_manager import UserManager
+from admin.client_manager import ClientManage
 from admin.variety import VarietyAdmin
 from admin.user_data import UserDataMaintain
+from admin.exchange_spider import ExchangeSpider
+from frames.homepage import Homepage
 from frames.industry.variety_data import VarietyData
+from frames.exchange_query import ExchangeQuery
+from frames.net_position import NetPosition
 
 
 class ClientMainApp(FrameLessWindowUI):
@@ -37,13 +42,12 @@ class ClientMainApp(FrameLessWindowUI):
         self.navigation_bar.logout_button.clicked.connect(self.user_logout_proxy)          # 用户退出
         self.navigation_bar.menu_clicked.connect(self.enter_module_page)
 
-        self._bind_global_network_manager()                                               # 绑定全局网络管理器
-
-        self._add_client_to_server()                                                      # 记录客户端
-
         self.set_default_homepage()
 
         self._user_login_automatic()                                                      # 用户启动自动登录
+
+        if not self.user_online_timer.isActive():                       # 开启在线时间统计
+            self.user_online_timer.start(ONLINE_COUNT_INTERVAL)
 
     def application_state_changed(self, state):
         """ 应用程序状态发生变化 """
@@ -53,46 +57,6 @@ class ClientMainApp(FrameLessWindowUI):
         elif state == Qt.ApplicationActive:
             if not self.user_online_timer.isActive():
                 self.user_online_timer.start(ONLINE_COUNT_INTERVAL)
-
-    def _bind_global_network_manager(self):
-        """ 绑定全局网络管理器 """
-        if not hasattr(qApp, "_network"):
-            network_manager = QNetworkAccessManager(self)
-            setattr(qApp, "_network", network_manager)
-
-    def _add_client_to_server(self):
-        """ 新增客户端 """
-        client_uuid = get_client_uuid()
-        if not client_uuid:
-            self.close()
-            sys.exit(-1)
-
-        client_info = {
-            'client_name': '',
-            'machine_uuid': client_uuid,
-            'is_manager': ADMINISTRATOR
-        }
-        network_manager = getattr(qApp, '_network')
-        url = SERVER_API + "client/"
-        reply = network_manager.post(QNetworkRequest(QUrl(url)), json.dumps(client_info).encode('utf-8'))
-        reply.finished.connect(self.add_client_reply)
-
-    def add_client_reply(self):
-        """ 添加客户端的信息返回了 """
-        reply = self.sender()
-        if reply.error():
-            logger.error("New Client ERROR!{}".format(reply.error()))
-            sys.exit(-1)
-        data = reply.readAll().data()
-        data = json.loads(data.decode("utf-8"))
-        reply.deleteLater()
-        # 将信息写入token
-        self.client_uuid = data["client_uuid"]
-        client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
-        token_config = QSettings(client_ini_path, QSettings.IniFormat)
-        token_config.setValue("TOKEN/UUID", self.client_uuid)
-        if not self.user_online_timer.isActive():                       # 开启在线时间统计
-            self.user_online_timer.start(ONLINE_COUNT_INTERVAL)
 
     def update_user_online_time(self):
         """ 更新用户 (客户端)在线时间"""
@@ -112,8 +76,8 @@ class ClientMainApp(FrameLessWindowUI):
 
     def set_default_homepage(self):
         """ 设置默认的首页 """
-        c = QLabel("    默认主窗口")
-        self.center_widget.setCentralWidget(c)
+        homepage = Homepage()
+        self.center_widget.setCentralWidget(homepage)
 
     def clicked_username_button(self):
         """ 点击了登录/用户名
@@ -240,12 +204,20 @@ class ClientMainApp(FrameLessWindowUI):
         print(module_id, module_text, "允许进入")
         if module_id == "2_0":
             page = VarietyData()
+        elif module_id == "2_1":
+            page = ExchangeQuery()
+        elif module_id == "2_2":
+            page = NetPosition()
         elif module_id == "-9_1_0":
             page = VarietyAdmin()                                    # 后台管理-品种管理
         elif module_id == "-9_1_1":                                  # 后台管理-用户管理
             page = UserManager()
+        elif module_id == "-9_1_2":
+            page = ClientManage()
         elif module_id == "-9_3_0":                                  # 后台管理-产业数据库
             page = UserDataMaintain()
+        elif module_id == "-9_3_1":
+            page = ExchangeSpider()
         else:
             page = QLabel(
                 "「" + module_text + "」暂未开放···\n更多资讯请访问【首页】查看.",

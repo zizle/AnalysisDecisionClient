@@ -102,7 +102,6 @@ class NetPosition(NetPositionUI):
                 col_start = 0
                 col_end = len(header_keys)
                 self.data_table.insertRow(row)
-                self.data_table.setRowHeight(row, 10)
             else:
                 row -= 1
                 col_start = len(header_keys)

@@ -8,6 +8,7 @@ from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtCore import Qt, QUrl
 from settings import SERVER_API, logger
 from utils.client import get_user_token
+from popup.sheet_charts import SheetChartsPopup
 from .variety_data_ui import VarietyDataUI, OperateButton
 
 
@@ -17,8 +18,13 @@ class VarietyData(VarietyDataUI):
         self.variety_tree.left_mouse_clicked.connect(self.selected_variety_event)
         # 默认显示股指的数据
         self._get_variety_sheets("GP")
-        # 默认加载股指的图形
-        self._load_variety_charts("GP")
+        # 默认加载主页显示的图形
+        self._load_default_page()
+
+    def _load_default_page(self):
+        """ 加载主页默认页面 """
+        url = SERVER_API + "industry/chart/"
+        self.chart_container.load(QUrl(url))
 
     def selected_variety_event(self, variety_id, group_text, variety_en):
         """ 选择了某个品种事件 """
@@ -50,7 +56,6 @@ class VarietyData(VarietyDataUI):
         else:
             data = reply.readAll().data()
             data = json.loads(data.decode("utf-8"))
-            print(data)
             self.sheet_table_show_contents(data["sheets"])
 
     def sheet_table_show_contents(self, sheets):
@@ -58,7 +63,7 @@ class VarietyData(VarietyDataUI):
         self.sheet_table.clearContents()
         self.sheet_table.setRowCount(len(sheets))
         for row, row_item in enumerate(sheets):
-            item0 = QTableWidgetItem(str(row))
+            item0 = QTableWidgetItem(str(row + 1))
             item0.setData(Qt.UserRole, row_item["id"])
             item0.setTextAlignment(Qt.AlignCenter)
             self.sheet_table.setItem(row, 0, item0)
@@ -77,7 +82,14 @@ class VarietyData(VarietyDataUI):
 
             item4_button = OperateButton("media/icons/chart.png", "media/icons/chart_hover.png", self)
             setattr(item4_button, "row_index", row)
+            item4_button.clicked.connect(self.show_sheet_charts)
             self.sheet_table.setCellWidget(row, 4, item4_button)
 
-
-
+    def show_sheet_charts(self):
+        """ 弹窗显示某个表下的所有图形和表数据 """
+        current_row = getattr(self.sender(), "row_index")
+        sheet_id = self.sheet_table.item(current_row, 0).data(Qt.UserRole)
+        sheet_name = self.sheet_table.item(current_row, 1).text()
+        popup = SheetChartsPopup(sheet_id, 0, self)
+        popup.setWindowTitle(sheet_name)
+        popup.exec_()

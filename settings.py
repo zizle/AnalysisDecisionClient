@@ -4,11 +4,12 @@ import os
 import time
 import logging
 from PyQt5.QtCore import QSettings
-WINDOW_TITLE = '瑞达期货研究院分析决策系统管理端'  # 1.3.1
+WINDOW_TITLE = '期货分析助手管理端'  # 1.3.1
 # SERVER_ADDR = "http://210.13.218.130:9002/"
 SERVER_ADDR = "http://127.0.0.1:5000/"
 
 SERVER_API = "http://127.0.0.1:8000/api/"
+SERVER_HOST = "http://127.0.0.1:8000/"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -42,6 +43,7 @@ SYSTEM_MENUS = [
         {"id": "-9_1", "name": "运营管理", "logo": "", "children": [
             {"id": "-9_1_0", "name": "品种管理", "logo": "", "children": None},
             {"id": "-9_1_1", "name": "用户管理", "logo": "", "children": None},
+            {"id": "-9_1_2", "name": "客户端管理", "logo": "", "children": None},
         ]},
         {"id": "-9_0", "name": "首页管理", "logo": "", "children": [
             {"id": "-9_0_0", "name": "公告信息", "logo": "", "children": None},

@@ -6,16 +6,14 @@
 # ---------------------------
 import sys
 from PyQt5.QtWidgets import QApplication
+import pandas
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from frames import WelcomePage, ADSClient, ClientMainApp
+from frames import WelcomePage, ClientMainApp
 
 app = QApplication(sys.argv)
 splash = WelcomePage()
 splash.show()
 app.processEvents()  # non-blocking
-splash.import_packages()
-splash.make_client_existed()
-splash.getCurrentAdvertisements()
 
 main_app = ClientMainApp()
 

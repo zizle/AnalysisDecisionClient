@@ -22,6 +22,7 @@ class SheetChartsPopup(QDialog):
         super(SheetChartsPopup, self).__init__(*args, **kwargs)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.sheet_id = sheet_id
+        print(sheet_id)
 
         # 初始化大小
         available_size = QDesktopWidget().availableGeometry()  # 用户的桌面信息,来改变自身窗体大小
@@ -78,6 +79,7 @@ class SheetChartsPopup(QDialog):
     def handler_sheet_values(self, values):
         """ pandas处理数据到弹窗相应参数中 """
         value_df = pd.DataFrame(values)
+        print(value_df)
         sheet_headers = value_df.iloc[:1].to_numpy().tolist()[0]  # 取表头
         sheet_headers.pop(0)  # 删掉id列
         col_index_list = ["id", ]

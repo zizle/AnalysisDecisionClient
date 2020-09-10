@@ -592,6 +592,12 @@ class UserDataMaintain(UserDataMaintainUI):
             item8.setText(text)
             item8.setCheckState(checked)
             self.sheet_chart_widget.chart_table.setItem(row, 8, item8)
+            # 仅自己可见
+            item9 = QTableWidgetItem()
+            checked, text = (Qt.Checked, "仅自己见") if row_item["is_private"] else (Qt.Unchecked, "图形公开")
+            item9.setCheckState(checked)
+            item9.setText(text)
+            self.sheet_chart_widget.chart_table.setItem(row, 9, item9)
 
         # 重新连接单元格变化的信号
         self.sheet_chart_widget.chart_table.cellChanged.connect(self.chart_table_cell_changed)  # 图形表单元格变化
@@ -668,13 +674,14 @@ class UserDataMaintain(UserDataMaintainUI):
 
     def chart_table_cell_changed(self, row, col):
         """ 数据图形单元格变化 """
-        # 断开信号
+        # 断开信号(防止两列的变化都发送一次请求)
         self.sheet_chart_widget.chart_table.cellChanged.disconnect()  # 图形表单元格变化
-        if col in [7, 8]:
+        if col in [7, 8, 9]:
             chart_id = self.sheet_chart_widget.chart_table.item(row, 0).text()
             is_principal = self.sheet_chart_widget.chart_table.item(row, 7).checkState()
             is_petit = 1 if self.sheet_chart_widget.chart_table.item(row, 8).checkState() else 0
-            self.change_chart_display_position(chart_id, is_principal, is_petit)
+            is_private = 1 if self.sheet_chart_widget.chart_table.item(row, 9).checkState() else 0
+            self.change_chart_display_position(chart_id, is_principal, is_petit, is_private)
             if is_principal == 1:
                 text = "审核"
             elif is_principal == 2:
@@ -684,15 +691,16 @@ class UserDataMaintain(UserDataMaintainUI):
             self.sheet_chart_widget.chart_table.item(row, 7).setText(text)
             text = "开启" if is_petit else "隐藏"
             self.sheet_chart_widget.chart_table.item(row, 8).setText(text)
+            text = "仅自己见" if is_private else "图形公开"
+            self.sheet_chart_widget.chart_table.item(row, 9).setText(text)
         # 再次链接信号
         self.sheet_chart_widget.chart_table.cellChanged.connect(self.chart_table_cell_changed)  # 图形表单元格变化
 
-
-    def change_chart_display_position(self, chart_id, is_principal, is_petit):
+    def change_chart_display_position(self, chart_id, is_principal, is_petit, is_private):
         """ 修改图形的显示位置 """
         user_token = get_user_token()
         network_manager = getattr(qApp, "_network")
-        url = SERVER_API + 'chart/{}/display/?is_principal={}&is_petit={}'.format(chart_id, is_principal, is_petit)
+        url = SERVER_API + 'chart/{}/display/?is_principal={}&is_petit={}&is_private={}'.format(chart_id, is_principal, is_petit, is_private)
         request = QNetworkRequest(QUrl(url))
         request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
         reply = network_manager.put(request, None)

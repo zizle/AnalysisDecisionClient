@@ -714,7 +714,7 @@ class DetailWarehouseReceipts(QScrollArea):
                                                            "font-size: 13px;"
                                                            "min-width:26px;}"
                                                            )
-            for row, receipt_item in enumerate(variety_item['receipts']):
+            for row, receipt_item in enumerate(variety_item['receipt']):
                 receipt_table.insertRow(row)
                 receipt_table.setRowHeight(row, 30)
                 date = receipt_item['date']
@@ -1437,7 +1437,7 @@ class DeliveryPage(QScrollArea):
 
     def get_detail_receipts_and_show(self, current_id, current_variety):
         # print(current_id, current_variety)
-        request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
+        request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipt/'
         if current_variety is not None:
             request_url += '?v_en=' + str(current_variety)
 
@@ -1494,7 +1494,7 @@ class DeliveryPage(QScrollArea):
 
     # 界面点击仓库点
     def get_warehouse_receipts(self, wh_id):
-        request_url = SERVER_ADDR + 'warehouse/' + str(wh_id) + '/receipts/'
+        request_url = SERVER_ADDR + 'warehouse/' + str(wh_id) + '/receipt/'
         warehouses_receipts = self.request_warehouse_receipts(request_url)
         if not warehouses_receipts:
             QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')

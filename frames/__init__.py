@@ -7,7 +7,11 @@
 
 
 from .frameless import ClientMainApp
-
+from utils.client import get_client_uuid
+from settings import ADMINISTRATOR, SERVER_API, SERVER_HOST, BASE_DIR, logger
+from PyQt5.QtCore import QSettings
+from PyQt5.QtWidgets import qApp, QSplashScreen, QLabel
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 import os
 import sys
 import json
@@ -15,11 +19,11 @@ import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox, qApp
+from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import QPixmap, QFont, QImage
 from PyQt5.QtCore import Qt, QSize, QUrl
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest
-from frames.homepage import HomePage
+from frames.homepage import Homepage
 from utils.machine import get_machine_code
 from popup import InformationPopup
 from popup.login import LoginPopup
@@ -34,17 +38,67 @@ import settings
 class WelcomePage(QSplashScreen):
     def __init__(self, *args, **kwargs):
         super(WelcomePage, self).__init__(*args, *kwargs)
-        # 请求启动页
-        try:
-            r = requests.get(url=settings.STATIC_PREFIX + 'startpng/start.png')
-            response_img = r.content
-            if r.status_code != 200:
-                raise ValueError('get starting image error')
-            start_image = QImage.fromData(response_img)
-        except Exception:
+        self._bind_global_network_manager()                  # 绑定全局网络管理器
+
+        self._get_start_image()                              # 获取开启的图片
+
+        self._add_client_to_server()                         # 添加客户端到服务器
+
+    def _bind_global_network_manager(self):
+        """ 绑定全局网络管理器 """
+        if not hasattr(qApp, "_network"):
+            network_manager = QNetworkAccessManager(self)
+            setattr(qApp, "_network", network_manager)
+
+    def _add_client_to_server(self):
+        """ 新增客户端 """
+        client_uuid = get_client_uuid()
+        if not client_uuid:
+            logger.error("GET CLIENT-UUID FAIL.")
+            self.close()
+            sys.exit(-1)
+
+        client_info = {
+            'client_name': '',
+            'machine_uuid': client_uuid,
+            'is_manager': ADMINISTRATOR
+        }
+        network_manager = getattr(qApp, '_network')
+        url = SERVER_API + "client/"
+        reply = network_manager.post(QNetworkRequest(QUrl(url)), json.dumps(client_info).encode('utf-8'))
+        reply.finished.connect(self.add_client_reply)
+
+    def add_client_reply(self):
+        """ 添加客户端的信息返回了 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("New Client ERROR!{}".format(reply.error()))
+            sys.exit(-1)
+        data = reply.readAll().data()
+        data = json.loads(data.decode("utf-8"))
+        reply.deleteLater()
+        # 将信息写入token
+        client_uuid = data["client_uuid"]
+        client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        token_config = QSettings(client_ini_path, QSettings.IniFormat)
+        token_config.setValue("TOKEN/UUID", client_uuid)
+
+    def _get_start_image(self):
+        """ 获取开启的页面图片 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_HOST + "static/start_image.png"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.start_image_reply)
+
+    def start_image_reply(self):
+        """ 开启图片返回 """
+        reply = self.sender()
+        if reply.error():
             pixmap = QPixmap('media/start.png')
         else:
-            pixmap = QPixmap.fromImage(start_image)
+            start_image = QImage.fromData(reply.readAll().data())
+            pixmap = QPixmap(start_image)
+        reply.deleteLater()
         scaled_map = pixmap.scaled(QSize(660, 400), Qt.KeepAspectRatio)
         self.setPixmap(scaled_map)
         font = QFont()

@@ -237,8 +237,10 @@ class SheetChartUI(QWidget):
         self.chart_table.setAlternatingRowColors(True)
         self.chart_table.verticalHeader().setDefaultSectionSize(25)  # 设置行高(与下行代码同时才生效)
         self.chart_table.verticalHeader().setMinimumSectionSize(25)
-        self.chart_table.setColumnCount(9)
-        self.chart_table.setHorizontalHeaderLabels(["编号", "创建者", "创建日期", "标题", "解读", '图形', '上移', '主页', '品种'])
+        self.chart_table.setColumnCount(10)
+        self.chart_table.setHorizontalHeaderLabels([
+            "编号", "创建者", "创建日期", "标题", "解读", '图形', '上移', '主页', '品种', '可见'
+        ])
         self.chart_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.chart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
 
