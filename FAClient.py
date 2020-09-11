@@ -14,19 +14,7 @@ app = QApplication(sys.argv)
 splash = WelcomePage()
 splash.show()
 app.processEvents()  # non-blocking
-
 main_app = ClientMainApp()
-
 main_app.show()
-
-
-# base_window = ADSClient()  # main window
-# base_window.set_default_homepage()
-# base_window.bind_network_manager()
-# base_window.running_auto_login()
-# base_window.show()
-# splash.finish(base_window)
-
-
 splash.finish(main_app)
 sys.exit(app.exec_())

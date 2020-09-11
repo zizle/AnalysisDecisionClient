@@ -25,6 +25,7 @@ from frames.homepage import Homepage
 from frames.industry.variety_data import VarietyData
 from frames.exchange_query import ExchangeQuery
 from frames.net_position import NetPosition
+from frames.about_us import CheckVersion
 
 
 class ClientMainApp(FrameLessWindowUI):
@@ -149,10 +150,25 @@ class ClientMainApp(FrameLessWindowUI):
         if to_homepage:
             self.set_default_homepage()
 
+    def set_system_page(self, module_id):
+        """ 进入关于系统 """
+        print(module_id)
+        if module_id == "0_0_1":
+            page = CheckVersion()  # 版本检查页面
+        else:
+            page = QLabel(
+                "暂未开放···\n更多资讯请访问【首页】查看.",
+                styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
+                alignment=Qt.AlignCenter)
+        self.center_widget.setCentralWidget(page)
+
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """
         if module_id == "0":
             self.set_default_homepage()
+            return
+        if module_id[:3] == "0_0":
+            self.set_system_page(module_id)  # 进入关于系统的菜单
             return
 
         client_params = QSettings('dawn/client.ini', QSettings.IniFormat)

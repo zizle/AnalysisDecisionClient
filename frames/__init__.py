@@ -86,7 +86,7 @@ class WelcomePage(QSplashScreen):
     def _get_start_image(self):
         """ 获取开启的页面图片 """
         network_manager = getattr(qApp, "_network")
-        url = SERVER_HOST + "static/start_image.png"
+        url = SERVER_HOST + "static/start_image_bg.png"
         reply = network_manager.get(QNetworkRequest(QUrl(url)))
         reply.finished.connect(self.start_image_reply)
 

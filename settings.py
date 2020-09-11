@@ -1,10 +1,13 @@
 # _*_ coding:utf-8 _*_
 # Author: zizle  QQ:462894999
 import os
+import sys
 import time
 import logging
 from PyQt5.QtCore import QSettings
 WINDOW_TITLE = '期货分析助手管理端'  # 1.3.1
+SYS_BIT = "32" if sys.maxsize < 2 ** 32 else "64"
+PLATE_FORM = "WIN10"
 # SERVER_ADDR = "http://210.13.218.130:9002/"
 SERVER_ADDR = "http://127.0.0.1:5000/"
 
@@ -58,6 +61,9 @@ SYSTEM_MENUS = [
             {"id": "-9_3_0", "name": "产业数据库", "logo": "", "children": None},
             {"id": "-9_3_1", "name": "交易所数据", "logo": "", "children": None},
         ]},
+    ]},
+    {"id": "0_0", "name": "关于系统", "logo": "", "children": [
+        {"id": "0_0_1", "name": "版本检查", "logo": "", "children": None},
     ]},
 ]
 
