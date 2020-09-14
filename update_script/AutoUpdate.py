@@ -17,6 +17,7 @@ from PyQt5.QtGui import QIcon, QPixmap, QPalette, QFont, QImage
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PLATEFORM = "WIN10"
 
+
 class UpdatePage(QLabel):
     def __init__(self, *args, **kwargs):
         super(UpdatePage, self).__init__(*args, *kwargs)
@@ -91,13 +92,13 @@ class UpdatePage(QLabel):
 
     def get_update_bg(self):
         """ 获取更新时的背景图 """
-        new_update_file = os.path.join(BASE_DIR, "classini/for_update_{}.json".format(self.sys_bit))
-        if not os.path.exists(new_update_file):
+        old_update_file = os.path.join(BASE_DIR, "classini/update_{}.json".format(self.sys_bit))
+        if not os.path.exists(old_update_file):
             pixmap = QPixmap('media/update_bg.png')
             scaled_map = pixmap.scaled(QSize(500, 200), Qt.KeepAspectRatio)
             self.setPixmap(scaled_map)
         else:
-            with open(new_update_file, "r", encoding="utf-8") as new_f:
+            with open(old_update_file, "r", encoding="utf-8") as new_f:
                 new_json = json.load(new_f)
             server = new_json["SERVER"]
             url = server + "update_image_bg.png"
@@ -120,7 +121,7 @@ class UpdatePage(QLabel):
         """ 更新 """
         # 读取更新的文件信息
         new_update_file = os.path.join(BASE_DIR, "classini/for_update_{}.json".format(self.sys_bit))
-        old_update_file = os.path.join(BASE_DIR, "classini/update_{}.json".format(self.sys_bit))
+        old_update_file = os.path.join(BASE_DIR, "classini/update_{}_{}.json".format(PLATEFORM, self.sys_bit))
         if not os.path.exists(new_update_file) or not os.path.exists(old_update_file):
             self.show_text.setText("更新信息文件丢失...")
             self.show_text.setPalette(self.red)
@@ -180,7 +181,7 @@ class UpdatePage(QLabel):
     def generate_requests(self, file_path):
         """ 生成请求对象 """
         # http://127.0.0.1:8000/static/UPDATE/WIN10/{INSIDE|OUTSIDE}/{32|64}/xxxx
-        url = self._server + "{}/{}".format(self.sys_bit, file_path)
+        url = self._server + "{}/{}/{}".format(PLATEFORM, self.sys_bit, file_path)
         self.request_stack.append(QNetworkRequest(QUrl(url)))
 
     def exec_downloading(self):
@@ -193,7 +194,7 @@ class UpdatePage(QLabel):
         self.show_text.setText("更新完成!")
         if not self.update_error:   # 下载完毕后且之间无发生过错误,将新文件内容复制到旧文件,真正完成更新
             new_update_file = os.path.join(BASE_DIR, "classini/for_update_{}.json".format(self.sys_bit))
-            old_update_file = os.path.join(BASE_DIR, "classini/update_{}.json".format(self.sys_bit))
+            old_update_file = os.path.join(BASE_DIR, "classini/update_{}_{}.json".format(PLATEFORM, self.sys_bit))
             with open(new_update_file, "r", encoding="utf-8") as new_f:
                 new_json = json.load(new_f)
             del new_json["SERVER"]

@@ -186,10 +186,6 @@ class VarietySheetUI(QWidget):
         self.sheet_table.verticalHeader().setDefaultSectionSize(25)  # 设置行高(与下行代码同时才生效)
         self.sheet_table.verticalHeader().setMinimumSectionSize(25)
         self.sheet_table.setAlternatingRowColors(True)
-        self.sheet_table.setColumnCount(9)
-        self.sheet_table.setHorizontalHeaderLabels(["编号", "创建日期", "创建人", "名称", "更新时间", "更新人", "增量", "图形", "上移"])
-        self.sheet_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.sheet_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         main_layout.addWidget(self.sheet_table)
         self.setLayout(main_layout)
         self.sheet_table.setObjectName("sheetTable")
@@ -237,12 +233,6 @@ class SheetChartUI(QWidget):
         self.chart_table.setAlternatingRowColors(True)
         self.chart_table.verticalHeader().setDefaultSectionSize(25)  # 设置行高(与下行代码同时才生效)
         self.chart_table.verticalHeader().setMinimumSectionSize(25)
-        self.chart_table.setColumnCount(10)
-        self.chart_table.setHorizontalHeaderLabels([
-            "编号", "创建者", "创建日期", "标题", "解读", '图形', '上移', '主页', '品种', '可见'
-        ])
-        self.chart_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.chart_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
 
         self.swap_tab = QTabWidget(self)
 

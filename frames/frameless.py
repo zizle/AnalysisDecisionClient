@@ -8,12 +8,11 @@ import os
 import sys
 import json
 from PyQt5.QtWidgets import qApp, QLabel
-from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest
+from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtCore import Qt, QUrl, QSettings, QTimer
 from frames.passport import UserPassport
 from frames.user_center import UserCenter
-from settings import SERVER_ADDR, SERVER_API, logger, ADMINISTRATOR, BASE_DIR, ONLINE_COUNT_INTERVAL
-from utils.client import get_client_uuid
+from settings import SERVER_API, logger, ADMINISTRATOR, BASE_DIR, ONLINE_COUNT_INTERVAL, PLATE_FORM, SYS_BIT
 from .frameless_ui import FrameLessWindowUI
 
 from admin.user_manager import UserManager
@@ -26,13 +25,13 @@ from frames.industry.variety_data import VarietyData
 from frames.exchange_query import ExchangeQuery
 from frames.net_position import NetPosition
 from frames.about_us import CheckVersion
+from popup.update import NewVersionPopup
 
 
 class ClientMainApp(FrameLessWindowUI):
     """ 主程序 """
     def __init__(self, *args, **kwargs):
         super(ClientMainApp, self).__init__(*args, **kwargs)
-        self.client_uuid = None
 
         qApp.applicationStateChanged.connect(self.application_state_changed)
 
@@ -50,6 +49,44 @@ class ClientMainApp(FrameLessWindowUI):
         if not self.user_online_timer.isActive():                       # 开启在线时间统计
             self.user_online_timer.start(ONLINE_COUNT_INTERVAL)
 
+        self._checking_new_version()
+
+    def _checking_new_version(self):
+        """ 检测新版本 """
+        # 获取当前版本号
+        json_file = os.path.join(BASE_DIR, "classini/update_{}_{}.json".format(PLATE_FORM, SYS_BIT))
+        if not os.path.exists(json_file):
+            return
+        with open(json_file, "r", encoding="utf-8") as jf:
+            update_json = json.load(jf)
+        is_manager = 1 if ADMINISTRATOR else 0
+        url = SERVER_API + "check_version/?version={}&plateform={}&sys_bit={}&is_manager={}".format(
+            update_json["VERSION"], PLATE_FORM, SYS_BIT, is_manager)
+        request = QNetworkRequest(QUrl(url))
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.get(request)
+        reply.finished.connect(self.last_version_back)
+
+    def last_version_back(self):
+        """ 检测版本结果 """
+        reply = self.sender()
+        if reply.error():
+            reply.deleteLater()
+            return
+        data = reply.readAll().data()
+        u_data = json.loads(data.decode("utf-8"))
+        if u_data["update_needed"]:
+            p = NewVersionPopup(self)
+            p.to_update.connect(self.to_update_page)
+            p.show()
+        else:
+            pass
+        reply.deleteLater()
+
+    def to_update_page(self):
+        """ 前往版本更新页面 """
+        self.set_system_page("0_0_1")
+
     def application_state_changed(self, state):
         """ 应用程序状态发生变化 """
         if state == Qt.ApplicationInactive:
@@ -64,12 +101,13 @@ class ClientMainApp(FrameLessWindowUI):
         client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
         token_config = QSettings(client_ini_path, QSettings.IniFormat)
         is_logged = self.navigation_bar.get_user_login_status()
+        client_uuid = token_config.value("TOKEN/UUID") if token_config.value("TOKEN/UUID") else ""
         user_token = ""
         if is_logged:
             user_token = token_config.value("USER/BEARER") if token_config.value("USER/BEARER") else ""
         token = "Bearer " + user_token
         network_manager = getattr(qApp, '_network')
-        url = SERVER_API + "user/online/?machine_uuid=" + self.client_uuid
+        url = SERVER_API + "user/online/?machine_uuid=" + client_uuid
         request = QNetworkRequest(QUrl(url))
         request.setRawHeader("Authorization".encode("utf-8"), token.encode("utf-8"))
         reply = network_manager.put(request, None)  # 此处不用post：发现Qt查询参数丢失
