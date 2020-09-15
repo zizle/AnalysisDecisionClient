@@ -18,13 +18,16 @@ class VarietyTree(ScrollFoldedBox):
         self.setFoldedStyleSheet(
             "QScrollArea{border: none;background-color:rgb(255,255,255)}"
             "#foldedBox{border-right: 1px solid rgb(180, 180, 180);}"
-            "#foldedHead{background-color:rgb(145,202,182);border-bottom:1px solid rgb(200,200,200);border-right: 1px solid rgb(180, 180, 180);max-height: 30px;}"
+            "#foldedHead{background-color:rgb(145,202,182);border-bottom:1px solid rgb(200,200,200);"
+            "border-right: 1px solid rgb(180, 180, 180);max-height: 30px;}"
             "#headLabel{padding:8px 5px;font-weight: bold;font-size: 15px;}"
             "#foldedBody{border-right: 1px solid rgb(180, 180, 180);}"
             "#foldedBox QScrollBar:vertical{width: 5px;background: transparent;}"
-            "#foldedBox QScrollBar::handle:vertical {background: rgba(0, 0, 0, 30);width: 5px;border-radius: 5px;border:none;}"
-            "#foldedBox QScrollBar::handle:vertical:hover,QScrollBar::handle:horizontal:hover {background: rgba(0, 0, 0, 80);}"
-            )
+            "#foldedBox QScrollBar::handle:vertical {background: rgba(0, 0, 0, 30);width:5px;"
+            "border-radius: 5px;border:none;}"
+            "#foldedBox QScrollBar::handle:vertical:hover,"
+            "QScrollBar::handle:horizontal:hover{background: rgba(0, 0, 0, 80);}"
+        )
 
     def _get_all_variety(self):
         """ 获取所有品种 """

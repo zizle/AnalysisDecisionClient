@@ -5,7 +5,6 @@
 
 """ 主窗口事件处理 """
 import os
-import sys
 import json
 from PyQt5.QtWidgets import qApp, QLabel
 from PyQt5.QtNetwork import QNetworkRequest
@@ -21,6 +20,7 @@ from admin.variety import VarietyAdmin
 from admin.user_data import UserDataMaintain
 from admin.exchange_spider import ExchangeSpider
 from frames.homepage import Homepage
+from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
 from frames.exchange_query import ExchangeQuery
 from frames.net_position import NetPosition
@@ -256,19 +256,21 @@ class ClientMainApp(FrameLessWindowUI):
     def get_module_page(module_id, module_text):
         """ 通过权限验证,进入功能页面 """
         print(module_id, module_text, "允许进入")
-        if module_id == "2_0":
+        if module_id == "1":             # 产品服务
+            page = ProductPage()
+        elif module_id == "2_0":           # 产业数据库
             page = VarietyData()
-        elif module_id == "2_1":
+        elif module_id == "2_1":         # 交易所数据
             page = ExchangeQuery()
-        elif module_id == "2_2":
+        elif module_id == "2_2":         # 品种净持仓
             page = NetPosition()
         elif module_id == "-9_1_0":
-            page = VarietyAdmin()                                    # 后台管理-品种管理
-        elif module_id == "-9_1_1":                                  # 后台管理-用户管理
+            page = VarietyAdmin()        # 后台管理-品种管理
+        elif module_id == "-9_1_1":      # 后台管理-用户管理
             page = UserManager()
         elif module_id == "-9_1_2":
             page = ClientManage()
-        elif module_id == "-9_3_0":                                  # 后台管理-产业数据库
+        elif module_id == "-9_3_0":      # 后台管理-产业数据库
             page = UserDataMaintain()
         elif module_id == "-9_3_1":
             page = ExchangeSpider()

@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 # 折叠盒子的按钮
 class FoldedBodyButton(QPushButton):
-    mouse_clicked = pyqtSignal(int, str)
+    mouse_clicked = pyqtSignal(str, str)
 
     def __init__(self, text, bid, name_en=None, *args, **kwargs):
         super(FoldedBodyButton, self).__init__(*args, **kwargs)
@@ -48,7 +48,7 @@ class FoldedBodyButton(QPushButton):
     def left_mouse_clicked(self):
         # print(self.bid)
         name_en = self.name_en if self.name_en else ""
-        self.mouse_clicked.emit(self.bid, name_en)
+        self.mouse_clicked.emit(str(self.bid), name_en)
 
 
 # FoldedHead(), FoldedBody()
@@ -111,7 +111,7 @@ class FoldedHead(QWidget):
 
 # 折叠盒子的身体
 class FoldedBody(QWidget):
-    mouse_clicked = pyqtSignal(int, str, str)
+    mouse_clicked = pyqtSignal(str, str, str)
 
     def __init__(self, *args, **kwargs):
         super(FoldedBody, self).__init__(*args, **kwargs)
@@ -147,7 +147,7 @@ class FoldedBody(QWidget):
         row_index = 0
         col_index = 0
         for index, button in enumerate(self.button_list):
-            self.layout().addWidget(button, row_index, col_index)
+            self.layout().addWidget(button, row_index, col_index, alignment=Qt.AlignLeft)  # 居左
             col_index += 1
             if col_index == horizontal_count:  # 因为col_index先+1,此处应相等
                 row_index += 1
@@ -156,7 +156,7 @@ class FoldedBody(QWidget):
 
 # 滚动折叠盒子
 class ScrollFoldedBox(QScrollArea):
-    left_mouse_clicked = pyqtSignal(int, str, str)  # 当前id 与父级的text
+    left_mouse_clicked = pyqtSignal(str, str, str)  # 当前id 与父级的text
 
     def __init__(self, *args, **kwargs):
         super(ScrollFoldedBox, self).__init__(*args, **kwargs)
