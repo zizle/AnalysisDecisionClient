@@ -47,6 +47,7 @@ SYSTEM_MENUS = [
             {"id": "-9_1_0", "name": "品种管理", "logo": "", "children": None},
             {"id": "-9_1_1", "name": "用户管理", "logo": "", "children": None},
             {"id": "-9_1_2", "name": "客户端管理", "logo": "", "children": None},
+            {"id": "-9_1_3", "name": "用户拓展信息", "logo": "", "children": None},
         ]},
         {"id": "-9_0", "name": "首页管理", "logo": "", "children": [
             {"id": "-9_0_0", "name": "公告信息", "logo": "", "children": None},

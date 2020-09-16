@@ -4,16 +4,19 @@
 # @Author: zizle
 
 """ 短信通业务逻辑 """
-from datetime import datetime, timedelta
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PyQt5.QtCore import QTimer, Qt, QMargins
+import json
+from datetime import datetime
+from PyQt5.QtWidgets import qApp, QWidget, QVBoxLayout, QLabel
+from PyQt5.QtCore import QTimer, Qt, QMargins, QUrl
+from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtGui import QFont
+from settings import SERVER_API
 from .short_message_ui import ShortMessageUI
 
 
 class ContentWidget(QWidget):
     """ 内容控件 """
-    def __init__(self, current_datetime, *args, **kwargs):
+    def __init__(self, current_datetime, timer_start=False, *args, **kwargs):
         super(ContentWidget, self).__init__(*args, **kwargs)
         self.current_datetime = current_datetime
         self.auto_request_timer = QTimer(self)  # 定时请求数据
@@ -24,29 +27,33 @@ class ContentWidget(QWidget):
         self.setLayout(main_layout)
 
         self._get_last_short_message()
-        self.auto_request_timer.start(10000)
+        if timer_start:
+            print("当日开启定时器")
+            self.auto_request_timer.start(30000)
         self.setStyleSheet(
             "#contentLabel{background-color:rgb(240,240,240);padding:2px 3px 8px 8px;border-radius:5px;}"
         )
 
     def _get_last_short_message(self):
         """ 获取最新短信通 """
-        # 请求比self.last_datetime大比其多一天小的数据
-        next_date_time = datetime.strptime(self.current_datetime, "%Y-%m-%d %H:%M:%S") + timedelta(days=1)
-        next_date_time = next_date_time.strftime("%Y-%m-%d 00:00:00")
-        print(self.current_datetime, next_date_time)
+        # 请求比self.last_datetime大的数据(服务器仅返回当天的数据)
+        print("self.current_datetime: {}".format(self.current_datetime))
+        network_message = getattr(qApp, "_network")
+        url = SERVER_API + "short_message/?start_time={}".format(self.current_datetime)
+        reply = network_message.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.latest_short_message_reply)
 
-        contents = [
-            {"id": 1, "create_time": "2020-09-02 15:12:23", "content":
-                "<div style='text-indent:30px;line-height:25px;font-size:13px;'><span style='font-size:15px;font-weight:bold;color:rgb(233,20,20);'>15:12</span> 这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。</div>"
-             },
-            {"id": 2, "create_time": "2020-09-02 15:16:23", "content":
-                "<div style='text-indent:30px;line-height:25px;font-size:13px'><span style='font-size:15px;font-weight:bold;color:rgb(233,20,20);'>15:12</span> 这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。</div>"
-             },
-            {"id": 3, "create_time": "2020-09-02 15:21:22", "content":
-                "<div style='text-indent:30px;line-height:25px;font-size:13px;'><span style='font-size:15px;font-weight:bold;color:rgb(233,20,20);'>15:12</span> 这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。这是短信通的内容。</div>"
-             },
-        ]
+    def latest_short_message_reply(self):
+        """ 最新的短信通数据返回 """
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            self.insert_latest_short_message(data["short_messages"])
+
+    def insert_latest_short_message(self, contents):
+        """ 新增最新短信通 """
         for index, content_item in enumerate(contents):
             content_label = QLabel(content_item["content"], self)
             content_label.setWordWrap(True)
@@ -65,12 +72,10 @@ class ShortMessage(ShortMessageUI):
         self.animation_timer.timeout.connect(self.refresh_animation_text)
 
         # 默认添加今日的内容控件
-        current_datetime = datetime.today().strftime("%Y-%m-%d 00:00:00")
-        content_widget = ContentWidget(current_datetime)
-
-        self.scroll_area.setWidget(content_widget)
-
+        current_datetime = datetime.today().strftime("%Y-%m-%dT00:00:00")
+        content_widget = ContentWidget(current_datetime, timer_start=True)
         self.animation_timer.start(600)
+        self.scroll_area.setWidget(content_widget)
         self.date_edit.dateChanged.connect(self.current_date_changed)
 
     def refresh_animation_text(self):
@@ -86,11 +91,23 @@ class ShortMessage(ShortMessageUI):
         """ 当前时间发生改变 """
         date_edit_text = self.date_edit.text()
         current_date = datetime.strptime(date_edit_text, "%Y-%m-%d")
-        current_date_str = current_date.strftime("%Y-%m-%d 00:00:00")
-        print(current_date)
+        current_date_str = current_date.strftime("%Y-%m-%dT00:00:00")
         week_name = self.WEEKS.get(current_date.strftime("%w"))
         self.current_date.setText(date_edit_text + week_name)
 
-        content_widget = ContentWidget(current_date_str)
+        if current_date_str == datetime.today().strftime("%Y-%m-%dT00:00:00"):
+            timer_start = True
+            self.animation_text.show()
+            if not self.animation_timer.isActive():
+                print("开启文字定时器")
+                self.animation_timer.start(600)
+        else:
+            timer_start = False
+            self.animation_text.hide()
+            if self.animation_timer.isActive():
+                print("关闭文字定时器")
+                self.animation_timer.stop()
+        self.animation_text.setText("资讯持续更新中 ")
+        content_widget = ContentWidget(current_date_str, timer_start=timer_start)
         self.scroll_area.setWidget(content_widget)
 

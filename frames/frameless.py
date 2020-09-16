@@ -19,6 +19,7 @@ from admin.client_manager import ClientManage
 from admin.variety import VarietyAdmin
 from admin.user_data import UserDataMaintain
 from admin.exchange_spider import ExchangeSpider
+from admin.user_extension import UserExtensionPage
 from frames.homepage import Homepage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
@@ -270,6 +271,8 @@ class ClientMainApp(FrameLessWindowUI):
             page = UserManager()
         elif module_id == "-9_1_2":
             page = ClientManage()
+        elif module_id == "-9_1_3":      # 后台管理-研究员微信ID
+            page = UserExtensionPage()
         elif module_id == "-9_3_0":      # 后台管理-产业数据库
             page = UserDataMaintain()
         elif module_id == "-9_3_1":
