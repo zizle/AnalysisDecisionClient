@@ -440,12 +440,12 @@ class ChartWidget(QWidget):
         normal = getattr(action, "chart_type")
         self.save_option_signal.emit(normal)
 
-    def show_chart(self, chart_type, option, values):
+    def show_chart(self, chart_type, option, values, headers):
         """ 显示图形
         option:(json字符串)基础的图形配置,
         values:(json字符串)用于绘图的数据
         """
-        self.contact_channel.chartSource.emit(chart_type, option, values)
+        self.contact_channel.chartSource.emit(chart_type, option, values, headers)
 
 
 class DisposeChartPopup(QDialog):
@@ -632,13 +632,16 @@ class DisposeChartPopup(QDialog):
         """ 在当前窗口预览显示图形 """
         chart_button = self.sender()
         chart_type = getattr(chart_button, "chart_type")
-        print("作图类型:\n", chart_type)
+        # print("作图类型:\n", chart_type)
         chart_option = self.get_chart_option()  # 作图配置
-        chart_source_json = self.get_chart_source_json(chart_type, chart_option, self.source_dataframe)
-        print("作图配置:\n", chart_option)
-        print("作图源数据:\n", chart_source_json)
+        chart_source_json, sheet_headers = self.get_chart_source_json(chart_type, chart_option, self.source_dataframe)
+        # print("作图配置:\n", chart_option)
+        # print("作图源数据:\n", chart_source_json)
+        # print("作图的表头:\n", sheet_headers)
         # 将数据和配置传入echarts绘图
-        self.chart_widget.show_chart(chart_type, json.dumps(chart_option), json.dumps(chart_source_json))
+        self.chart_widget.show_chart(
+            chart_type, json.dumps(chart_option), json.dumps(chart_source_json), json.dumps(sheet_headers)
+        )
 
     def get_chart_option(self):
         """ 获取图形的配置 """
@@ -666,6 +669,8 @@ class DisposeChartPopup(QDialog):
 
     def get_chart_source_json(self, chart_type, base_option, source_dataframe):
         """ 处理出绘图的最终数据 """
+        # 取得数据的头
+        sheet_headers = source_dataframe.iloc[:1].to_dict(orient="records")[0]
         values_df = source_dataframe.iloc[2:]
         # 取最大值和最小值
         start_year = base_option["start_year"]
@@ -697,7 +702,7 @@ class DisposeChartPopup(QDialog):
             values_json = self.get_season_chart_source(values_df.copy())
         else:
             values_json = []
-        return values_json
+        return values_json, sheet_headers
 
     def get_season_chart_source(self, source_df):
         """ 获取季节图形的作图源数据 """
