@@ -474,7 +474,7 @@ class DisposeChartPopup(QDialog):
         main_layout.addWidget(main_splitter)  # 套layout自动改变大小
 
         self.option_widget = OptionWidget(self)
-        self.option_widget.resize(self.width() * 0.4, self.height())
+        # self.option_widget.resize(self.width() * 0.4, self.height())
         self.option_widget.more_dispose_button.clicked.connect(self.show_more_dispose)
         main_splitter.addWidget(self.option_widget)
 
@@ -486,16 +486,18 @@ class DisposeChartPopup(QDialog):
         chart_sheet_splitter.addWidget(self.chart_widget)
 
         self.sheet_table = QTableWidget(self)
-        self.sheet_table.resize(self.width() * 0.6, self.height() * 0.4)
+        # self.sheet_table.resize(self.width() * 0.6, self.height() * 0.4)
         self.sheet_table.verticalHeader().hide()
         chart_sheet_splitter.addWidget(self.sheet_table)
 
-        chart_sheet_splitter.setStretchFactor(0, 4)
-        chart_sheet_splitter.setStretchFactor(1, 6)
+        # chart_sheet_splitter.setStretchFactor(0, 4)
+        # chart_sheet_splitter.setStretchFactor(1, 6)
+        chart_sheet_splitter.setSizes([self.height() * 0.6, self.height() * 0.4])
         main_splitter.addWidget(chart_sheet_splitter)
 
-        main_splitter.setStretchFactor(0, 4)
-        main_splitter.setStretchFactor(1, 6)
+        main_splitter.setSizes([self.width() * 0.35, self.width() * 0.65])
+        # main_splitter.setStretchFactor(0, 4)
+        # main_splitter.setStretchFactor(1, 6)
 
         self.setLayout(main_layout)
 
