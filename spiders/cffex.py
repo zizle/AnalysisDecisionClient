@@ -188,7 +188,11 @@ class CFFEXParser(QObject):
 
     def parser_variety_rank_file(self, file_path, variety_name):
         """ 使用pandas解析中金所品种的日排名数据 """
-        variety_df = read_csv(file_path, encoding="gbk", skiprows=[1])
+        if variety_name in ["TF", "T"]:  # 5年期和10年期国债从2020-09-14日起多公布了非期货公司的量,占用第1,2行
+            variety_df = read_csv(file_path, encoding="gbk", skiprows=[0, 1, 3])
+        else:
+            variety_df = read_csv(file_path, encoding="gbk", skiprows=[1])
+
         if variety_df.columns.values.tolist() != ['交易日', '合约', '排名', '成交量排名', 'Unnamed: 4', 'Unnamed: 5', '持买单量排名',
                                                   'Unnamed: 7', 'Unnamed: 8', '持卖单量排名', 'Unnamed: 10', 'Unnamed: 11']:
             logger.error("中金所{}_{}的日排名源文件格式有误".format(variety_name, self.date.strftime("%Y-%m-%d")))

@@ -518,7 +518,6 @@ class UserDataMaintain(UserDataMaintainUI):
 
     def sheet_table_cell_changed(self, row, col):
         """ 数据表的内容发生了变化 """
-        print(row, col)
         # 关闭信号防止文字改变也发送一次信号
         self.variety_sheet_widget.sheet_table.cellChanged.disconnect()
         if col == 10:  # 发起修改私有化数据表的请求
@@ -532,7 +531,6 @@ class UserDataMaintain(UserDataMaintainUI):
 
     def request_sheet_private(self, sheet_id, is_private):
         """ 发请求sheet表私有化状态的改变 """
-        print(sheet_id, is_private)
         url = SERVER_API + "sheet/{}/public/".format(sheet_id)
         user_token = get_user_token()
         network_manager = getattr(qApp, "_network")

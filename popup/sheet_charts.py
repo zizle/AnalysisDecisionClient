@@ -199,6 +199,9 @@ class ChartPopup(QWidget):
             chart_type = data["chart_type"]
             base_option = data["base_option"]
             chart_values = data["chart_values"]
-            self.contact_channel.chartSource.emit(chart_type, json.dumps(base_option), json.dumps(chart_values))
+            sheet_headers = data["sheet_headers"]
+            self.contact_channel.chartSource.emit(
+                chart_type, json.dumps(base_option), json.dumps(chart_values), json.dumps(sheet_headers)
+            )
         reply.deleteLater()
 

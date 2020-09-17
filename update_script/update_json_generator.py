@@ -56,9 +56,9 @@ if __name__ == '__main__':
     fill_update_dict(FILES_DIR, FILES_DIR)
     update_json = {
         "VERSION": VERSION,
-        "SERVER": "http://127.0.0.1:8000/static/UPDATE/INSIDE/",
+        "SERVER": "http://210.13.218.130:9004/static/UPDATE/INSIDE/",
         "FILES": UPDATE_DICT
     }
-    update_filename = "updateInside_{}_{}.json".format(PLATEFORM, SYS_BIT)
+    update_filename = "update_{}_{}.json".format(PLATEFORM, SYS_BIT)
     with open(update_filename, "w", encoding="utf-8") as f:
         json.dump(update_json, f, indent=4, ensure_ascii=False)

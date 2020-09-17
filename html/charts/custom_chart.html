@@ -16,7 +16,7 @@ html,body{margin: 0;padding: 0}
 </body>
 <script>
 // 生成series和图例的函数
-function getSeriesLegend(seriesData, sourceData) {
+function getSeriesLegend(seriesData, sourceData, sheetHeaders) {
     let len = seriesData.length;
     let seriesArray = [];
     let legend = {"type": "scroll", "bottom": 16, "height": 20, "data":[]};
@@ -24,12 +24,12 @@ function getSeriesLegend(seriesData, sourceData) {
         let optData = seriesData[i];
         let seriesOption = {
             type: optData.chart_type,
-            name: optData.chart_name,
+            name: sheetHeaders[optData.column_index],
             yAxisIndex: optData.axis_index,
             data: sourceData.map(item=>{return parseFloat(item[optData.column_index])})
         };
         seriesArray.push(seriesOption);
-        legend.data.push(optData.chart_name);
+        legend.data.push(sheetHeaders[optData.column_index]);
     }
     return {
         seriesData: seriesArray,
@@ -38,9 +38,9 @@ function getSeriesLegend(seriesData, sourceData) {
 }
 
 // 实例化echarts option的函数
-function generateOption(baseOption, sourceData){
+function generateOption(baseOption, sourceData, sheetHeaders){
     let chartTitle = baseOption["title"];
-    let seriesLegend = getSeriesLegend(baseOption.series_data, sourceData);
+    let seriesLegend = getSeriesLegend(baseOption.series_data, sourceData, sheetHeaders);
     return {
         grid: {
             top: chartTitle["font_size"] + 15,
@@ -110,7 +110,7 @@ function getSeasonSeriesLegend(seriesData, sourceData){
 }
 
 // 生成季节图形的配置
-function generateSeasonOption(baseOption, sourceData){
+function generateSeasonOption(baseOption, sourceData, sheetHeaders){
     let chartTitle = baseOption["title"];
     let seriesLegend = getSeasonSeriesLegend(baseOption.series_data, sourceData);
     return {
@@ -164,13 +164,13 @@ $(function () {
     new QWebChannel(qt.webChannelTransport, function(channel)
         {
             let pageContact = channel.objects.pageContactChannel;
-            pageContact.chartSource.connect(function (chart_type, baseOption, sourceData) {
+            pageContact.chartSource.connect(function (chart_type, baseOption, sourceData, sheetHeaders) {
                 let option = {};
                 if (chart_type === "normal"){
-                    option = generateOption(JSON.parse(baseOption), JSON.parse(sourceData));
+                    option = generateOption(JSON.parse(baseOption), JSON.parse(sourceData), JSON.parse(sheetHeaders));
                 }
                 if (chart_type === "season"){
-                    option = generateSeasonOption(JSON.parse(baseOption), JSON.parse(sourceData));
+                    option = generateSeasonOption(JSON.parse(baseOption), JSON.parse(sourceData), JSON.parse(sheetHeaders));
                 }
                 chartObj.setOption(option, true)
             });

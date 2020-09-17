@@ -271,8 +271,10 @@ class OptionWidget(QWidget):
 
     def get_base_option(self):
         """ 图形的基本配置 """
+        # typec表示图形的类型，single单表绘制,compose组合表,calculate计算绘制
         option = dict()
         # 标题
+        option["typec"] = "single"
         option["title"] = {
             "text": self.title_edit.text().strip(),
             "font_size": self.title_fontsize.value()

@@ -1,7 +1,7 @@
 【安装包发布】
 1 打包出安装文件
 2 将安装文件放置更新文件夹
-3 使用脚本生成新版json信息文件
+3 使用脚本生成新版json信息文件(后端名称需要使用updateInside_xxx,客户端使用update_xxx文件名)
 4 将json文件放置到文件内(改名update_{WIN10}_{64}.json)
 5 后端服务项目(update{INSIDE}_{WIN10}_{64}.json)文件夹并新增"UPDATE"更新内容字段
 6 将自动更新程序放置到文件内

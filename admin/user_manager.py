@@ -36,11 +36,11 @@ class UserManager(UserManagerUI):
         if tab_index == 0:
             tab_widget = self.widget(1)
             if isinstance(tab_widget, UserModuleAuthUI):
-                print("模块验证移除")
+                # print("模块验证移除")
                 self.module_auth.current_user_id = None
                 self.module_auth.module_auth_table.cellChanged.disconnect()  # 切断table的信号关系,否则报错
             if isinstance(tab_widget, UserClientAuthUI):
-                print("客户端验证移除")
+                # print("客户端验证移除")
                 self.client_auth.current_user_id = None
                 self.client_auth.client_auth_table.cellChanged.disconnect()
             if isinstance(tab_widget, UserVarietyAuthUI):
@@ -738,7 +738,6 @@ class UserManager(UserManagerUI):
         """ 修改用户品种权限返回 """
         reply = self.sender()
         data = reply.readAll().data()
-        print(data)
         if reply.error():
             self.variety_auth.network_message.setText("修改失败了:{}".format(reply.error()))
         else:
