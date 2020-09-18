@@ -28,7 +28,6 @@ class ContentWidget(QWidget):
 
         self._get_last_short_message()
         if timer_start:
-            print("当日开启定时器")
             self.auto_request_timer.start(30000)
         self.setStyleSheet(
             "#contentLabel{background-color:rgb(240,240,240);padding:2px 3px 8px 8px;border-radius:5px;}"
@@ -37,7 +36,7 @@ class ContentWidget(QWidget):
     def _get_last_short_message(self):
         """ 获取最新短信通 """
         # 请求比self.last_datetime大的数据(服务器仅返回当天的数据)
-        print("self.current_datetime: {}".format(self.current_datetime))
+        # print("self.current_datetime: {}".format(self.current_datetime))
         network_message = getattr(qApp, "_network")
         url = SERVER_API + "short_message/?start_time={}".format(self.current_datetime)
         reply = network_message.get(QNetworkRequest(QUrl(url)))

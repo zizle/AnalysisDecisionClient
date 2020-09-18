@@ -11,15 +11,16 @@ from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtCore import Qt, QUrl, QSettings, QTimer
 from frames.passport import UserPassport
 from frames.user_center import UserCenter
-from settings import SERVER_API, logger, ADMINISTRATOR, BASE_DIR, ONLINE_COUNT_INTERVAL, PLATE_FORM, SYS_BIT
+from settings import SERVER_API, ADMINISTRATOR, BASE_DIR, ONLINE_COUNT_INTERVAL, PLATE_FORM, SYS_BIT
 from .frameless_ui import FrameLessWindowUI
 
-from admin.user_manager import UserManager
-from admin.client_manager import ClientManage
-from admin.variety import VarietyAdmin
+from admin.operator.user_manager import UserManager
+from admin.operator.client_manager import ClientManage
+from admin.operator.variety import VarietyAdmin
+from admin.product.short_message import ShortMessageAdmin
 from admin.user_data import UserDataMaintain
 from admin.exchange_spider import ExchangeSpider
-from admin.user_extension import UserExtensionPage
+from admin.operator.user_extension import UserExtensionPage
 from frames.homepage import Homepage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
@@ -259,7 +260,7 @@ class ClientMainApp(FrameLessWindowUI):
         print(module_id, module_text, "允许进入")
         if module_id == "1":             # 产品服务
             page = ProductPage()
-        elif module_id == "2_0":           # 产业数据库
+        elif module_id == "2_0":         # 产业数据库
             page = VarietyData()
         elif module_id == "2_1":         # 交易所数据
             page = ExchangeQuery()
@@ -273,6 +274,8 @@ class ClientMainApp(FrameLessWindowUI):
             page = ClientManage()
         elif module_id == "-9_1_3":      # 后台管理-研究员微信ID
             page = UserExtensionPage()
+        elif module_id == "-9_2_0":
+            page = ShortMessageAdmin()   # 短信通管理
         elif module_id == "-9_3_0":      # 后台管理-产业数据库
             page = UserDataMaintain()
         elif module_id == "-9_3_1":
