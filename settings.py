@@ -12,10 +12,10 @@ PLATE_FORM = "WIN10"
 SERVER_ADDR = "http://127.0.0.1:5000/"
 
 #
-# SERVER_API = "http://127.0.0.1:8000/api/"
+SERVER_API = "http://127.0.0.1:8000/api/"
 SERVER_HOST = "http://127.0.0.1:8000/"  # 启动背景图
 
-SERVER_API = "http://210.13.218.130:9004/api/"
+# SERVER_API = "http://210.13.218.130:9004/api/"
 # SERVER_HOST = "http://210.13.218.130:9004/"  # 启动背景图
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +41,7 @@ NAVIGATION_BAR_HEIGHT = 20
 SYSTEM_MENUS = [
     {"id": "0", "name": "首页", "logo": "", "children": None},
     {"id": "1", "name": "产品服务", "logo": "", "children": None},
+    {"id": "3", "name": "交割服务", "logo": "", "children": None},
     {"id": "2", "name": "行业数据", "logo": "", "children": [
         {"id": "2_0", "name": "产业数据库", "logo": "", "children": None},
         {"id": "2_1", "name": "交易所数据", "logo": "", "children": None},
@@ -58,8 +59,7 @@ SYSTEM_MENUS = [
             {"id": "-9_0_1", "name": "广告展示", "logo": "", "children": None},
             {"id": "-9_0_2", "name": "常规报告", "logo": "", "children": None},
             {"id": "-9_0_3", "name": "交易通知", "logo": "", "children": None},
-            {"id": "-9_0_4", "name": "现货数据", "logo": "", "children": None},
-            {"id": "-9_0_5", "name": "财经日历", "logo": "", "children": None},
+            {"id": "-9_0_4", "name": "财经日历", "logo": "", "children": None},
         ]},
         {"id": "-9_2", "name": "产品服务", "logo": "", "children": [
             {"id": "-9_2_0", "name": "短信通", "logo": "", "children": None},
@@ -67,6 +67,7 @@ SYSTEM_MENUS = [
         {"id": "-9_3", "name": "行业数据", "logo": "", "children": [
             {"id": "-9_3_0", "name": "产业数据库", "logo": "", "children": None},
             {"id": "-9_3_1", "name": "交易所数据", "logo": "", "children": None},
+            {"id": "-9_3_2", "name": "现货报价数据", "logo": "", "children": None},
         ]},
     ]},
     {"id": "0_0", "name": "关于系统", "logo": "", "children": [

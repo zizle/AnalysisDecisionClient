@@ -6,8 +6,10 @@ import json
 from PyQt5.QtWidgets import qApp, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PyQt5.QtCore import QMargins, Qt, QUrl
 from PyQt5.QtNetwork import QNetworkRequest
-from settings import SERVER_API
-from .short_message_ui import ShortMessageAdminUI
+from utils.client import get_user_token
+from settings import SERVER_API, logger
+from popup.message import InformationPopup, WarningPopup
+from .short_message_ui import ShortMessageAdminUI, ModifyMessagePopup
 
 
 class ContentSignalLabel(QWidget):
@@ -18,21 +20,82 @@ class ContentSignalLabel(QWidget):
         main_layout = QVBoxLayout()
         opt_layout = QHBoxLayout()
         opt_layout.setContentsMargins(QMargins(0, 0, 0, 0))
+        opt_layout.addStretch()
+
+        modify_button = QPushButton("修改", self)
+        modify_button.clicked.connect(self.modify_short_message)
+        opt_layout.addWidget(modify_button)
+
         delete_button = QPushButton("删除", self)
         delete_button.clicked.connect(self.delete_short_message)
-        opt_layout.addWidget(delete_button, alignment=Qt.AlignRight)
+        opt_layout.addWidget(delete_button)
 
-        content_label = QLabel(content, self)
-        content_label.setWordWrap(True)
-        content_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        main_layout.addWidget(content_label)
+        self.content_label = QLabel(content, self)
+        self.content_label.setWordWrap(True)
+        self.content_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        main_layout.addWidget(self.content_label)
         main_layout.addLayout(opt_layout)
         self.setLayout(main_layout)
 
+    def modify_short_message(self):
+        """ 修改一条短信通的内容 """
+        # 弹窗修改
+        edit_popup = ModifyMessagePopup(self)
+        text = self.content_label.text()
+        edit_popup.text_edit.setText(text)
+        edit_popup.request_modify.connect(self.confirm_modify_message)
+        edit_popup.exec_()
+
+    def confirm_modify_message(self, content):
+        """ 确定修改内容 """
+        def modify_finished():
+            f_reply = self.sender()
+            if f_reply.error():
+                p_info = InformationPopup("修改失败了!\n只能修改自己发送的短信通", popup)
+                p_info.exec_()
+            else:
+                p_info = InformationPopup("修改成功!", popup)
+                p_info.exec_()
+                popup.close()
+                self.content_label.setText(popup.text_edit.toHtml())  # 设置修改后的内容
+        popup = self.sender()
+        # 发送修改的网络请求
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "short-message/{}/".format(self.msg_id)
+        user_token = get_user_token()
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        body_data = {"message_content": content[5:]}
+        reply = network_manager.put(request, json.dumps(body_data).encode("utf-8"))
+        reply.finished.connect(modify_finished)
+
     def delete_short_message(self):
         """ 删除当前这条短信通 """
-        print(self.msg_id)
-        self.deleteLater()
+        p = WarningPopup("确定删除这条短信通吗?\n删除后将不可恢复!", self)
+        p.confirm_operate.connect(self.confirm_delete_short_message)
+        p.exec_()
+
+    def confirm_delete_short_message(self):
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + 'short-message/{}/'.format(self.msg_id)
+        user_token = get_user_token()
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), user_token.encode("utf-8"))
+        reply = network_manager.deleteResource(request)
+        reply.finished.connect(self.delete_message_reply)
+
+    def delete_message_reply(self):
+        """ 删除本条短信通返回 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("删除短信通错误:{}".format(reply.error()))
+            p = InformationPopup("删除失败!\n您不能对他人的短信通进行这个操作!", self)
+            p.exec_()
+        else:
+            p = InformationPopup("删除成功!", self)
+            p.exec_()
+            self.deleteLater()
+        reply.deleteLater()
 
 
 class ContentWidget(QWidget):
@@ -45,14 +108,16 @@ class ContentWidget(QWidget):
         self.setLayout(main_layout)
 
         self.setStyleSheet(
-            "#contentLabel{background-color:rgb(240,240,240);padding:2px 3px 8px 8px;border-radius:5px;}"
+            "#contentLabel{background-color:rgb(245,245,245);padding:2px 3px 8px 8px;border-radius:5px;}"
+            "#contentLabel:hover{background-color:rgb(235,235,235);padding:2px 3px 8px 8px;border-radius:5px;}"
         )
+
         self.get_short_message()
 
     def get_short_message(self):
         """ 获取今日短信通数据 """
         network_message = getattr(qApp, "_network")
-        url = SERVER_API + "short_message/?start_time={}".format(self.current_datetime)
+        url = SERVER_API + "short-message/?start_time={}".format(self.current_datetime)
         reply = network_message.get(QNetworkRequest(QUrl(url)))
         reply.finished.connect(self.day_short_message_reply)
 

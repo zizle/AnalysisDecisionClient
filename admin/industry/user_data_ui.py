@@ -5,11 +5,27 @@
 
 """ 用户数据维护 (产业数据库) """
 
-from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox, QPushButton,
-                             QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView, QProgressBar)
+from PyQt5.QtWidgets import (QWidget, QSplitter, QHBoxLayout, QVBoxLayout, QListWidget, QTabWidget, QLabel, QComboBox,
+                             QPushButton, QTableWidget, QAbstractItemView, QFrame, QLineEdit, QCheckBox, QHeaderView,
+                             QProgressBar, QTabBar, QStylePainter, QStyleOptionTab, QStyle)
 from PyQt5.QtCore import QMargins, Qt, QUrl
 from PyQt5.QtGui import QIcon
 from PyQt5.QtWebEngineWidgets import QWebEngineView
+
+
+class HorizontalTabBar(QTabBar):
+    """ 自定义竖向文字显示的tabBar """
+    def paintEvent(self, event):
+        painter = QStylePainter(self)
+        option = QStyleOptionTab()
+        painter.begin(self)
+        for index in range(self.count()):
+            self.initStyleOption(option, index)
+            tabRect = self.tabRect(index)
+            tabRect.moveLeft(4)
+            painter.drawControl(QStyle.CE_TabBarTabShape, option)
+            painter.drawText(tabRect, Qt.AlignVCenter | Qt.TextDontClip, self.tabText(index))
+        painter.end()
 
 
 class OperateButton(QPushButton):
@@ -236,12 +252,14 @@ class SheetChartUI(QWidget):
 
         self.swap_tab = QTabWidget(self)
 
-        self.swap_tab.addTab(self.chart_table, "列表")
+        self.swap_tab.setTabBar(HorizontalTabBar())
+
+        self.swap_tab.addTab(self.chart_table, "图\n形\n管\n理")
         self.swap_tab.setDocumentMode(True)
         self.swap_tab.setTabPosition(QTabWidget.East)
         self.chart_container = QWebEngineView(self)
 
-        self.swap_tab.addTab(self.chart_container, "全览")
+        self.swap_tab.addTab(self.chart_container, "图\n形\n全\n览")
 
         main_layout.addWidget(self.swap_tab)
 
@@ -253,7 +271,9 @@ class SheetChartUI(QWidget):
             "border:1px solid rgb(201,202,202);border-left:none;"
             "min-height:25px;min-width:40px;font-weight:bold;font-size:13px};"
         )
+        self.swap_tab.tabBar().setObjectName("tabBar")
         self.setStyleSheet(
+            "#tabBar::tab{min-height:75px;}"
             "#tipLabel{font-size:15px;color:rgb(180,100,100)}"
             "#chartTable{background-color:rgb(240,240,240);font-size:13px;"
             "selection-background-color:qlineargradient(x1:0,y1:0, x2:0, y2:1,"

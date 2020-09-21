@@ -4,8 +4,9 @@
 # @Author: zizle
 
 """ 短信通管理后台 """
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QDateEdit, QScrollArea, QFrame
-from PyQt5.QtCore import QDate
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QDateEdit, QScrollArea, QFrame, QTextEdit,
+                             QDialog)
+from PyQt5.QtCore import QDate, Qt, pyqtSignal
 from PyQt5.QtGui import QPalette
 
 
@@ -34,4 +35,26 @@ class ShortMessageAdminUI(QWidget):
         self.setLayout(main_layout)
 
 
+class ModifyMessagePopup(QDialog):
+    request_modify = pyqtSignal(str)
+
+    def __init__(self,*args, **kwargs):
+        super(ModifyMessagePopup, self).__init__(*args, **kwargs)
+        self.setWindowTitle("修改内容")
+        self.setMinimumWidth(470)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+
+        main_layout = QVBoxLayout()
+        self.text_edit = QTextEdit(self)
+        main_layout.addWidget(self.text_edit)
+
+        self.confirm_button = QPushButton("确定", self)
+        self.confirm_button.clicked.connect(self.confirm_modify)
+        main_layout.addWidget(self.confirm_button, alignment=Qt.AlignRight)
+
+        self.setLayout(main_layout)
+
+    def confirm_modify(self):
+        content = self.text_edit.toPlainText()
+        self.request_modify.emit(content)
 

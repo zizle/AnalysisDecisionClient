@@ -9,7 +9,6 @@ from datetime import datetime
 from PyQt5.QtWidgets import qApp, QWidget, QVBoxLayout, QLabel
 from PyQt5.QtCore import QTimer, Qt, QMargins, QUrl
 from PyQt5.QtNetwork import QNetworkRequest
-from PyQt5.QtGui import QFont
 from settings import SERVER_API
 from .short_message_ui import ShortMessageUI
 
@@ -31,6 +30,7 @@ class ContentWidget(QWidget):
             self.auto_request_timer.start(30000)
         self.setStyleSheet(
             "#contentLabel{background-color:rgb(240,240,240);padding:2px 3px 8px 8px;border-radius:5px;}"
+            "#contentLabel:hover{background-color:rgb(230,230,230);padding:2px 3px 8px 8px;border-radius:5px;}"
         )
 
     def _get_last_short_message(self):
@@ -38,7 +38,7 @@ class ContentWidget(QWidget):
         # 请求比self.last_datetime大的数据(服务器仅返回当天的数据)
         # print("self.current_datetime: {}".format(self.current_datetime))
         network_message = getattr(qApp, "_network")
-        url = SERVER_API + "short_message/?start_time={}".format(self.current_datetime)
+        url = SERVER_API + "short-message/?start_time={}".format(self.current_datetime)
         reply = network_message.get(QNetworkRequest(QUrl(url)))
         reply.finished.connect(self.latest_short_message_reply)
 
@@ -98,13 +98,11 @@ class ShortMessage(ShortMessageUI):
             timer_start = True
             self.animation_text.show()
             if not self.animation_timer.isActive():
-                print("开启文字定时器")
                 self.animation_timer.start(600)
         else:
             timer_start = False
             self.animation_text.hide()
             if self.animation_timer.isActive():
-                print("关闭文字定时器")
                 self.animation_timer.stop()
         self.animation_text.setText("资讯持续更新中 ")
         content_widget = ContentWidget(current_date_str, timer_start=timer_start)

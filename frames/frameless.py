@@ -18,8 +18,9 @@ from admin.operator.user_manager import UserManager
 from admin.operator.client_manager import ClientManage
 from admin.operator.variety import VarietyAdmin
 from admin.product.short_message import ShortMessageAdmin
-from admin.user_data import UserDataMaintain
-from admin.exchange_spider import ExchangeSpider
+from admin.industry.user_data import UserDataMaintain
+from admin.industry.exchange_spider import ExchangeSpider
+from admin.industry.spot_price import SpotPriceAdmin
 from admin.operator.user_extension import UserExtensionPage
 from frames.homepage import Homepage
 from frames.product import ProductPage
@@ -27,6 +28,7 @@ from frames.industry.variety_data import VarietyData
 from frames.exchange_query import ExchangeQuery
 from frames.net_position import NetPosition
 from frames.about_us import CheckVersion
+from frames.delivery import DeliveryPage
 from popup.update import NewVersionPopup
 
 
@@ -266,6 +268,8 @@ class ClientMainApp(FrameLessWindowUI):
             page = ExchangeQuery()
         elif module_id == "2_2":         # 品种净持仓
             page = NetPosition()
+        elif module_id == "3":           # 交割服务
+            page = DeliveryPage()
         elif module_id == "-9_1_0":
             page = VarietyAdmin()        # 后台管理-品种管理
         elif module_id == "-9_1_1":      # 后台管理-用户管理
@@ -280,6 +284,8 @@ class ClientMainApp(FrameLessWindowUI):
             page = UserDataMaintain()
         elif module_id == "-9_3_1":
             page = ExchangeSpider()
+        elif module_id == "-9_3_2":
+            page = SpotPriceAdmin()     # 后台管理-现货价格数据提取
         else:
             page = QLabel(
                 "「" + module_text + "」暂未开放···\n更多资讯请访问【首页】查看.",
