@@ -286,6 +286,9 @@ class ClientMainApp(FrameLessWindowUI):
             page = ExchangeSpider()
         elif module_id == "-9_3_2":
             page = SpotPriceAdmin()     # 后台管理-现货价格数据提取
+        elif module_id == "-9_4":
+            from admin.delivery_b import DeliveryInfoAdmin
+            page = DeliveryInfoAdmin()  # 后台管理-交割服务
         else:
             page = QLabel(
                 "「" + module_text + "」暂未开放···\n更多资讯请访问【首页】查看.",

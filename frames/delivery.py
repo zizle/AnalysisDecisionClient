@@ -12,7 +12,7 @@ from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
 from widgets import CAvatar, Paginator, PDFContentPopup
-from settings import SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
+from settings import SERVER_API, SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
 
 
 class MenuPushButton(QPushButton):
@@ -1068,7 +1068,6 @@ class DeliveryPage(QScrollArea):
             self.map_view.setFixedSize(width, height)
             self.discuss_show.setFixedHeight(height - self.more_dis_button.height() - 5)  # 减去更多按钮的高度和QFrame横线的高度
             self.contact_channel.resize_map.emit(width, height)  # 调整界面中地图的大小
-            print('发出调整')
 
     def user_reply_discussion(self, discuss_id):
         def commit_discussion():
@@ -1205,7 +1204,7 @@ class DeliveryPage(QScrollArea):
         ]
         try:
             r = requests.get(
-                url=SERVER_ADDR + 'variety/?way=exchange',
+                url=SERVER_API + 'exchange/variety-all/',
                 headers={'User-Agent': USER_AGENT}
             )
             response = json.loads(r.content.decode('utf8'))
@@ -1214,13 +1213,14 @@ class DeliveryPage(QScrollArea):
         except Exception:
             pass
         else:
-            variety_menus = {"id": 1, "text": "品种仓库", 'children': response['variety']}
+            print(response)
+            variety_menus = {"id": 1, "text": "品种仓库", 'children': response['varieties']}
             menus.insert(0, variety_menus)
-            brand_menus = {"id": 4, "text": "品牌名录", "children": response['variety']}
+            brand_menus = {"id": 4, "text": "品牌名录", "children": response['varieties']}
             menus.append(brand_menus)
-            cost_menus = {"id": 5, "text": "交割费用", "children": response['variety']}
+            cost_menus = {"id": 5, "text": "交割费用", "children": response['varieties']}
             menus.append(cost_menus)
-            quality_menus = {"id": 6, "text": "质检机构", "children": response['variety']}
+            quality_menus = {"id": 6, "text": "质检机构", "children": response['varieties']}
             menus.append(quality_menus)
         finally:
             return menus
@@ -1231,9 +1231,10 @@ class DeliveryPage(QScrollArea):
             layout = QVBoxLayout()
             layout.setSpacing(2)
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                exchange_name = variety_list[0]["exchange_name"]
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1245,7 +1246,7 @@ class DeliveryPage(QScrollArea):
 
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['name_en'],text=variety_item["name"])
+                        v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['variety_en'],text=variety_item["variety_name"])
                         v_btn.select_variety_menu.connect(self.get_variety_warehouses)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
                     layout.addLayout(sub_layout)
@@ -1277,9 +1278,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 4:  # 品牌名录
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                exchange_name = variety_list[0]["exchange_name"]
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1290,8 +1292,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'brand'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
@@ -1299,9 +1301,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 5:  # 交割费用
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                exchange_name = variety_list[0]["exchange_name"]
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1312,8 +1315,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'cost'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
@@ -1322,9 +1325,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 6:  # 质检机构
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                exchange_name = variety_list[0]["exchange_name"]
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1335,8 +1339,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'quality'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
