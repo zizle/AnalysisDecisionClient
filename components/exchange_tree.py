@@ -40,6 +40,7 @@ class ExchangeLibTree(QTreeWidget):
                 "children": [
                     {"id": "daily", "name": "日交易数据", "logo": "media/icons/daily.png"},
                     {"id": "rank", "name": "日交易排名", "logo": "media/icons/rank.png"},
+                    {"id": "receipt", "name": "每日仓单", "logo": "media/icons/receipt.png"},
                 ]
             },
             {
@@ -55,6 +56,7 @@ class ExchangeLibTree(QTreeWidget):
                 "children": [
                     {"id": "daily", "name": "日交易数据", "logo": "media/icons/daily.png"},
                     {"id": "rank", "name": "日交易排名", "logo": "media/icons/rank.png"},
+                    {"id": "receipt", "name": "每日仓单", "logo": "media/icons/receipt.png"},
                 ]
              },
         ]

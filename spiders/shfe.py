@@ -86,6 +86,32 @@ class SHFESpider(QObject):
         reply.deleteLater()
         self.spider_finished.emit("获取上期所{}日持仓排名数据保存到文件成功!".format(self.date.strftime("%Y-%m-%d")), True)
 
+    def get_receipt_source_file(self):
+        """ 获取仓单日报数据源文件保存至本地 """
+        if self.date is None:
+            raise DateValueError("请先使用`set_date`设置`SHFESpider`日期.")
+        url = "http://www.shfe.com.cn/data/dailydata/{}dailystock.dat".format(self.date.strftime('%Y%m%d'))
+        network_manager = getattr(qApp, "_network")
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.UserAgentHeader, random.choice(USER_AGENTS))
+        reply = network_manager.get(request)
+        reply.finished.connect(self.receipt_source_file_reply)
+
+    def receipt_source_file_reply(self):
+        """ 每日仓单数据返回 """
+        reply = self.sender()
+        if reply.error():
+            reply.deleteLater()
+            self.spider_finished.emit("失败:" + str(reply.error()), True)
+            return
+        data = reply.readAll().data()
+        data = json.loads(data.decode('utf-8'))
+        save_path = os.path.join(LOCAL_SPIDER_SRC, 'shfe/receipt/{}.json'.format(self.date.strftime("%Y-%m-%d")))
+        with open(save_path, "w", encoding="utf-8") as json_file:
+            json.dump(data, json_file, indent=4, ensure_ascii=False)
+        reply.deleteLater()
+        self.spider_finished.emit("获取上期所{}每日仓单数据保存到文件成功!".format(self.date.strftime("%Y-%m-%d")), True)
+
 
 class SHFEParser(QObject):
     parser_finished = pyqtSignal(str, bool)
@@ -103,7 +129,7 @@ class SHFEParser(QObject):
             raise DateValueError("请先使用`set_date`设置`CZCEParser`日期.")
         file_path = os.path.join(LOCAL_SPIDER_SRC, 'shfe/daily/{}.json'.format(self.date.strftime("%Y-%m-%d")))
         if not os.path.exists(file_path):
-            self.parser_finished.emit("没有发现上期所所{}的日交易行情文件,请先抓取数据!".format(self.date.strftime("%Y-%m-%d")), True)
+            self.parser_finished.emit("没有发现上期所{}的日交易行情文件,请先抓取数据!".format(self.date.strftime("%Y-%m-%d")), True)
             return DataFrame()
         with open(file_path, "r", encoding="utf-8") as reader:
             source_content = json.load(reader)
@@ -218,4 +244,9 @@ class SHFEParser(QObject):
         else:
             data = json.loads(data.decode("utf-8"))
             self.parser_finished.emit(data["message"], True)
+
+    def parser_receipt_source_file(self):
+        """ 解析仓单日报源文件 """
+        self.parser_finished.emit("暂不支持上期所仓单的解析保存", True)
+        return DataFrame()
 

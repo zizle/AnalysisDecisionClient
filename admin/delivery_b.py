@@ -232,26 +232,31 @@ class WarehouseVarietyManager(QWidget):
 
     def manager_table_checked_changed(self, row, col):
         def commit_new_delivery_variety():
+            """ 提交新的交割品种信息 """
             delivery_msg = {
+
+            }
+            request_d = {
+                "warehouse_code": self.house_code,
+                "variety": variety_text,
+                "variety_en": variety_en,
+                "is_delivery": checked,
                 "linkman": popup.linkman_edit.text().strip(),
                 "links": popup.links_edit.text().strip(),
                 "premium": popup.premium_edit.text().strip(),
                 "receipt_unit": popup.receipt_unit.text().strip()
             }
-            request_d = {
-                "house_code": self.house_code,
-                "variety_text": variety_text,
-                "variety_en": variety_en,
-                "is_delivery": checked,
-                "delivery_msg": delivery_msg,
-            }
             send_request(request_d)
 
         def send_request(data):
+            """ 发送请求 """
             try:
                 r = requests.post(
-                    url=SERVER_API + 'warehouse/' + str(data['house_code']) + '/variety/',
-                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
+                    url=SERVER_API + 'warehouse/' + str(data['warehouse_code']) + '/variety/',
+                    headers={
+                        'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT,
+                        'Authorization': get_user_token()
+                    },
                     data=json.dumps(data)
                 )
                 response = json.loads(r.content.decode('utf8'))
@@ -301,11 +306,10 @@ class WarehouseVarietyManager(QWidget):
 
         else:
             send_request({
-                "house_code": self.house_code,
-                "variety_text": variety_text,
+                "warehouse_code": self.house_code,
+                "variety": variety_text,
                 "variety_en": variety_en,
-                "is_delivery": checked,
-                "delivery_msg": {},
+                "is_delivery": checked
             })
 
 
@@ -497,7 +501,7 @@ class VarietyDeliveryAdmin(QWidget):
     def _get_all_variety(self):
         """ 获取所有交割品种的信息 """
         network_manager = getattr(qApp, "_network")
-        url = SERVER_ADDR + "delivery/variety-message/"
+        url = SERVER_API + "delivery-message/"
         req = QNetworkRequest(QUrl(url))
         reply = network_manager.get(req)
         reply.finished.connect(self.variety_message_reply)
@@ -512,7 +516,7 @@ class VarietyDeliveryAdmin(QWidget):
         reply.deleteLater()
         data = json.loads(data.decode("utf-8"))
         self.variety_combobox.clear()
-        for variety_item in data["variety_data"]:
+        for variety_item in data["delivery_msg"]:
             self.variety_combobox.addItem(variety_item["variety"], variety_item)
 
     def fill_detail_variety_message(self):
@@ -527,16 +531,19 @@ class VarietyDeliveryAdmin(QWidget):
     def modify_variety_message(self):
         """ 修改品种的交割信息 """
         current_data = self.variety_combobox.currentData()
+        print(current_data)
         new_data = {
-            "vid": current_data["id"],
+            "variety": current_data["variety"],
+            "variety_en": current_data["variety_en"],
             "last_trade": self.last_trade.toPlainText().strip(),
             "receipt_expire": self.receipt_expire.toPlainText().strip(),
             "delivery_unit": self.delivery_unit.toPlainText().strip(),
             "limit_holding": self.limit_holding.toPlainText().strip(),
         }
-        url = SERVER_ADDR + "delivery/variety-message/"
+        url = SERVER_API + "{}/delivery-message/".format(current_data["variety_en"])
         req = QNetworkRequest(QUrl(url))
         req.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        req.setRawHeader("Authorization".encode("utf-8"), get_user_token().encode("utf-8"))
         network_manager = getattr(qApp, "_network")
         reply = network_manager.put(req, json.dumps(new_data).encode("utf-8"))
         reply.finished.connect(self.modify_reply)

@@ -22,6 +22,7 @@ from admin.industry.user_data import UserDataMaintain
 from admin.industry.exchange_spider import ExchangeSpider
 from admin.industry.spot_price import SpotPriceAdmin
 from admin.operator.user_extension import UserExtensionPage
+from admin.receipt_parser import ReceiptParser
 from frames.homepage import Homepage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
@@ -286,9 +287,11 @@ class ClientMainApp(FrameLessWindowUI):
             page = ExchangeSpider()
         elif module_id == "-9_3_2":
             page = SpotPriceAdmin()     # 后台管理-现货价格数据提取
-        elif module_id == "-9_4":
+        elif module_id == "-9_4_0":
             from admin.delivery_b import DeliveryInfoAdmin
-            page = DeliveryInfoAdmin()  # 后台管理-交割服务
+            page = DeliveryInfoAdmin()  # 后台管理-交割服务-仓库管理
+        elif module_id == '-9_4_1':
+            page = ReceiptParser()      # 后台管理-交割服务-仓单数据提取
         else:
             page = QLabel(
                 "「" + module_text + "」暂未开放···\n更多资讯请访问【首页】查看.",

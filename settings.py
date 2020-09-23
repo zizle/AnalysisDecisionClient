@@ -64,7 +64,10 @@ SYSTEM_MENUS = [
         {"id": "-9_2", "name": "产品服务", "logo": "", "children": [
             {"id": "-9_2_0", "name": "短信通", "logo": "", "children": None},
         ]},
-        {"id": "-9_4", "name": "交割服务", "logo": "", "children": None},
+        {"id": "-9_4", "name": "交割服务", "logo": "", "children": [
+            {"id": "-9_4_0", "name": "仓库信息管理", "logo": "", "children": None},
+            {"id": "-9_4_1", "name": "仓单数据提取", "logo": "", "children": None},
+        ]},
         {"id": "-9_3", "name": "行业数据", "logo": "", "children": [
             {"id": "-9_3_0", "name": "产业数据库", "logo": "", "children": None},
             {"id": "-9_3_1", "name": "交易所数据", "logo": "", "children": None},

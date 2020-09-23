@@ -130,6 +130,42 @@ class DCESpider(QObject):
         reply.deleteLater()
         self.spider_finished.emit("获取大商所{}日持仓排名数据源文件成功!".format(self.date.strftime("%Y-%m-%d")), True)
 
+    def get_receipt_source_file(self):
+        """ 获取仓单日报数据源文件保存至本地 """
+        if self.date is None:
+            raise DateValueError("请先使用`set_date`设置`SHFESpider`日期.")
+        url = "http://www.dce.com.cn/publicweb/quotesdata/wbillWeeklyQuotes.html"
+        form_params = {
+            'wbillWeeklyQuotes.variety': 'all',
+            'year': str(self.date.year),
+            'month': str(self.date.month - 1),
+            'day': self.date.strftime("%d"),
+        }
+        form_data = generate_multipart_data(text_dict=form_params)
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.UserAgentHeader, random.choice(USER_AGENTS))
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.post(request, form_data)
+        reply.finished.connect(self.receipt_source_file_reply)
+        form_data.setParent(reply)
+
+    def receipt_source_file_reply(self):
+        """ 大商所的每日仓单html返回 """
+        reply = self.sender()
+        if reply.error():
+            reply.deleteLater()
+            self.spider_finished.emit("失败:" + str(reply.error()), True)
+            return
+        save_path = os.path.join(LOCAL_SPIDER_SRC, 'dce/receipt/{}.html'.format(self.date.strftime("%Y-%m-%d")))
+        file_data = reply.readAll()
+        file_obj = QFile(save_path)
+        is_open = file_obj.open(QFile.WriteOnly)
+        if is_open:
+            file_obj.write(file_data)
+            file_obj.close()
+        reply.deleteLater()
+        self.spider_finished.emit("获取大商所{}每日仓单数据源文件成功!".format(self.date.strftime("%Y-%m-%d")), True)
+
 
 class DCEParser(QObject):
     parser_finished = pyqtSignal(str, bool)
@@ -324,4 +360,7 @@ class DCEParser(QObject):
             all_data_df = concat([all_data_df, contract_result_df])
         return all_data_df
 
-
+    def parser_receipt_source_file(self):
+        """ 解析仓单日报源文件 """
+        self.parser_finished.emit("暂不支持大商所仓单的解析保存", True)
+        return DataFrame()
