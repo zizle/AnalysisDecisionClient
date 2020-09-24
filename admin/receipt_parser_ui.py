@@ -4,7 +4,7 @@
 # @Author: zizle
 """ 仓单数据解析入库 """
 
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QDateEdit, QPushButton, QLabel, QTableWidget
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QDateEdit, QPushButton, QLabel, QTableWidget, QHeaderView
 from PyQt5.QtCore import QDate, Qt
 
 
@@ -31,6 +31,8 @@ class ReceiptParserUI(QWidget):
         main_layout.addLayout(opt_layout)
 
         self.preview_table = QTableWidget(self)
+        self.preview_table.setColumnCount(7)
+        self.preview_table.setHorizontalHeaderLabels(["仓库编号", "简称", "品种", "交易代码", "日期", "仓单", "增减"])
         main_layout.addWidget(self.preview_table)
 
         self.commit_button = QPushButton("提交保存", self)

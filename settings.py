@@ -12,11 +12,11 @@ PLATE_FORM = "WIN10"
 SERVER_ADDR = "http://127.0.0.1:5000/"
 
 #
-SERVER_API = "http://127.0.0.1:8000/api/"
-SERVER_HOST = "http://127.0.0.1:8000/"  # 启动背景图
+# SERVER_API = "http://127.0.0.1:8000/api/"
+# SERVER_HOST = "http://127.0.0.1:8000/"  # 启动背景图
 
-# SERVER_API = "http://210.13.218.130:9004/api/"
-# SERVER_HOST = "http://210.13.218.130:9004/"  # 启动背景图
+SERVER_API = "http://210.13.218.130:9004/api/"
+SERVER_HOST = "http://210.13.218.130:9004/"  # 启动背景图
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
