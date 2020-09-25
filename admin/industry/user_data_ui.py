@@ -136,7 +136,7 @@ class ConfigSourceUI(QWidget):
         self.setLayout(main_layout)
         self.config_table.horizontalHeader().setStyleSheet(
             "QHeaderView::section{background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-            "stop:0 #80cc42, stop: 0.5 #ccffdd,stop: 0.6 #ccffdd, stop:1 #80cc42);"
+            "stop:0 #49aa54, stop: 0.48 #49cc54,stop: 0.52 #49cc54, stop:1 #49aa54);"
             "border:1px solid rgb(201,202,202);border-left:none;"
             "min-height:25px;min-width:40px;font-weight:bold;font-size:13px};"
         )

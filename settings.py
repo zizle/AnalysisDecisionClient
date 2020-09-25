@@ -10,26 +10,32 @@ SYS_BIT = "32" if sys.maxsize < 2 ** 32 else "64"
 PLATE_FORM = "WIN10"
 # SERVER_ADDR = "http://210.13.218.130:9002/"
 SERVER_ADDR = "http://127.0.0.1:5000/"
+# 与后端对应的静态文件路径
+STATIC_PREFIX = SERVER_ADDR + 'ads/'
 
-#
-# SERVER_API = "http://127.0.0.1:8000/api/"
-# SERVER_HOST = "http://127.0.0.1:8000/"  # 启动背景图
+SERVER_API = "http://127.0.0.1:8000/api/"
+# SERVER_API = "http://210.13.218.130:9004/api/"
 
-SERVER_API = "http://210.13.218.130:9004/api/"
-SERVER_HOST = "http://210.13.218.130:9004/"  # 启动背景图
+STATIC_URL = SERVER_API[:-4] + 'static/'
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+LOCAL_SPIDER_SRC = os.path.join(BASE_DIR, "sources/")  # 爬取保存文件的本地文件夹
 
 ADMINISTRATOR = True
 
 ONLINE_COUNT_INTERVAL = 120000  # 毫秒
 
+# 爬虫使用的User-Agent
+USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+]
+# 本软件User-Agent
 USER_AGENT = 'RuiDa_ADSClient_VERSION_1.0.1'
 # app设置
 app_dawn = QSettings('dawn/initial.ini', QSettings.IniFormat)
-cache_dawn = QSettings('dawn/cache.ini', QSettings.IniFormat)
-# 与后端对应的静态文件路径
-STATIC_PREFIX = SERVER_ADDR + 'ads/'
+cache_dawn = QSettings('dawn/cache.ini', QSettings.IniFormat)  # 解析大商所日排名的缓存文件夹
+
 # 首页广告变化速率，单位毫秒
 IMAGE_SLIDER_RATE = 3000
 # 标题栏高度
@@ -43,7 +49,7 @@ SYSTEM_MENUS = [
     {"id": "1", "name": "产品服务", "logo": "", "children": None},
     {"id": "3", "name": "交割服务", "logo": "", "children": None},
     {"id": "2", "name": "行业数据", "logo": "", "children": [
-        {"id": "2_0", "name": "产业数据库", "logo": "", "children": None},
+        {"id": "2_0", "name": "品种数据库", "logo": "", "children": None},
         {"id": "2_1", "name": "交易所数据", "logo": "", "children": None},
         {"id": "2_2", "name": "品种净持仓", "logo": "", "children": None},
     ]},
@@ -69,7 +75,7 @@ SYSTEM_MENUS = [
             {"id": "-9_4_1", "name": "仓单数据提取", "logo": "", "children": None},
         ]},
         {"id": "-9_3", "name": "行业数据", "logo": "", "children": [
-            {"id": "-9_3_0", "name": "产业数据库", "logo": "", "children": None},
+            {"id": "-9_3_0", "name": "品种数据库", "logo": "", "children": None},
             {"id": "-9_3_1", "name": "交易所数据", "logo": "", "children": None},
             {"id": "-9_3_2", "name": "现货报价数据", "logo": "", "children": None},
         ]},

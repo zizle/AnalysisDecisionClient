@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import qApp, QTableWidgetItem
 from PyQt5.QtCore import Qt, QTimer,QUrl
 from PyQt5.QtNetwork import QNetworkRequest
 from .exchange_query_ui import ExchangeQueryUI
-from configs import SERVER
+from settings import SERVER_API
 
 
 class ExchangeQuery(ExchangeQueryUI):
@@ -35,7 +35,8 @@ class ExchangeQuery(ExchangeQueryUI):
 
         self.exchange_tree.selected_signal.connect(self.selected_action)       # 树控件点击事件
         self.exchange_tree.unselected_signal.connect(self.unselected_any)      # 没有选择项目
-        self.query_button.clicked.connect(self.query_target_data)              # 查询合约详情数据
+        # self.query_button.clicked.connect(self.query_target_data)            # 查询合约详情数据
+        self.query_button.hide()                                               # (20200925关闭,由控件默认查询)
         self.query_variety_sum_button.clicked.connect(self.query_variety_sum)  # 查询品种合计数
 
     def keyPressEvent(self, event):
@@ -85,6 +86,8 @@ class ExchangeQuery(ExchangeQueryUI):
             self.rank_select.show()
         else:
             self.rank_select.hide()
+        # 默认进行详情数据的查询
+        self.query_target_data()
 
     def unselected_any(self):
         """ 没有选择项目 """
@@ -105,7 +108,7 @@ class ExchangeQuery(ExchangeQueryUI):
         # app = QApplication.instance()
         network_manger = getattr(qApp, "_network")
 
-        url = SERVER + "exchange/" + self.current_exchange + "/" + self.current_action + "/?date=" + current_date
+        url = SERVER_API + "exchange/" + self.current_exchange + "/" + self.current_action + "/?date=" + current_date
         request = QNetworkRequest(QUrl(url))
         reply = network_manger.get(request)
         reply.finished.connect(self.query_result_reply)
@@ -124,7 +127,7 @@ class ExchangeQuery(ExchangeQueryUI):
         # app = QApplication.instance()
         network_manger = getattr(qApp, "_network")
 
-        url = SERVER + "exchange/" + self.current_exchange + "/" + self.current_action + "/variety-sum/?date=" + current_date
+        url = SERVER_API + "exchange/" + self.current_exchange + "/" + self.current_action + "/variety-sum/?date=" + current_date
         if self.rank_select.isEnabled():
             url += "&rank=" + str(self.rank_select.value())
         request = QNetworkRequest(QUrl(url))

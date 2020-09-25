@@ -53,10 +53,14 @@ class NetPositionUI(QWidget):
         self.tip_label.setObjectName("tipLabel")
         self.data_table.setObjectName("dataTable")
         self.data_table.horizontalScrollBar().setStyleSheet(
-            "QScrollBar{background:transparent;height:10px;}"
-            "QScrollBar::handle{background:lightgray;border:0px solid transparent;border-radius:2px}"
-            "QScrollBar:left-arrow:horizontal{width:10px;height:10px;background:url('media/scrollbar/scrollbar_arrowleft_normal.png')}"
-            "QScrollBar::add-page:horizontal,QScrollBar::sub-page:horizontal{background:none}"
+            "QScrollBar:horizontal{background:transparent;height:10px;margin:0px;}"
+            "QScrollBar:horizontal:hover{background:rgba(0,0,0,30);border-radius:5px}"
+            "QScrollBar::handle:horizontal{background:rgba(0,0,0,50);height:10px;border-radius:5px;border:none}"
+            "QScrollBar::handle:horizontal:hover{background:rgba(0,0,0,100)}"
+            "QScrollBar::add-page:horizontal{height:10px;background:transparent;}"
+            "QScrollBar::sub-page:horizontal{height:10px;background:transparent;}"
+            "QScrollBar::sub-line:horizontal{width:0px}"
+            "QScrollBar::add-line:horizontal{width:0px}"
         )
         self.data_table.horizontalHeader().setStyleSheet(
             "QHeaderView::section,QTableCornerButton::section{height:25px;background-color:rgb(243,245,248);"

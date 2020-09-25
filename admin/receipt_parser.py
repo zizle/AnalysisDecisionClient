@@ -17,8 +17,7 @@ from .receipt_parser_ui import ReceiptParserUI
 from utils.client import get_user_token
 from utils.constant import VARIETY_EN, VARIETY_ZH
 from utils.characters import full_width_to_half_width, split_zh_en
-from settings import SERVER_API,logger
-from configs import LOCAL_SPIDER_SRC
+from settings import SERVER_API,logger, LOCAL_SPIDER_SRC
 
 
 def get_variety_en(variety_name: str):

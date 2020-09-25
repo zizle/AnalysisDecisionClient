@@ -12,7 +12,7 @@ from datetime import datetime
 from PyQt5.QtWidgets import qApp
 from PyQt5.QtCore import QFile, pyqtSignal, QObject, QUrl
 from PyQt5.QtNetwork import QNetworkRequest
-from configs import LOCAL_SPIDER_SRC, SERVER, USER_AGENTS
+from settings import LOCAL_SPIDER_SRC, SERVER_API, USER_AGENTS
 from utils.characters import full_width_to_half_width, split_zh_en, split_number_en
 
 
@@ -170,7 +170,7 @@ class CZCEParser(QObject):
         self.parser_finished.emit("开始保存郑商所{}日交易数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
         data_body = source_df.to_dict(orient="records")
         network_manager = getattr(qApp, "_network")
-        url = SERVER + "exchange/czce/daily/?date=" + self.date.strftime("%Y-%m-%d")
+        url = SERVER_API + "exchange/czce/daily/?date=" + self.date.strftime("%Y-%m-%d")
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
 
@@ -299,7 +299,7 @@ class CZCEParser(QObject):
         self.parser_finished.emit("开始保存郑商所{}日持仓排名数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
         data_body = source_df.to_dict(orient="records")
         network_manager = getattr(qApp, "_network")
-        url = SERVER + "exchange/czce/rank/?date=" + self.date.strftime("%Y-%m-%d")
+        url = SERVER_API + "exchange/czce/rank/?date=" + self.date.strftime("%Y-%m-%d")
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
 
@@ -409,7 +409,7 @@ class CZCEParser(QObject):
         self.parser_finished.emit("开始保存郑商所{}仓单日报数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
         data_body = source_df.to_dict(orient="records")
         network_manager = getattr(qApp, "_network")
-        url = SERVER + "exchange/czce/receipt/?date=" + self.date.strftime("%Y-%m-%d")
+        url = SERVER_API + "exchange/czce/receipt/?date=" + self.date.strftime("%Y-%m-%d")
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
 

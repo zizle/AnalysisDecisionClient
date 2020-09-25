@@ -12,8 +12,7 @@ from PyQt5.QtCore import QObject, pyqtSignal, QUrl
 from PyQt5.QtWidgets import qApp
 from PyQt5.QtNetwork import QNetworkRequest
 from utils.characters import split_number_en
-from settings import logger
-from configs import USER_AGENTS, LOCAL_SPIDER_SRC, SERVER
+from settings import USER_AGENTS, LOCAL_SPIDER_SRC, SERVER_API
 
 
 class DateValueError(Exception):
@@ -167,7 +166,7 @@ class SHFEParser(QObject):
         self.parser_finished.emit("开始保存上期所{}日交易数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
         data_body = source_df.to_dict(orient="records")
         network_manager = getattr(qApp, "_network")
-        url = SERVER + "exchange/shfe/daily/?date=" + self.date.strftime("%Y-%m-%d")
+        url = SERVER_API + "exchange/shfe/daily/?date=" + self.date.strftime("%Y-%m-%d")
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
 
@@ -227,7 +226,7 @@ class SHFEParser(QObject):
         self.parser_finished.emit("开始保存上期所{}日持仓排名数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
         data_body = source_df.to_dict(orient="records")
         network_manager = getattr(qApp, "_network")
-        url = SERVER + "exchange/shfe/rank/?date=" + self.date.strftime("%Y-%m-%d")
+        url = SERVER_API + "exchange/shfe/rank/?date=" + self.date.strftime("%Y-%m-%d")
         request = QNetworkRequest(QUrl(url))
         request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
 

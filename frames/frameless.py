@@ -26,8 +26,8 @@ from admin.receipt_parser import ReceiptParser
 from frames.homepage import Homepage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
-from frames.exchange_query import ExchangeQuery
-from frames.net_position import NetPosition
+from frames.industry.exchange_query import ExchangeQuery
+from frames.industry.net_position import NetPosition
 from frames.about_us import CheckVersion
 from frames.delivery import DeliveryPage
 from popup.update import NewVersionPopup

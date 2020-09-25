@@ -272,6 +272,7 @@ class UserDataMaintain(UserDataMaintainUI):
             return
         button_clicked = self.sender()
         current_row = getattr(button_clicked, "row_index")
+        self.source_config_widget.config_table.selectRow(current_row)
         variety_en = self.source_config_widget.variety_combobox.currentData()
         group_text = self.source_config_widget.config_table.item(current_row, 2).text()
         folder_path = self.source_config_widget.config_table.item(current_row, 3).text()
@@ -305,6 +306,9 @@ class UserDataMaintain(UserDataMaintainUI):
                 continue
             if file_suffix in [".xlsx", '.xls']:
                 file_path_list.append(os.path.join(folder_path, file_path))
+        if not file_path_list:
+            self.folder_update_finished(finished_status="没有获取到合法文件信息,无需更新!")
+            return
         self.source_config_widget.updating_thread = UpdatingSheetsThread(variety_en=variety_en, group_id=group_id, path_list=file_path_list)
         self.source_config_widget.updating_thread.finished.connect(self.folder_update_finished)
         self.source_config_widget.updating_thread.single_finished.connect(self.source_config_widget.updating_process.setValue)
@@ -312,15 +316,17 @@ class UserDataMaintain(UserDataMaintainUI):
         self.source_config_widget.updating_process.setMaximum(len(file_path_list))
         self.source_config_widget.updating_process.setValue(0)
 
-    def folder_update_finished(self):
+    def folder_update_finished(self, finished_text="数据更新完成! "):
         """ 文件夹更新完毕 """
         if self.source_config_widget.updating_thread is not None:
             self.source_config_widget.updating_thread.deleteLater()
             self.source_config_widget.updating_thread = None
         self.source_config_widget.is_updating = False
-        self.source_config_widget.tips_message.setText("数据更新完成! ")
+        self.source_config_widget.tips_message.setText(finished_text)
         if self.source_config_widget.current_button is not None:
             self.source_config_widget.current_button.setEnabled(True)
+        self.source_config_widget.updating_process.setMaximum(1)
+        self.source_config_widget.updating_process.setValue(1)
 
     def variety_combobox_changed(self):
         """ 界面品种变化 """

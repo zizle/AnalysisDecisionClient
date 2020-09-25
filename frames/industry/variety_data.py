@@ -20,6 +20,8 @@ class VarietyData(VarietyDataUI):
         self._get_variety_sheets("GP")
         # 默认加载主页显示的图形
         self._load_default_page()
+        # 双击数据库下的条目
+        self.sheet_table.doubleClicked.connect(self.popup_show_chart_sheet)
 
     def _load_default_page(self):
         """ 加载主页默认页面 """
@@ -28,7 +30,6 @@ class VarietyData(VarietyDataUI):
 
     def selected_variety_event(self, variety_id, group_text, variety_en):
         """ 选择了某个品种事件 """
-        print(group_text, variety_id, variety_en)
         self._get_variety_sheets(variety_en)
         self._load_variety_charts(variety_en)
 
@@ -85,9 +86,14 @@ class VarietyData(VarietyDataUI):
             item4_button.clicked.connect(self.show_sheet_charts)
             self.sheet_table.setCellWidget(row, 4, item4_button)
 
-    def show_sheet_charts(self):
+    def popup_show_chart_sheet(self):
+        """ 弹窗显示某个表下的所有图形和表数据"""
+        self.show_sheet_charts(self.sheet_table.currentRow())
+
+    def show_sheet_charts(self, current_row=False):
         """ 弹窗显示某个表下的所有图形和表数据 """
-        current_row = getattr(self.sender(), "row_index")
+        if current_row is False:
+            current_row = getattr(self.sender(), "row_index")
         sheet_id = self.sheet_table.item(current_row, 0).data(Qt.UserRole)
         sheet_name = self.sheet_table.item(current_row, 1).text()
         popup = SheetChartsPopup(sheet_id, 0, self)

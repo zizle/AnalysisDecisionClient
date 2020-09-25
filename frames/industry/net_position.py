@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import qApp, QTableWidgetItem
 from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtCore import QUrl, Qt, QTimer
 from PyQt5.QtGui import QBrush, QColor
-from configs import SERVER
+from settings import SERVER_API
 from utils.constant import VARIETY_ZH
 from .net_position_ui import NetPositionUI
 
@@ -57,7 +57,7 @@ class NetPosition(NetPositionUI):
         """ 获取净持仓数据 """
         self.tips_animation_timer.start(400)
         net_work = getattr(qApp, '_network')
-        url = SERVER + "position/all-variety/?interval_days=" + str(self.interval_days.value())
+        url = SERVER_API + "position/all-variety/?interval_days=" + str(self.interval_days.value())
         reply = net_work.get(QNetworkRequest(QUrl(url)))
         reply.finished.connect(self.all_variety_position_reply)
 

@@ -8,10 +8,9 @@
 
 from .frameless import ClientMainApp
 from utils.client import get_client_uuid
-from settings import ADMINISTRATOR, SERVER_API, SERVER_HOST, BASE_DIR, logger
+from settings import ADMINISTRATOR, SERVER_API, STATIC_URL, BASE_DIR, logger
 from PyQt5.QtCore import QSettings
 from PyQt5.QtWidgets import qApp, QSplashScreen, QLabel
-from PyQt5.QtWebEngineWidgets import QWebEngineView
 import os
 import sys
 import json
@@ -86,7 +85,7 @@ class WelcomePage(QSplashScreen):
     def _get_start_image(self):
         """ 获取开启的页面图片 """
         network_manager = getattr(qApp, "_network")
-        url = SERVER_HOST + "static/start_image_bg.png"
+        url = STATIC_URL + "start_image_bg.png"
         reply = network_manager.get(QNetworkRequest(QUrl(url)))
         reply.finished.connect(self.start_image_reply)
 
@@ -166,7 +165,7 @@ class WelcomePage(QSplashScreen):
 
     # 导入模块到运行环境
     def import_packages(self):
-        import pandas
+        pass
 
 
 # 主窗口(无边框)
@@ -410,10 +409,10 @@ class ADSClient(FrameLessWindow):
             page = DeliveryPage(self.page_container)
             page.get_latest_discuss()
         elif module_text == u"交易所数据":
-            from frames.exchange_query import ExchangeQuery
+            from frames.industry.exchange_query import ExchangeQuery
             page = ExchangeQuery()
         elif module_text == u"品种净持仓":
-            from frames.net_position import NetPosition
+            from frames.industry.net_position import NetPosition
             page = NetPosition()
         else:
             page = QLabel(parent=self.page_container,

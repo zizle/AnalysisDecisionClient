@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QSettings, QUrl
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
 from .homepage_ui import HomepageUI
-from configs import BASE_DIR, SERVER
+from settings import BASE_DIR, SERVER_API
 
 
 class Homepage(HomepageUI):
