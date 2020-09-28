@@ -16,7 +16,7 @@ class NewVersionPopup(QDialog):
         self.setAttribute(Qt.WA_DeleteOnClose)
         main_layout = QVBoxLayout()
         self.setWindowTitle("新版本")
-        label = QLabel("系统检测到新版本可更新!\n体验新功能和避免功能不可用,建议更新。", self)
+        label = QLabel("系统检测到新版本可更新!\n使用新功能和避免原功能不可用,建议更新。", self)
         main_layout.addWidget(label)
         self.ignore_button = QPushButton("本次忽略", self)
         self.ignore_button.clicked.connect(self.close)

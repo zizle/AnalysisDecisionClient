@@ -57,6 +57,47 @@ class WarningPopup(QDialog):
         self.close()
 
 
+class ExitAppPopup(QDialog):
+    confirm_operate = pyqtSignal()
+
+    def __init__(self, message, *args):
+        super(ExitAppPopup, self).__init__(*args)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("提示")
+        self.setFixedWidth(230)
+        main_layout = QVBoxLayout()
+        message_layout = QHBoxLayout()
+        message_layout.setSpacing(5)
+        icon_label = QLabel(self)
+        icon_label.setFixedSize(50, 50)
+        icon_label.setPixmap(QPixmap("media/icons/exit_app.png"))
+        icon_label.setScaledContents(True)
+        message_layout.addWidget(icon_label, alignment=Qt.AlignLeft)
+        message = "<div style=text-indent:24px;font-size:12px;line-height:18px;>" + message + "</div>"
+        message_label = QLabel(message, self)
+        message_label.setMinimumWidth(155)
+
+        message_label.setWordWrap(True)
+        message_layout.addWidget(message_label)
+        main_layout.addLayout(message_layout)
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        cancel_button = QPushButton("取消", self)
+        cancel_button.clicked.connect(self.close)
+        button_layout.addWidget(cancel_button)
+
+        confirm_button = QPushButton("确定", self)
+        confirm_button.clicked.connect(self.make_sure_confirm_operate)
+        button_layout.addWidget(confirm_button)
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+
+    def make_sure_confirm_operate(self):
+        self.confirm_operate.emit()
+        self.close()
+
+
 class InformationPopup(QDialog):
     def __init__(self, message, *args):
         super(InformationPopup, self).__init__(*args)

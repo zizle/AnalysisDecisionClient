@@ -13,7 +13,7 @@ from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
 from widgets import CAvatar, Paginator, PDFContentPopup
 from utils.client import get_user_token
-from settings import SERVER_API, SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
+from settings import SERVER_API, SERVER_ADDR, STATIC_PREFIX, USER_AGENT, STATIC_URL
 
 
 class MenuPushButton(QPushButton):
@@ -1380,7 +1380,7 @@ class DeliveryPage(QScrollArea):
         if not btn or not isinstance(btn, QPushButton):
             return
         menu_text = btn.text()
-        file_url = "{}delivery/{}/{}{}.pdf".format(STATIC_PREFIX, btn.category, menu_text, btn.variety_en)
+        file_url = "{}DELIVERY/{}/{}{}.pdf".format(STATIC_URL, btn.category, menu_text, btn.variety_en)
         popup = PDFContentPopup(title=menu_text, file=file_url)
         popup.exec_()
 
@@ -1395,7 +1395,7 @@ class DeliveryPage(QScrollArea):
             "上期所交割流程","郑商所交割流程","大商所交割流程","能源中心交割流程",
             "上期所套保业务","郑商所套保业务","大商所套保业务","能源中心套保业务"
         ]:
-            file_url = STATIC_PREFIX + 'delivery/' + menu_text + '.pdf'
+            file_url = STATIC_URL + 'DELIVERY/' + menu_text + '.pdf'
             popup = PDFContentPopup(title=menu_text, file=file_url)
             popup.exec_()
 

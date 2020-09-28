@@ -31,6 +31,7 @@ from frames.industry.net_position import NetPosition
 from frames.about_us import CheckVersion
 from frames.delivery import DeliveryPage
 from popup.update import NewVersionPopup
+from popup.message import ExitAppPopup
 
 
 class ClientMainApp(FrameLessWindowUI):
@@ -55,6 +56,15 @@ class ClientMainApp(FrameLessWindowUI):
             self.user_online_timer.start(ONLINE_COUNT_INTERVAL)
 
         self._checking_new_version()
+
+    def close(self):
+        """ 程序退出 """
+        def confirm_exit():
+            super(ClientMainApp, self).close()
+        # 提示是否退出
+        p = ExitAppPopup("确定退出分析决策系统?", self)
+        p.confirm_operate.connect(confirm_exit)
+        p.exec_()
 
     def _checking_new_version(self):
         """ 检测新版本 """
