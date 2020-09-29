@@ -14,7 +14,9 @@ from .report_file_ui import ReportFileAdminUI
 class ReportFileAdmin(ReportFileAdminUI):
     def __init__(self, *args, **kwargs):
         super(ReportFileAdmin, self).__init__(*args, **kwargs)
-
+        self.selected_file_path = None  # 选择的文件
+        self.selected_varieties = list()  # 选择的关联品种
+        self.selected_varieties_zh = list()  # 关联品种的中文
         # 添加报告类型
         for type_item in [
             {"name": "日报", "type": "daily"},
@@ -26,6 +28,34 @@ class ReportFileAdmin(ReportFileAdminUI):
 
         # 获取服务端当前的所有文件
         self._get_files_in_server()
+        # 选择品种
+        self.variety_combobox.activated.connect(self.selected_relative_variety)
+        # 清除品种
+        self.clear_relative_button.clicked.connect(self.clear_relative_variety)
+        # 表格操作
+        self.file_table.cellClicked.connect(self.file_table_operation)
+
+    def selected_relative_variety(self):
+        """ 选择关联的品种 """
+        if not self.selected_file_path:
+            self.relative_variety.setText("请选择文件再选择品种")
+            self.no_relative_variety()
+        else:
+            variety_en = self.variety_combobox.currentData()
+            if variety_en not in self.selected_varieties:
+                self.selected_varieties.append(variety_en)
+            variety_text = self.variety_combobox.currentText()
+            if variety_text not in self.selected_varieties_zh:
+                self.selected_varieties_zh.append(variety_text)
+            self.relative_variety.setText(";".join(self.selected_varieties_zh))
+            self.has_relative_variety()
+
+    def clear_relative_variety(self):
+        """ 清除关联品种 """
+        self.selected_varieties.clear()
+        self.selected_varieties_zh.clear()
+        self.relative_variety.setText("下拉框选择品种(多选)")
+        self.no_relative_variety()
 
     def _get_user_variety(self):
         """ 获取用户有权限的品种 """
@@ -76,21 +106,54 @@ class ReportFileAdmin(ReportFileAdminUI):
 
     def table_show_files(self, files_list):
         """ 文件信息在表格显示 """
-        print(files_list)
         self.file_table.clearContents()
         self.file_table.setRowCount(len(files_list))
         for row, row_item in enumerate(files_list):
             item0 = QTableWidgetItem(str(row + 1))
             item0.setTextAlignment(Qt.AlignCenter)
+            item0.setData(Qt.UserRole, row_item["file_path"])
             self.file_table.setItem(row, 0, item0)
 
             item1 = QTableWidgetItem(row_item["filename"])
             item1.setTextAlignment(Qt.AlignCenter)
             self.file_table.setItem(row, 1, item1)
 
-            item2 = QTableWidgetItem()
+            item2 = QTableWidgetItem(row_item["file_size"])
             item2.setTextAlignment(Qt.AlignCenter)
             self.file_table.setItem(row, 2, item2)
+
+            item3 = QTableWidgetItem(row_item["create_time"])
+            item3.setTextAlignment(Qt.AlignCenter)
+            self.file_table.setItem(row, 3, item3)
+
+            item4 = QTableWidgetItem("查看")
+            item4.setTextAlignment(Qt.AlignCenter)
+            self.file_table.setItem(row, 4, item4)
+
+            item5 = QTableWidgetItem("选择")
+            item5.setTextAlignment(Qt.AlignCenter)
+            self.file_table.setItem(row, 5, item5)
+
+            item6 = QTableWidgetItem("删除")
+            item6.setTextAlignment(Qt.AlignCenter)
+            self.file_table.setItem(row, 6, item6)
+
+    def file_table_operation(self, row, col):
+        """ 表格操作 """
+        current_file_path = self.file_table.item(row, 0).data(Qt.UserRole)
+        print(current_file_path)
+        if col == 4:  # 查看
+            pass
+        elif col == 5:  # 选择
+            filename = self.file_table.item(row, 1).text()
+            self.filename.setText(filename)
+            self.selected_file_path = current_file_path
+            self.has_selected_file()
+        elif col == 6:  # 删除
+            pass
+        else:
+            pass
+
 
 
 
