@@ -13,8 +13,8 @@ SERVER_ADDR = "http://127.0.0.1:5000/"
 # 与后端对应的静态文件路径
 STATIC_PREFIX = SERVER_ADDR + 'ads/'
 
-# SERVER_API = "http://127.0.0.1:8000/api/"
-SERVER_API = "http://210.13.218.130:9004/api/"
+SERVER_API = "http://127.0.0.1:8000/api/"
+# SERVER_API = "http://210.13.218.130:9004/api/"
 
 STATIC_URL = SERVER_API[:-4] + 'static/'
 
@@ -61,11 +61,7 @@ SYSTEM_MENUS = [
             {"id": "-9_1_3", "name": "用户拓展信息", "logo": "", "children": None},
         ]},
         {"id": "-9_0", "name": "首页管理", "logo": "", "children": [
-            {"id": "-9_0_0", "name": "公告信息", "logo": "", "children": None},
-            {"id": "-9_0_1", "name": "广告展示", "logo": "", "children": None},
-            {"id": "-9_0_2", "name": "常规报告", "logo": "", "children": None},
-            {"id": "-9_0_3", "name": "交易通知", "logo": "", "children": None},
-            {"id": "-9_0_4", "name": "财经日历", "logo": "", "children": None},
+            {"id": "-9_0_1", "name": "常规报告", "logo": "", "children": None},
         ]},
         {"id": "-9_2", "name": "产品服务", "logo": "", "children": [
             {"id": "-9_2_0", "name": "短信通", "logo": "", "children": None},

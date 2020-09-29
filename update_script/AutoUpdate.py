@@ -15,7 +15,7 @@ from PyQt5.QtNetwork import QNetworkRequest, QNetworkAccessManager
 from PyQt5.QtGui import QIcon, QPixmap, QPalette, QFont, QImage
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PLATEFORM = "WIN10"
+PLATEFORM = "WIN7"
 
 
 class UpdatePage(QLabel):

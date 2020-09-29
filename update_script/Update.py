@@ -11,9 +11,10 @@ import json
 import time
 import logging
 import requests
+import stat
 from subprocess import Popen
 from PyQt5.QtWidgets import QApplication, QProgressBar, QLabel, QPushButton
-from PyQt5.QtCore import Qt, QUrl, QFile, QSize, QThread, pyqtSignal
+from PyQt5.QtCore import Qt, QUrl, QSize, QThread, pyqtSignal
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkAccessManager
 from PyQt5.QtGui import QIcon, QPixmap, QPalette, QFont, QImage
 
@@ -78,9 +79,10 @@ class DownloadFileThread(QThread):
             if r.status_code != 200:
                 raise ValueError("Status Code != 200")
             with open(save_file_path, "wb") as fp:
+                os.chmod(save_file_path, stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)  # mode:777
                 fp.write(r.content)
         except Exception as e:
-            logger.error("下载文件{}出错了:\n{}".format(split_[1], e))
+            logger.error("loading file - {} Error: {}".format(split_[1], e))
             return False
         else:
             return True
@@ -154,7 +156,7 @@ class UpdatePage(QLabel):
         self._updating()
 
     def user_force_exit(self):
-        logger.error("用户在更新中强制退出!")
+        logger.error("User kill the updating process!")
         self.close()
         sys.exit(0)
 
@@ -176,15 +178,15 @@ class UpdatePage(QLabel):
 
     def get_update_bg(self):
         """ 获取更新时的背景图 """
-        old_update_file = os.path.join(BASE_DIR, "classini/update_{}.json".format(self.sys_bit))
+        old_update_file = os.path.join(BASE_DIR, "classini/update_{}_{}.json".format(PLATEFORM, self.sys_bit))
         if not os.path.exists(old_update_file):
             pixmap = QPixmap('media/update_bg.png')
             scaled_map = pixmap.scaled(QSize(500, 200), Qt.KeepAspectRatio)
             self.setPixmap(scaled_map)
         else:
-            with open(old_update_file, "r", encoding="utf-8") as new_f:
-                new_json = json.load(new_f)
-            server = new_json["SERVER"]
+            with open(old_update_file, "r", encoding="utf-8") as old_fp:
+                old_json = json.load(old_fp)
+            server = old_json.get("SERVER", "http://210.13.218.130:9004/static/")
             url = server + "update_image_bg.png"
             reply = self.network_manager.get(QNetworkRequest(QUrl(url)))
             reply.finished.connect(self.start_image_reply)
@@ -246,7 +248,7 @@ class UpdatePage(QLabel):
     def update_finished(self):
         """ 更新结束 """
         if self.update_error:  # 更新失败
-            self.show_text.setText("更新失败\n具体信息查看日志!")
+            self.show_text.setText("更新失败...\nPlease check the log file!")
             self.show_text.setPalette(self.red)
         else:
             new_update_file = os.path.join(BASE_DIR, "classini/for_update_{}.json".format(self.sys_bit))

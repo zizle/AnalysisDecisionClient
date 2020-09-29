@@ -59,9 +59,6 @@ class ExchangeQuery(ExchangeQueryUI):
     def is_allow_query(self):
         """ 是否允许查询判断函数 """
         self.tip_label.show()
-        if self.current_exchange in ["shfe", "dce"] and self.current_action == 'receipt':
-            self.tip_label.setText("暂不支持该交易所的仓单数据查询...")
-            return False
         if self.current_exchange is None or self.current_action is None:
             self.tip_label.setText("左侧选择想要查询的数据类别再进行查询.")
             return False

@@ -221,6 +221,14 @@ class UserDataMaintain(UserDataMaintainUI):
         variety_en, variety_text = self.source_config_widget.variety_combobox.currentData(), self.source_config_widget.variety_combobox.currentText()
         group_id = self.source_config_widget.group_combobox.currentData()
         client = get_client_uuid()
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "industry/user-folder/?variety_en={}&group_id={}&client={}".format(variety_en, group_id, client)
+        request = QNetworkRequest(QUrl(url))
+        request.setRawHeader("Authorization".encode("utf-8"), get_user_token().encode("utf-8"))
+        reply = network_manager.get(request)
+        reply.finished.connect(self.get_update_folders_reply)
+        """
+        # 为了用户重新安装不丢失更新文件夹，2020-09-29改为后端存储
         db_path = os.path.join(BASE_DIR, "dawn/local_data.db")
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -240,23 +248,32 @@ class UserDataMaintain(UserDataMaintainUI):
         group_dict = dict()
         for i in range(self.source_config_widget.group_combobox.count()):
             group_dict[self.source_config_widget.group_combobox.itemData(i)] = self.source_config_widget.group_combobox.itemText(i)
+        """
+    def get_update_folders_reply(self):
+        """ 获取更新文件夹返回 """
+        reply = self.sender()
+        if reply.error():
+            folder_list = list()
+        else:
+            reply_message = json.loads(reply.readAll().data().decode("utf-8"))
+            folder_list = reply_message["folders"]
+        reply.deleteLater()
         self.source_config_widget.config_table.clearContents()
         self.source_config_widget.config_table.setRowCount(len(folder_list))
         for row, row_item in enumerate(folder_list):
-            item0 = QTableWidgetItem(str(row_item[0]))
+            item0 = QTableWidgetItem(str(row + 1))
             item0.setTextAlignment(Qt.AlignCenter)
             self.source_config_widget.config_table.setItem(row, 0, item0)
 
-            item1 = QTableWidgetItem(variety_text)
+            item1 = QTableWidgetItem(row_item["variety_name"])
             item1.setTextAlignment(Qt.AlignCenter)
             self.source_config_widget.config_table.setItem(row, 1, item1)
 
-            text2 = group_dict.get(row_item[2], '')
-            item2 = QTableWidgetItem(text2)
+            item2 = QTableWidgetItem(row_item["group_name"])
             item2.setTextAlignment(Qt.AlignCenter)
             self.source_config_widget.config_table.setItem(row, 2, item2)
 
-            item3 = QTableWidgetItem(row_item[3])
+            item3 = QTableWidgetItem(row_item["folder"])
             item3.setTextAlignment(Qt.AlignCenter)
             self.source_config_widget.config_table.setItem(row, 3, item3)
 

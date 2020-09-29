@@ -6,25 +6,20 @@ import os
 import random
 import json
 import zipfile
-from pandas import DataFrame, read_excel, read_table, merge, concat
+from pandas import DataFrame, read_excel, read_table, read_html, merge, concat
 from datetime import datetime
 from PyQt5.QtCore import QObject, pyqtSignal, QFile, QUrl
 from PyQt5.QtWidgets import qApp
 from PyQt5.QtNetwork import QNetworkRequest
-from utils.characters import split_number_en
+from utils.characters import split_number_en, full_width_to_half_width
 from utils.multipart import generate_multipart_data
+from utils.constant import VARIETY_EN
 from settings import logger
-from settings import USER_AGENTS, BASE_DIR, LOCAL_SPIDER_SRC, SERVER_API
-
-
-dce_json_path = os.path.join(BASE_DIR, "classini/dce.json")
-
-with open(dce_json_path, "r", encoding="utf-8") as reader:
-    GOODS_DICT = json.load(reader)
+from settings import USER_AGENTS, LOCAL_SPIDER_SRC, SERVER_API
 
 
 def get_variety_en(name):
-    variety_en = GOODS_DICT.get(name, None)
+    variety_en = VARIETY_EN.get(name, None)
     if variety_en is None:
         logger.error("大商所{}品种对应的代码不存在...".format(name))
         raise ValueError("品种不存在...")
@@ -362,5 +357,52 @@ class DCEParser(QObject):
 
     def parser_receipt_source_file(self):
         """ 解析仓单日报源文件 """
-        self.parser_finished.emit("暂不支持大商所仓单的解析保存", True)
-        return DataFrame()
+        file_path = os.path.join(LOCAL_SPIDER_SRC, "dce/receipt/{}.html".format(self.date.strftime("%Y-%m-%d")))
+        if not os.path.exists(file_path):
+            self.parser_finished.emit("没有发现大商所{}的仓单日报源文件,请先抓取数据!".format(self.date.strftime("%Y-%m-%d")), True)
+            return DataFrame()
+        html_df = read_html(file_path, encoding='utf-8')[0]
+        if html_df.columns.values.tolist() != ['品种', '仓库/分库', '昨日仓单量', '今日仓单量', '增减']:
+            logger.error("郑商所的数据格式出现错误,解析失败!")
+            return DataFrame()
+        # 修改列头
+        html_df.columns = ["VARIETY", "WARENAME", "YRECEIPT", "TRECEIPT", "INCREATE"]
+        # 填充nan为上一行数据
+        html_df.fillna(method='ffill', inplace=True)
+        # 去除品种含小计,总计等行
+        html_df = html_df[~html_df['VARIETY'].str.contains('总计|小计|合计')]
+        # 仓库简称处理
+        html_df["WARENAME"] = html_df["WARENAME"].apply(full_width_to_half_width)
+        # 增加品种代码
+        html_df["VARIETYEN"] = html_df["VARIETY"].apply(get_variety_en)
+        # 增加今日时间
+        date_str = self.date.strftime("%Y%m%d")
+        html_df["DATE"] = [date_str for _ in range(html_df.shape[0])]
+        # 重置索引
+        result_df = html_df.reindex(
+            columns=["WARENAME", "VARIETYEN", "DATE", "TRECEIPT", "INCREATE"])
+        result_df.columns = ["warehouse", "variety_en", "date", "receipt", "receipt_increase"]
+        return result_df
+
+    def save_receipt_server(self, source_df):
+        """ 保存仓单日报到服务器 """
+        self.parser_finished.emit("开始保存大商所{}仓单日报数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
+        data_body = source_df.to_dict(orient="records")
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "exchange/dce/receipt/?date=" + self.date.strftime("%Y-%m-%d")
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+
+        reply = network_manager.post(request, json.dumps(data_body).encode("utf-8"))
+        reply.finished.connect(self.save_receipt_server_reply)
+
+    def save_receipt_server_reply(self):
+        """ 保存仓单日报到数据库返回 """
+        reply = self.sender()
+        data = reply.readAll().data()
+        reply.deleteLater()
+        if reply.error():
+            self.parser_finished.emit("保存大商所{}仓单日报到服务数据库失败:\n{}".format(self.date.strftime("%Y-%m-%d"), reply.error()), True)
+        else:
+            data = json.loads(data.decode("utf-8"))
+            self.parser_finished.emit(data["message"], True)

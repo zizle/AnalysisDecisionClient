@@ -57,6 +57,25 @@ class UpdateFolderPopup(QDialog):
 
     def confirm_current_folder(self):
         """ 确定当前配置 """
+        # 发起配置的请求
+        folder_path = self.folder_edit.text()
+        if not folder_path:
+            return
+        body_data = {
+            "client": get_client_uuid(),
+            "folder_path": folder_path,
+            "variety_en": self.variety_en,
+            "group_id": self.group_id
+        }
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "industry/user-folder/"
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/x-www-form-urlencoded")
+        request.setRawHeader("Authorization".encode("utf-8"), get_user_token().encode("utf-8"))
+        reply = network_manager.post(request, json.dumps(body_data).encode("utf-8"))
+        reply.finished.connect(self.create_update_folder_reply)
+
+        """ 本地保存(为了更新好处理和用户重新安装程序也存在这个配置,2020-09-29采用线上服务器保存)
         # 打开sqlite3进行数据的保存
         folder_path = self.folder_edit.text()
         if not folder_path:
@@ -86,6 +105,15 @@ class UpdateFolderPopup(QDialog):
         cursor.close()
         conn.close()
         self.successful_signal.emit("调整配置成功!")
+        """
+    def create_update_folder_reply(self):
+        """ 创建更新文件价返回 """
+        reply = self.sender()
+        if reply.error():
+            self.successful_signal.emit("调整配置失败了!")
+        else:
+            self.successful_signal.emit("调整配置成功!")
+        reply.deleteLater()
 
 
 """ 图形配置选项 """

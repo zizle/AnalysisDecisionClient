@@ -16,7 +16,7 @@ def get_client_uuid():
     result_list = re.split(r'\s+', result)
     if len(result_list[1]) != 36:  # 获取uuid失败
         logger.error("Get Client UUID failed!")
-        return None
+        return ''
     return result_list[1]
 
 

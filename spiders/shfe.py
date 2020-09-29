@@ -11,8 +11,9 @@ from pandas import DataFrame
 from PyQt5.QtCore import QObject, pyqtSignal, QUrl
 from PyQt5.QtWidgets import qApp
 from PyQt5.QtNetwork import QNetworkRequest
-from utils.characters import split_number_en
-from settings import USER_AGENTS, LOCAL_SPIDER_SRC, SERVER_API
+from utils.characters import split_number_en, full_width_to_half_width
+from utils.constant import VARIETY_EN
+from settings import USER_AGENTS, LOCAL_SPIDER_SRC, SERVER_API, logger
 
 
 class DateValueError(Exception):
@@ -244,8 +245,62 @@ class SHFEParser(QObject):
             data = json.loads(data.decode("utf-8"))
             self.parser_finished.emit(data["message"], True)
 
+    @staticmethod
+    def get_variety_en(variety_name: str):
+        en = VARIETY_EN.get(variety_name.strip(), None)
+        if not en:
+            logger.error("品种:{} 的交易所代码配置不存在".format(variety_name))
+            raise ValueError("上期所品种:{} 的交易所代码配置不存在".format(variety_name))
+        return en
+
     def parser_receipt_source_file(self):
         """ 解析仓单日报源文件 """
-        self.parser_finished.emit("暂不支持上期所仓单的解析保存", True)
-        return DataFrame()
+        file_path = os.path.join(LOCAL_SPIDER_SRC, "shfe/receipt/{}.json".format(self.date.strftime("%Y-%m-%d")))
+        if not os.path.exists(file_path):
+            self.parser_finished.emit("没有发现上期所{}的仓单日报源文件,请先抓取数据!".format(self.date.strftime("%Y-%m-%d")), True)
+            return DataFrame()
+        with open(file_path, "r", encoding="utf-8") as reader:
+            source_content = json.load(reader)
+        json_df = DataFrame(source_content['o_cursor'])
+        # 处理仓库名称
+        json_df["WHABBRNAME"] = json_df["WHABBRNAME"].apply(full_width_to_half_width)
+        json_df["WHABBRNAME"] = json_df["WHABBRNAME"].apply(lambda name: name.split("$$")[0].strip())
+        # 去掉含仓库名称含合计或小计的行
+        json_df = json_df[~json_df['WHABBRNAME'].str.contains('总计|小计|合计')]  # 选取品种不含有小计和总计合计的行
+        # 处理品种名称
+        json_df["VARNAME"] = json_df["VARNAME"].apply(lambda name: name.split("$$")[0].strip())
+        # 增加交易代码列
+        json_df["VAREN"] = json_df['VARNAME'].apply(self.get_variety_en)
+        # 仓单和增减转为int类型
+        json_df["WRTWGHTS"] = json_df["WRTWGHTS"].apply(int)
+        json_df["WRTCHANGE"] = json_df["WRTCHANGE"].apply(int)
+        # 添加日期
+        date_str = self.date.strftime("%Y%m%d")
+        json_df["DATE"] = [date_str for _ in range(json_df.shape[0])]
+        # 整理出想要的数据列(仓库名称(简称),交易代码,日期,仓单,增减)
+        result_df = json_df.reindex(columns=["WHABBRNAME", "VAREN", "DATE", "WRTWGHTS", "WRTCHANGE"])
+        result_df.columns = ["warehouse", "variety_en", "date", "receipt", "receipt_increase"]
+        return result_df
 
+    def save_receipt_server(self, source_df):
+        """ 保存仓单日报到服务器 """
+        self.parser_finished.emit("开始保存上期所{}仓单日报数据到服务器数据库...".format(self.date.strftime("%Y-%m-%d")), False)
+        data_body = source_df.to_dict(orient="records")
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "exchange/shfe/receipt/?date=" + self.date.strftime("%Y-%m-%d")
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+
+        reply = network_manager.post(request, json.dumps(data_body).encode("utf-8"))
+        reply.finished.connect(self.save_receipt_server_reply)
+
+    def save_receipt_server_reply(self):
+        """ 保存仓单日报到数据库返回 """
+        reply = self.sender()
+        data = reply.readAll().data()
+        reply.deleteLater()
+        if reply.error():
+            self.parser_finished.emit("保存上期所{}仓单日报到服务数据库失败:\n{}".format(self.date.strftime("%Y-%m-%d"), reply.error()), True)
+        else:
+            data = json.loads(data.decode("utf-8"))
+            self.parser_finished.emit(data["message"], True)
