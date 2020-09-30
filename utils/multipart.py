@@ -3,7 +3,7 @@
 # @Time  : 2020-07-21 15:42
 # @Author: zizle
 from PyQt5.QtNetwork import QHttpPart, QHttpMultiPart, QNetworkRequest
-from PyQt5.QtCore import QFileInfo
+from PyQt5.QtCore import QFileInfo, QFile
 
 
 def generate_multipart_data(text_dict=None, file_dict=None):
