@@ -119,10 +119,3 @@ class NetPosition(NetPositionUI):
                 self.data_table.setItem(row, col, item)
             is_pre_half = not is_pre_half
 
-
-
-
-
-
-
-

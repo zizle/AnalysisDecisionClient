@@ -5,7 +5,6 @@
 """ 用户产业数据模块后台维护 """
 import os
 import json
-import sqlite3
 import time
 import numpy as np
 import pandas as pd
@@ -44,7 +43,7 @@ class UpdatingSheetsThread(QThread):
                 logger.error("打开Excel文件失败:{}".format(e))
                 continue
             for sheet_name in excel_file.sheet_names:
-                if sheet_name.lower().startswith("sheet"):
+                if sheet_name.strip().lower().startswith("sheet"):
                     continue
                 time.sleep(0.03)
                 # converters参数 第0列为时间格式
@@ -68,6 +67,12 @@ class UpdatingSheetsThread(QThread):
                     "sheet_headers": sheet_headers,
                     "sheet_values": sheet_df.to_dict(orient="records")
                 }
+                # 数据json化检验
+                try:
+                    json.dumps(sheet_source)
+                except Exception:
+                    logger.error("sheet:{} of file:{} encoder json fail!".format(sheet_name, excel_path))
+                    continue
                 self.to_server_updating(sheet_source)
             excel_file.close()
             self.single_finished.emit(index + 1)

@@ -80,7 +80,8 @@ class CheckVersion(CheckVersionUI):
 
     def exit_for_updating(self):
         """ 退出当前程序，启动更新更新 """
-        script_file = os.path.join(BASE_DIR, "AutoUpdate.exe")
+        # script_file = os.path.join(BASE_DIR, "AutoUpdate.exe")
+        script_file = os.path.join(BASE_DIR, "Update.exe")
         is_close = True
         if os.path.exists(script_file):
             try:

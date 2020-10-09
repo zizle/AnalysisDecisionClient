@@ -39,7 +39,7 @@ class NetPositionUI(QWidget):
         # 显示数据的表
         self.data_table = QTableWidget(self)
         self.data_table.setFrameShape(QFrame.NoFrame)
-        self.data_table.setEditTriggers(QAbstractItemView.NoEditTriggers)   # 不可编辑
+        # self.data_table.setEditTriggers(QAbstractItemView.NoEditTriggers)   # 不可编辑
         self.data_table.setFocusPolicy(Qt.NoFocus)                          # 去选中时的虚线框
         self.data_table.setAlternatingRowColors(True)                       # 交替行颜色
         self.data_table.horizontalHeader().setDefaultSectionSize(85)        # 默认的标题头宽
@@ -61,6 +61,16 @@ class NetPositionUI(QWidget):
             "QScrollBar::sub-page:horizontal{height:10px;background:transparent;}"
             "QScrollBar::sub-line:horizontal{width:0px}"
             "QScrollBar::add-line:horizontal{width:0px}"
+        )
+        self.data_table.verticalScrollBar().setStyleSheet(
+            "QScrollBar:vertical{background: transparent; width:10px;margin: 0px;}"
+            "QScrollBar:vertical:hover{background:rgba(0,0,0,30);border-radius:5px}"
+            "QScrollBar::handle:vertical{background: rgba(0,0,0,50);width:10px;border-radius:5px;border:none}"
+            "QScrollBar::handle:vertical:hover{background:rgba(0,0,0,100)}"
+            "QScrollBar::add-page:vertical{width:10px;background:transparent;}"
+            "QScrollBar::sub-page:vertical{width:10px;background:transparent;}"
+            "QScrollBar::sub-line:vertical{height:0px}"
+            "QScrollBar::add-line:vertical{height:0px}"
         )
         self.data_table.horizontalHeader().setStyleSheet(
             "QHeaderView::section,QTableCornerButton::section{height:25px;background-color:rgb(243,245,248);"
