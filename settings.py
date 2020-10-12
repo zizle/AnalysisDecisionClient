@@ -61,6 +61,7 @@ SYSTEM_MENUS = [
             {"id": "-9_1_3", "name": "用户拓展信息", "logo": "", "children": None},
         ]},
         {"id": "-9_0", "name": "首页管理", "logo": "", "children": [
+            {"id": "-9_0_0", "name": "广告设置", "logo": "", "children": None},
             {"id": "-9_0_1", "name": "常规报告", "logo": "", "children": None},
         ]},
         {"id": "-9_2", "name": "产品服务", "logo": "", "children": [

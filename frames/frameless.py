@@ -24,6 +24,7 @@ from admin.industry.spot_price import SpotPriceAdmin
 from admin.operator.user_extension import UserExtensionPage
 from admin.receipt_parser import ReceiptParser
 from admin.homepage.report_file import ReportFileAdmin
+from admin.homepage.advertisement import HomepageAdAdmin
 from frames.homepage import Homepage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
@@ -282,6 +283,8 @@ class ClientMainApp(FrameLessWindowUI):
             page = NetPosition()
         elif module_id == "3":           # 交割服务
             page = DeliveryPage()
+        elif module_id == "-9_0_0":      # 后台管理-广告设置
+            page = HomepageAdAdmin()
         elif module_id == "-9_0_1":
             page = ReportFileAdmin()     # 后台管理-常规报告
         elif module_id == "-9_1_0":
