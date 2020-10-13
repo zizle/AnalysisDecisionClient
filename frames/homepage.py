@@ -2,14 +2,17 @@
 # @File  : homepage_b.py
 # @Time  : 2020-07-19 15:14
 # @Author: zizle
-import os
+import webbrowser
 import json
-from PyQt5.QtWidgets import qApp, QMessageBox, QLabel, QPushButton, QScrollBar
-from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import QSettings, QUrl, QThread, QEventLoop
-from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
+from PyQt5.QtWidgets import qApp
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import QUrl, QEventLoop
+from PyQt5.QtNetwork import QNetworkRequest
+from widgets.pdf_shower import PDFContentPopup
+from popup.advertisement import TextPopup
 from .homepage_ui import HomepageUI, ControlButton, PixMapLabel
-from settings import BASE_DIR, SERVER_API
+from settings import SERVER_API, STATIC_URL
+
 
 class Homepage(HomepageUI):
     """ 首页业务 """
@@ -18,7 +21,7 @@ class Homepage(HomepageUI):
         self.event_loop = QEventLoop(self)
         self.control_buttons = list()
         self.get_all_advertisement()
-        self.slide_stacked.autoStart(msec=4000)
+        # self.slide_stacked.autoStart(msec=4000)  # 自动开启得放置于填充图片之后,否则闪退
         self.slide_stacked.clicked_release.connect(self.image_widget_clicked)
         self.slide_stacked.currentChanged.connect(self.change_button_icon)  # 图片变化设置icon的背景
         # 滚动条的滚动移动相对于父窗口的控制button位置
@@ -64,6 +67,8 @@ class Homepage(HomepageUI):
             button.clicked.connect(self.skip_to_image)
             self.control_buttons.append(button)
             self.control_widget.layout().addWidget(button)
+        if advertisements:
+            self.slide_stacked.autoStart(msec=4000)
 
     # def add_images(self):
     #     """ 添加轮播的图片信息（开发GUI测试代码） """
@@ -92,7 +97,22 @@ class Homepage(HomepageUI):
 
     def image_widget_clicked(self):
         """ 点击了广告 """
-        print(self.slide_stacked.currentWidget())
+        current_ad = self.slide_stacked.currentWidget()
+        ad_data = current_ad.get_ad_data()
+        # 根据ad_data显示出来广告响应
+        ad_type = ad_data["ad_type"]
+        if ad_type == "file":
+            file_url = STATIC_URL + ad_data["filepath"]
+            p = PDFContentPopup(file=file_url, title=ad_data["title"])
+            p.exec_()
+        elif ad_type == "web":
+            webbrowser.open_new_tab(ad_data["web_url"])
+        elif ad_type == "content":
+            p = TextPopup(message=ad_data["content"])
+            p.setWindowTitle(ad_data["title"])
+            p.exec_()
+        else:
+            pass
 
     def skip_to_image(self):
         """ 跳到指定广告 """
@@ -100,4 +120,3 @@ class Homepage(HomepageUI):
         if target_index is not None:
             self.slide_stacked.setCurrentIndex(target_index)
             self.change_button_icon(target_index)
-

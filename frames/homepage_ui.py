@@ -40,7 +40,8 @@ class PixMapLabel(QLabel):
     """ 显示图片的label """
     def __init__(self, ad_data, *args, **kwargs):
         super(PixMapLabel, self).__init__(*args)
-        url = STATIC_URL + ad_data.get("image")
+        self.ad_data = ad_data
+        url = STATIC_URL + self.ad_data.get("image", '')
         # 无法在本控件内直接使用异步访问图片(可能是由于上一级QEventLoop影响)
         # 如果上一级不用QEventLoop则无法加载除控制的按钮
         self.image_thread = AdImageThread(url)
@@ -51,6 +52,9 @@ class PixMapLabel(QLabel):
     def fill_image_pixmap(self, image: QImage):
         self.setPixmap(QPixmap(image))
         self.setScaledContents(True)
+
+    def get_ad_data(self):
+        return self.ad_data
 
 
 class ControlButton(QPushButton):
@@ -64,6 +68,7 @@ class ControlButton(QPushButton):
         self.setObjectName("controlButton")
         self.setStyleSheet(
             "#controlButton{border:none;}#controlButton:hover{color:#d81e06}"
+            "#controlButton:focus{outline: none;} "
         )
         self.setIconSize(QSize(13, 13))
 
