@@ -213,7 +213,6 @@ class ReportFileAdmin(ReportFileAdminUI):
         """ 上传本地报告文件 """
 
         def create_report_reply():
-            print(reply.readAll().data())
             if reply.error():
                 message = "创建报告失败!"
             else:

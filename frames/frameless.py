@@ -43,6 +43,7 @@ class ClientMainApp(FrameLessWindowUI):
 
         qApp.applicationStateChanged.connect(self.application_state_changed)
 
+        self.current_page_id = None  # 当前的页面
         self.user_online_timer = QTimer(self)                                              # 用户登录时间定时器
         self.user_online_timer.timeout.connect(self.update_user_online_time)
 
@@ -134,6 +135,7 @@ class ClientMainApp(FrameLessWindowUI):
         """ 设置默认的首页 """
         homepage = Homepage()
         self.center_widget.setCentralWidget(homepage)
+        self.current_page_id = None
 
     def clicked_username_button(self):
         """ 点击了登录/用户名
@@ -153,8 +155,9 @@ class ClientMainApp(FrameLessWindowUI):
         self.navigation_bar.username_button.setText(username)
         self.navigation_bar.set_user_login_status(status=1)
         self.navigation_bar.logout_button.show()
-        # 跳转到首页
-        self.set_default_homepage()
+        # 当前不是首页就跳转到首页(防止启动自动登录2次跳转首页)
+        if self.current_page_id is not None:
+            self.set_default_homepage()
 
     def _user_login_automatic(self):
         """ 用户自动登录 """
@@ -197,7 +200,6 @@ class ClientMainApp(FrameLessWindowUI):
     def user_logout(self, to_homepage=True):
         """ 用户退出
         """
-        print(to_homepage)
         self.navigation_bar.username_button.setText('登录')
         self.navigation_bar.set_user_login_status(status=0)
         self.navigation_bar.logout_button.hide()
@@ -216,9 +218,11 @@ class ClientMainApp(FrameLessWindowUI):
                 styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
                 alignment=Qt.AlignCenter)
         self.center_widget.setCentralWidget(page)
+        self.current_page_id = module_id
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """
+        self.current_page_id = module_id
         if module_id == "0":
             self.set_default_homepage()
             return

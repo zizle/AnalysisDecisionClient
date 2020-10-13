@@ -3,29 +3,21 @@
 # @Time  : 2020-07-19 15:14
 # @Author: zizle
 import os
-from PyQt5.QtWidgets import QApplication, QMessageBox, QLabel, QPushButton, QScrollBar
+import json
+from PyQt5.QtWidgets import qApp, QMessageBox, QLabel, QPushButton, QScrollBar
 from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import QSettings, QUrl, QThread
+from PyQt5.QtCore import QSettings, QUrl, QThread, QEventLoop
 from PyQt5.QtNetwork import QNetworkRequest, QNetworkReply
-from .homepage_ui import HomepageUI, ControlButton
+from .homepage_ui import HomepageUI, ControlButton, PixMapLabel
 from settings import BASE_DIR, SERVER_API
-
-
-class AdImageThread(QThread):
-    """ 请求广告图片的线程 """
-    def __init__(self, image_list, *args, **kwargs):
-        super(AdImageThread, self).__init__(*args, **kwargs)
-
-    def run(self):
-        pass
-
 
 class Homepage(HomepageUI):
     """ 首页业务 """
     def __init__(self, *args, **kwargs):
         super(Homepage, self).__init__(*args, **kwargs)
+        self.event_loop = QEventLoop(self)
         self.control_buttons = list()
-        self.add_images()
+        self.get_all_advertisement()
         self.slide_stacked.autoStart(msec=4000)
         self.slide_stacked.clicked_release.connect(self.image_widget_clicked)
         self.slide_stacked.currentChanged.connect(self.change_button_icon)  # 图片变化设置icon的背景
@@ -41,14 +33,29 @@ class Homepage(HomepageUI):
         """ 纵向滚动条滚动事件 """
         self.control_widget.move(self.CONTROL_LEFT_DISTANCE - self.horizontalScrollBar().value(), 0 - value)
 
-    def add_images(self):
-        """ 添加轮播的图片信息 """
-        # 获取广告信息
+    def get_all_advertisement(self):
+        """ 获取所有的广告信息 """
+        url = SERVER_API + 'advertisement/'
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.get_advertisement_reply)
+        self.event_loop.exec_()
+
+    def get_advertisement_reply(self):
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            self.show_advertisement(data["advertisements"])
+            self.event_loop.quit()  # 没使用同步无法加载出控制的按钮
+        reply.deleteLater()
+
+    def show_advertisement(self, advertisements):
+        """ 显示所有的广告"""
         self.control_buttons.clear()
-        for index, name in enumerate(os.listdir('Data/Images')):
-            label = QLabel(self.slide_stacked)
-            label.setScaledContents(True)
-            label.setPixmap(QPixmap('Data/Images/' + name))
+        for index, ad_item in enumerate(advertisements):
+            label = PixMapLabel(ad_item, self.slide_stacked)  # 内置QThread访问图片
             self.slide_stacked.addWidget(label)
             button = ControlButton("media/icons/empty_circle.png", "media/icons/full_circle.png", self.control_widget)
             if index == 0:
@@ -57,6 +64,23 @@ class Homepage(HomepageUI):
             button.clicked.connect(self.skip_to_image)
             self.control_buttons.append(button)
             self.control_widget.layout().addWidget(button)
+
+    # def add_images(self):
+    #     """ 添加轮播的图片信息（开发GUI测试代码） """
+    #     # 获取广告信息
+    #     self.control_buttons.clear()
+    #     for index, name in enumerate(os.listdir('Data/Images')):
+    #         label = QLabel(self.slide_stacked)
+    #         label.setScaledContents(True)
+    #         label.setPixmap(QPixmap('Data/Images/' + name))
+    #         self.slide_stacked.addWidget(label)
+    #         button = ControlButton("media/icons/empty_circle.png", "media/icons/full_circle.png", self.control_widget)
+    #         if index == 0:
+    #             button.setIcon(QIcon(button.hover_icon_path))
+    #         setattr(button, "image_index", index)
+    #         button.clicked.connect(self.skip_to_image)
+    #         self.control_buttons.append(button)
+    #         self.control_widget.layout().addWidget(button)
 
     def change_button_icon(self, current_index):
         """ 改变button的背景icon """

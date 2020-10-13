@@ -3,65 +3,58 @@
 # @Time  : 2020-07-19 15:12
 # @Author: zizle
 import os
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QScrollArea, QPushButton
-from PyQt5.QtCore import Qt, QRect, QEasingCurve, QMargins, QSize
-from PyQt5.QtGui import QPainter, QPixmap, QIcon
+from PyQt5.QtWidgets import qApp, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QScrollArea, QPushButton
+from PyQt5.QtCore import Qt, QRect, QEasingCurve, QMargins, QSize, QUrl, QThread, pyqtSignal
+from PyQt5.QtGui import QPainter, QPixmap, QIcon, QImage
+from PyQt5.QtNetwork import QNetworkRequest
 from widgets.sliding_stacked import SlidingStackedWidget
+from settings import STATIC_URL
 
 
-class ImageSliderWidget(QWidget):
+class AdImageThread(QThread):
+    """ 请求广告图片的线程 """
+    get_back_image = pyqtSignal(QImage)
 
-    def __init__(self, *args, **kwargs):
-        super(ImageSliderWidget, self).__init__(*args, **kwargs)
-        self.stacked_widget = SlidingStackedWidget(self)
+    def __init__(self, image_url, *args, **kwargs):
+        super(AdImageThread, self).__init__(*args, **kwargs)
+        self.image_url = image_url
 
-        # self.setupUi(self)
-        # # 初始化动画曲线类型
-        # curve_types = [(n, c) for n, c in QEasingCurve.__dict__.items()
-        #                if isinstance(c, QEasingCurve.Type)]
-        # curve_types.sort(key=lambda ct: ct[1])
-        # curve_types = [c[0] for c in curve_types]
-        # self.comboBoxEasing.addItems(curve_types)
+    def run(self):
+        network_manager = getattr(qApp, "_network")
+        reply = network_manager.get(QNetworkRequest(QUrl(self.image_url)))
+        reply.finished.connect(self.image_reply)
+        self.exec_()
 
-        # 绑定信号槽
-        # self.spinBoxSpeed.valueChanged.connect(self.stackedWidget.setSpeed)
-        # self.comboBoxEasing.currentTextChanged.connect(self.setEasing)
-        # self.radioButtonHor.toggled.connect(self.setOrientation)
-        # self.radioButtonVer.toggled.connect(self.setOrientation)
-        # self.pushButtonPrev.clicked.connect(self.stackedWidget.slideInPrev)
-        # self.pushButtonNext.clicked.connect(self.stackedWidget.slideInNext)
-        # self.pushButtonStart.clicked.connect(self.autoStart)
-        # self.pushButtonStop.clicked.connect(self.autoStop)
+    def image_reply(self):
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            image = QImage.fromData(reply.readAll().data())
+            self.get_back_image.emit(image)
+        reply.deleteLater()
+        self.quit()
 
-        # 添加图片页面
-        for name in os.listdir('Data/Images'):
-            label = QLabel(self.stackedWidget)
-            label.setScaledContents(True)
-            label.setPixmap(QPixmap('Data/Images/' + name))
-            self.stackedWidget.addWidget(label)
 
-    def autoStart(self):
-        self.pushButtonNext.setEnabled(False)
-        self.pushButtonPrev.setEnabled(False)
-        self.stackedWidget.autoStart()
+class PixMapLabel(QLabel):
+    """ 显示图片的label """
+    def __init__(self, ad_data, *args, **kwargs):
+        super(PixMapLabel, self).__init__(*args)
+        url = STATIC_URL + ad_data.get("image")
+        # 无法在本控件内直接使用异步访问图片(可能是由于上一级QEventLoop影响)
+        # 如果上一级不用QEventLoop则无法加载除控制的按钮
+        self.image_thread = AdImageThread(url)
+        self.image_thread.finished.connect(self.image_thread.deleteLater)
+        self.image_thread.get_back_image.connect(self.fill_image_pixmap)
+        self.image_thread.start()
 
-    def autoStop(self):
-        self.pushButtonNext.setEnabled(True)
-        self.pushButtonPrev.setEnabled(True)
-        self.stackedWidget.autoStop()
-
-    def setEasing(self, name):
-        self.stackedWidget.setEasing(getattr(QEasingCurve, name))
-
-    def setOrientation(self, checked):
-        hor = self.sender() == self.radioButtonHor
-        if checked:
-            self.stackedWidget.setOrientation(
-                Qt.Horizontal if hor else Qt.Vertical)
+    def fill_image_pixmap(self, image: QImage):
+        self.setPixmap(QPixmap(image))
+        self.setScaledContents(True)
 
 
 class ControlButton(QPushButton):
-    """ 置顶按钮 """
+    """ 跳转轮播位置按钮 """
     def __init__(self, icon_path, hover_icon_path, *args):
         super(ControlButton, self).__init__(*args)
         self.icon_path = icon_path
@@ -69,7 +62,9 @@ class ControlButton(QPushButton):
         self.setCursor(Qt.PointingHandCursor)
         self.setIcon(QIcon(self.icon_path))
         self.setObjectName("controlButton")
-        self.setStyleSheet("#controlButton{border:none}#controlButton:hover{color:#d81e06}")
+        self.setStyleSheet(
+            "#controlButton{border:none;}#controlButton:hover{color:#d81e06}"
+        )
         self.setIconSize(QSize(13, 13))
 
     # def enterEvent(self, *args, **kwargs):
@@ -137,11 +132,10 @@ class HomepageUI(QScrollArea):
         )
 
 
-
-class HomepageUI2(QWidget):
+class HomepageUI1(QWidget):
     """ 首页UI """
     def __init__(self, *args, **kwargs):
-        super(HomepageUI2, self).__init__(*args, **kwargs)
+        super(HomepageUI1, self).__init__(*args, **kwargs)
         layout = QVBoxLayout()
         label = QLabel("期货分析助手", self)
         label.setAlignment(Qt.AlignCenter)

@@ -1,3 +1,12 @@
+【2020-10-13最新更新发布流程】
+1 使用虚拟机win7x86系统打包安装程序
+2 将依赖文件(及更新程序)放入根目录
+3 生成json文件 update_WIN7_32.json
+4 将update_WIN7_32.json复制一份重名名updateInside_WIN7_32.json并增加'UPDATE'更新内容字段供后端使用
+5 将update_WIN7_32.json放入classini文件夹中
+6 使用Inno Setup打包安装程序(此时才需放入更新程序)
+
+
 【安装包发布】
 1 打包出安装文件
 2 将安装文件放置更新文件夹

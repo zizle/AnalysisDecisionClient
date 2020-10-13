@@ -2,14 +2,13 @@
 # @File  : net_position.py
 # @Time  : 2020-08-21 11:12
 # @Author: zizle
-
+import math
 import json
 from PyQt5.QtWidgets import qApp, QTableWidgetItem
 from PyQt5.QtNetwork import QNetworkRequest
 from PyQt5.QtCore import QUrl, Qt, QTimer
 from PyQt5.QtGui import QBrush, QColor
 from settings import SERVER_API
-from utils.constant import VARIETY_ZH
 from .net_position_ui import NetPositionUI
 
 
@@ -82,7 +81,11 @@ class NetPosition(NetPositionUI):
         self.timeout_count = 0            # 计数归0
         self.tip_label.setText("获取结果成功! ")
         # 生成表格的列头
-        self.data_table.setColumnCount(len(header_keys) * 2)
+        header_length = len(header_keys)  # 有日期和中英文的标头故-1
+        self.data_table.setColumnCount(header_length * 2)
+        row_count = math.ceil(len(show_data) / 2)
+        self.data_table.setRowCount(row_count)
+        # 设置表头数据
         interval_day = self.interval_days.value()
         for count in range(2):
             for index, h_key in enumerate(header_keys):
@@ -95,27 +98,50 @@ class NetPosition(NetPositionUI):
                 setattr(item, 'key', h_key)
                 self.data_table.setHorizontalHeaderItem(index + count * len(header_keys), item)
 
-        is_pre_half = True
+        # 纵向根据交易代码顺序填充数据(2020-10-13修改)
+        index_count = 0
+        row = 0
         for variety, variety_values in show_data.items():
-            row = self.data_table.rowCount()
-            if is_pre_half:
-                col_start = 0
-                col_end = len(header_keys)
-                self.data_table.insertRow(row)
-            else:
-                row -= 1
-                col_start = len(header_keys)
-                col_end = self.data_table.columnCount()
+            if index_count < row_count:  # 前半段数据
+                col_start, col_end = 0, header_length
+            else:  # 后半段数据
+                col_start, col_end = header_length, 2 * header_length
+                if index_count == row_count:
+                    row = 0  # 回到第一行
             for col in range(col_start, col_end):
                 data_key = getattr(self.data_table.horizontalHeaderItem(col), 'key')
                 if col == col_start:
-                    v_zh = VARIETY_ZH.get(variety_values['variety_en'], variety_values['variety_en'])
-                    item = QTableWidgetItem(v_zh)
+                    item = QTableWidgetItem(str(variety_values.get(data_key, 0)))
                     item.setForeground(QBrush(QColor(180, 60, 60)))
                 else:
                     item = QTableWidgetItem(str(int(variety_values.get(data_key, 0))))
                 item.setTextAlignment(Qt.AlignCenter)
-
                 self.data_table.setItem(row, col, item)
-            is_pre_half = not is_pre_half
+            index_count += 1  # 记录个数切换到后半段
+            row += 1
+
+        # 根据交易所品种横向填充数据
+        # self.data_table.setRowCount(0)
+        # is_pre_half = True
+        # for variety, variety_values in show_data.items():
+        #     row = self.data_table.rowCount()
+        #     if is_pre_half:
+        #         col_start = 0
+        #         col_end = len(header_keys)
+        #         self.data_table.insertRow(row)
+        #     else:
+        #         row -= 1
+        #         col_start = len(header_keys)
+        #         col_end = self.data_table.columnCount()
+        #     for col in range(col_start, col_end):
+        #         data_key = getattr(self.data_table.horizontalHeaderItem(col), 'key')
+        #         if col == col_start:
+        #             item = QTableWidgetItem(str(variety_values.get(data_key, 0)))
+        #             item.setForeground(QBrush(QColor(180, 60, 60)))
+        #         else:
+        #             item = QTableWidgetItem(str(int(variety_values.get(data_key, 0))))
+        #         item.setTextAlignment(Qt.AlignCenter)
+        #
+        #         self.data_table.setItem(row, col, item)
+        #     is_pre_half = not is_pre_half
 
