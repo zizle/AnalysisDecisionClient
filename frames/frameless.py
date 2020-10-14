@@ -134,6 +134,8 @@ class ClientMainApp(FrameLessWindowUI):
     def set_default_homepage(self):
         """ 设置默认的首页 """
         homepage = Homepage()
+        # 关联菜单信号
+        homepage.SkipPage.connect(self.homepage_menu_selected)
         self.center_widget.setCentralWidget(homepage)
         self.current_page_id = None
 
@@ -209,7 +211,6 @@ class ClientMainApp(FrameLessWindowUI):
 
     def set_system_page(self, module_id):
         """ 进入关于系统 """
-        print(module_id)
         if module_id == "0_0_1":
             page = CheckVersion()  # 版本检查页面
         else:
@@ -219,6 +220,10 @@ class ClientMainApp(FrameLessWindowUI):
                 alignment=Qt.AlignCenter)
         self.center_widget.setCentralWidget(page)
         self.current_page_id = module_id
+
+    def homepage_menu_selected(self, menu_id, menu_text):
+        """ 主页需要跳转页面的菜单 """
+        print("主页需要跳转页面的菜单:", menu_id, menu_text)
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """

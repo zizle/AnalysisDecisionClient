@@ -82,6 +82,20 @@ SYSTEM_MENUS = [
     ]},
 ]
 
+# 首页左侧的菜单(2级)
+HOMEPAGE_MENUS = [
+    {"id": "l_0", "name": "研 究\n报 告", "logo": "", "children": [
+        {"id": "l_0_0", "name": "收盘日评"},
+        {"id": "l_0_1", "name": "研究周报"},
+        {"id": "l_0_2", "name": "月度报告"},
+        {"id": "l_0_3", "name": "月度报告2"},
+        {"id": "l_0_4", "name": "月度报告3"},
+    ]},
+    {"id": "l_1", "name": "产 品\n服 务", "logo": "", "children": [
+        {"id": "l_1_0", "name": "短信通"},
+    ]}
+]
+
 
 # 设置日志记录
 def make_dir(dir_path):
