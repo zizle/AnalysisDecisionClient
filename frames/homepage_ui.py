@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, QRect, QEasingCurve, QMargins, QSize, QUrl, QThread
 from PyQt5.QtGui import QPainter, QPixmap, QIcon, QImage, QFont, QBrush, QColor
 from PyQt5.QtNetwork import QNetworkRequest
 from widgets.sliding_stacked import SlidingStackedWidget
+from utils.constant import HORIZONTAL_SCROLL_STYLE, VERTICAL_SCROLL_STYLE
 from settings import STATIC_URL
 
 
@@ -267,6 +268,7 @@ class HomepageUI(QScrollArea):
         self.slide_stacked = SlidingStackedWidget(self)
         # 广告图片的高度
         self.slide_stacked.setFixedHeight(300)
+        self.slide_stacked.setMaximumWidth(745)
         # 在轮播控件上选择按钮
         self.control_widget = QWidget(self)
         self.control_widget.setFixedHeight(300)
@@ -276,6 +278,7 @@ class HomepageUI(QScrollArea):
         self.control_widget.setLayout(control_layout)
 
         menu_ad_layout.addWidget(self.slide_stacked)
+        menu_ad_layout.addStretch()
 
         right_layout.addLayout(menu_ad_layout)
 
@@ -311,39 +314,35 @@ class HomepageUI(QScrollArea):
         self.weekly_report_widget.set_title("研究周报")
         modules_layout.addWidget(self.weekly_report_widget, 1, 0)
 
+        # 月季报告
+        self.monthly_report_widget = ModuleWidget(self)
+        self.monthly_report_widget.setFixedSize(370, 300)
+        self.monthly_report_widget.setObjectName("moduleWidget")
+        self.monthly_report_widget.set_title("月季报告")
+        modules_layout.addWidget(self.monthly_report_widget, 1, 1)
+
+        # 月季报告
+        self.annual_report_widget = ModuleWidget(self)
+        self.annual_report_widget.setFixedSize(370, 300)
+        self.annual_report_widget.setObjectName("moduleWidget")
+        self.annual_report_widget.set_title("年度报告")
+        modules_layout.addWidget(self.annual_report_widget, 1, 2)
+
         right_layout.addLayout(modules_layout)
 
         layout.addLayout(right_layout)
         self.container.setLayout(layout)
         self.setWidget(self.container)
         self.setWidgetResizable(True)
-        self.horizontalScrollBar().setStyleSheet(
-            "QScrollBar:horizontal{background:transparent;height:10px;margin:0px;}"
-            "QScrollBar:horizontal:hover{background:rgba(0,0,0,30);border-radius:5px}"
-            "QScrollBar::handle:horizontal{background:rgba(0,0,0,50);height:10px;border-radius:5px;border:none}"
-            "QScrollBar::handle:horizontal:hover{background:rgba(0,0,0,100)}"
-            "QScrollBar::add-page:horizontal{height:10px;background:transparent;}"
-            "QScrollBar::sub-page:horizontal{height:10px;background:transparent;}"
-            "QScrollBar::sub-line:horizontal{width:0px}"
-            "QScrollBar::add-line:horizontal{width:0px}"
-        )
-        self.verticalScrollBar().setStyleSheet(
-            "QScrollBar:vertical{background: transparent; width:10px;margin: 0px;}"
-            "QScrollBar:vertical:hover{background:rgba(0,0,0,30);border-radius:5px}"
-            "QScrollBar::handle:vertical{background: rgba(0,0,0,50);width:10px;border-radius:5px;border:none}"
-            "QScrollBar::handle:vertical:hover{background:rgba(0,0,0,100)}"
-            "QScrollBar::add-page:vertical{width:10px;background:transparent;}"
-            "QScrollBar::sub-page:vertical{width:10px;background:transparent;}"
-            "QScrollBar::sub-line:vertical{height:0px}"
-            "QScrollBar::add-line:vertical{height:0px}"
-        )
+        self.horizontalScrollBar().setStyleSheet(HORIZONTAL_SCROLL_STYLE)
+        self.verticalScrollBar().setStyleSheet(VERTICAL_SCROLL_STYLE)
         self.left_menu.setObjectName("LeftMenuList")
         self.setStyleSheet(
             "#LeftMenuList{border:none;color:rgb(254,254,254);font-size:14px;"
             "background-color:rgb(233,26,46);outline:none;}"
             "#LeftMenuList::item{padding:5px 0 5px 0px}"
             "#LeftMenuList::item:selected{background-color:rgb(240,240,240);color:rgb(0,0,0);out-line:none}"
-            "#moduleWidget{background-color:rgb(254,254,254);}"
+            "#moduleWidget{background-color:rgb(254,254,254);border:1px solid rgb(240,240,240)}"
         )
 
 

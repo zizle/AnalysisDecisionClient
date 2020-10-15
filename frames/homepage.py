@@ -6,7 +6,7 @@ import webbrowser
 import json
 from PyQt5.QtWidgets import qApp, QListWidgetItem
 from PyQt5.QtGui import QIcon, QColor
-from PyQt5.QtCore import QUrl, QEventLoop, pyqtSignal, Qt, QModelIndex
+from PyQt5.QtCore import QUrl, QEventLoop, pyqtSignal, Qt
 from PyQt5.QtNetwork import QNetworkRequest
 from widgets.pdf_shower import PDFContentPopup
 from popup.advertisement import TextPopup
@@ -41,11 +41,41 @@ class Homepage(HomepageUI):
         self.get_instant_message()
         # 即时通讯内容表格的点击事件
         self.instant_message_widget.content_table.cellClicked.connect(self.view_detail_instant_message)
+        # 点击更多短信通
+        self.instant_message_widget.more_button.clicked.connect(self.view_more_instant_message)
 
         # 获取现货报价板块初始化信息
         self.get_latest_spot_price()
         # 点击了现货报价的更多
         self.spot_price_widget.more_button.clicked.connect(self.more_sport_price_popup)
+
+        # 获取每日收盘报告
+        self.get_latest_daily_report()
+        # 每日报告内容表格的点击事件
+        self.daily_report_widget.content_table.cellClicked.connect(self.view_detail_daily_report)
+        # 每日收盘评论点击更多
+        self.daily_report_widget.more_button.clicked.connect(self.view_more_daily_report)
+
+        # 获取周度报告
+        self.get_latest_weekly_report()
+        # 周度报告的内容表格点击事件
+        self.weekly_report_widget.content_table.cellClicked.connect(self.view_detail_weekly_report)
+        # 周度报告评论点击更多
+        self.weekly_report_widget.more_button.clicked.connect(self.view_more_weekly_report)
+
+        # 获取月季报告
+        self.get_latest_monthly_report()
+        # 月季报告的内容表格点击事件
+        self.monthly_report_widget.content_table.cellClicked.connect(self.view_detail_monthly_report)
+        # 周度报告评论点击更多
+        self.monthly_report_widget.more_button.clicked.connect(self.view_more_monthly_report)
+
+        # 获取年度报告
+        self.get_latest_annual_report()
+        # 月季报告的内容表格点击事件
+        self.annual_report_widget.content_table.cellClicked.connect(self.view_annual_monthly_report)
+        # 周度报告评论点击更多
+        self.annual_report_widget.more_button.clicked.connect(self.view_more_annual_report)
 
     def add_left_menus(self):
         """ 添加左侧菜单列表 """
@@ -225,3 +255,152 @@ class Homepage(HomepageUI):
         """ 显示更多现货报价的信息 """
         p = SpotPricePopup(self)
         p.exec_()
+
+    def get_latest_daily_report(self):
+        """ 获取最新日报信息 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "latest-report/?report_type=daily&count=8"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.latest_daily_report_reply)
+
+    def latest_daily_report_reply(self):
+        """ 最新日常报告数据返回 """
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            # 将数据进行展示
+            self.daily_report_widget.set_contents(
+                content_values=data["reports"],
+                content_keys=["title", "date"],
+                data_keys=["filepath"], resize_cols=[1], column_text_color={1: QColor(100, 100, 100)},
+                zero_text_color=[], center_alignment_columns=[]
+            )
+        reply.deleteLater()
+
+    def view_detail_daily_report(self, row, col):
+        """ 查看报告的详细内容 """
+        if col == 0:
+            item = self.daily_report_widget.content_table.item(row, col)
+            title = item.text()
+            file_url = STATIC_URL + item.data(Qt.UserRole).get("filepath", 'no-found.pdf')
+            p = PDFContentPopup(file=file_url, title=title)
+            p.exec_()
+
+    def view_more_daily_report(self):
+        """ 查看更多的日常报告 """
+        self.SkipPage.emit("l_0_0", "收盘日评")
+
+    def view_more_weekly_report(self):
+        """ 查看更多的周报 """
+        self.SkipPage.emit("l_0_1", "周度报告")
+
+    def view_more_monthly_report(self):
+        """ 查看更多的周报 """
+        self.SkipPage.emit("l_0_2", "月季报告")
+
+    def view_more_annual_report(self):
+        """ 查看更多的年度报 """
+        self.SkipPage.emit("l_0_3", "年度报告")
+
+    def view_more_instant_message(self):
+        """ 查看更多的年度报 """
+        self.SkipPage.emit("l_1_0", "短信通")
+
+    def get_latest_weekly_report(self):
+        """ 获取最新周报信息 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "latest-report/?report_type=weekly&count=8"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.latest_weekly_report_reply)
+
+    def latest_weekly_report_reply(self):
+        """ 最新周度报告数据返回 """
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            # 将数据进行展示
+            self.weekly_report_widget.set_contents(
+                content_values=data["reports"],
+                content_keys=["title", "date"],
+                data_keys=["filepath"], resize_cols=[1], column_text_color={1: QColor(100, 100, 100)},
+                zero_text_color=[], center_alignment_columns=[]
+            )
+        reply.deleteLater()
+
+    def view_detail_weekly_report(self, row, col):
+        """ 查看周度报告的详细内容 """
+        if col == 0:
+            item = self.weekly_report_widget.content_table.item(row, col)
+            title = item.text()
+            file_url = STATIC_URL + item.data(Qt.UserRole).get("filepath", 'no-found.pdf')
+            p = PDFContentPopup(file=file_url, title=title)
+            p.exec_()
+
+    def get_latest_monthly_report(self):
+        """ 获取最新月报信息 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "latest-report/?report_type=monthly&count=8"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.latest_monthly_report_reply)
+
+    def latest_monthly_report_reply(self):
+        """ 最新月季报告数据返回 """
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            # 将数据进行展示
+            self.monthly_report_widget.set_contents(
+                content_values=data["reports"],
+                content_keys=["title", "date"],
+                data_keys=["filepath"], resize_cols=[1], column_text_color={1: QColor(100, 100, 100)},
+                zero_text_color=[], center_alignment_columns=[]
+            )
+        reply.deleteLater()
+
+    def view_detail_monthly_report(self, row, col):
+        """ 查看月度报告的详细内容 """
+        if col == 0:
+            item = self.monthly_report_widget.content_table.item(row, col)
+            title = item.text()
+            file_url = STATIC_URL + item.data(Qt.UserRole).get("filepath", 'no-found.pdf')
+            p = PDFContentPopup(file=file_url, title=title)
+            p.exec_()
+
+    def get_latest_annual_report(self):
+        """ 获取最新年报半年报信息 """
+        network_manager = getattr(qApp, "_network")
+        url = SERVER_API + "latest-report/?report_type=annual&count=8"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.latest_annual_report_reply)
+
+    def latest_annual_report_reply(self):
+        """ 最新年报半年报数据返回 """
+        reply = self.sender()
+        if reply.error():
+            pass
+        else:
+            data = json.loads(reply.readAll().data().decode("utf-8"))
+            # 将数据进行展示
+            self.annual_report_widget.set_contents(
+                content_values=data["reports"],
+                content_keys=["title", "date"],
+                data_keys=["filepath"], resize_cols=[1], column_text_color={1: QColor(100, 100, 100)},
+                zero_text_color=[], center_alignment_columns=[]
+            )
+        reply.deleteLater()
+
+    def view_annual_monthly_report(self, row, col):
+        """ 查看年报半年报的详细内容 """
+        if col == 0:
+            item = self.annual_report_widget.content_table.item(row, col)
+            title = item.text()
+            file_url = STATIC_URL + item.data(Qt.UserRole).get("filepath", 'no-found.pdf')
+            p = PDFContentPopup(file=file_url, title=title)
+            p.exec_()
+

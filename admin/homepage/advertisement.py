@@ -240,6 +240,7 @@ class HomepageAdAdmin(HomepageAdAdminUI):
         reply = self.sender()
         reply.deleteLater()
         if reply.error():
+            print(reply.readAll().data())
             message = "创建新广告失败!"
         else:
             message = "创建新广告成功!"

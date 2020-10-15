@@ -43,6 +43,9 @@ class Paginator(QWidget):
         }
         """)
 
+    def get_current_page(self):
+        return self.current_page
+
     # 设置外边距
     def setMargins(self, a, b, c, d):
         self.layout().setContentsMargins(a, b, c, d)

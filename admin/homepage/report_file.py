@@ -23,8 +23,10 @@ class ReportFileAdmin(ReportFileAdminUI):
         self.selected_varieties_zh = list()  # 关联品种的中文
         # 添加报告类型
         for type_item in [
-            {"name": "日报", "type": "daily"},
-            {"name": "周报", "type": "weekly"},
+            {"name": "每日报告", "type": "daily"},
+            {"name": "周度报告", "type": "weekly"},
+            {"name": "月季报告", "type": "monthly"},
+            {"name": "年度报告", "type": "annual"},
         ]:
             self.report_type.addItem(type_item["name"], type_item["type"])
             self.manager_report_type.addItem(type_item["name"], type_item["type"])
@@ -110,6 +112,7 @@ class ReportFileAdmin(ReportFileAdminUI):
 
     def _combobox_allow_varieties(self, varieties):
         """ 填充选项 """
+        self.manager_variety_combobox.addItem("全部", "0")
         for variety_item in varieties:
             self.variety_combobox.addItem(variety_item["variety_name"], variety_item["variety_en"])
             self.manager_variety_combobox.addItem(variety_item["variety_name"], variety_item["variety_en"])

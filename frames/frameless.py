@@ -25,7 +25,9 @@ from admin.operator.user_extension import UserExtensionPage
 from admin.receipt_parser import ReceiptParser
 from admin.homepage.report_file import ReportFileAdmin
 from admin.homepage.advertisement import HomepageAdAdmin
+from frames.homepage_extend import DailyReport, WeeklyReport, MonthlyReport, AnnualReport
 from frames.homepage import Homepage
+from frames.product.short_message import ShortMessage
 from frames.product import ProductPage
 from frames.industry.variety_data import VarietyData
 from frames.industry.exchange_query import ExchangeQuery
@@ -223,7 +225,27 @@ class ClientMainApp(FrameLessWindowUI):
 
     def homepage_menu_selected(self, menu_id, menu_text):
         """ 主页需要跳转页面的菜单 """
-        print("主页需要跳转页面的菜单:", menu_id, menu_text)
+        self.center_widget.setCentralWidget(self.get_homepage_skip_page(menu_id, menu_text))
+
+    @staticmethod
+    def get_homepage_skip_page(page_id, page_name):
+        """ 获取主页跳转的页面 """
+        if page_id == "l_0_0":
+            page = DailyReport()   # 日常报告
+        elif page_id == "l_0_1":
+            page = WeeklyReport()  # 周度报告
+        elif page_id == "l_0_2":
+            page = MonthlyReport()  # 月度报告
+        elif page_id == "l_0_3":
+            page = AnnualReport()   # 年度报告
+        elif page_id == "l_1_0":
+            page = ShortMessage()   # 短信通
+        else:
+            page = QLabel(
+                "「" + page_name + "」暂未开放···\n更多资讯请访问【首页】查看.",
+                styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
+                alignment=Qt.AlignCenter)
+        return page
 
     def enter_module_page(self, module_id, module_text):
         """ 根据菜单,进入不同的功能界面 """
