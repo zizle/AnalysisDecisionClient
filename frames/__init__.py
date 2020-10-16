@@ -5,6 +5,12 @@
 # Created: 2020-05-18
 # ---------------------------
 
+
+from .frameless import ClientMainApp
+from utils.client import get_client_uuid
+from settings import ADMINISTRATOR, SERVER_API, STATIC_URL, BASE_DIR, logger
+from PyQt5.QtCore import QSettings
+from PyQt5.QtWidgets import qApp, QSplashScreen, QLabel
 import os
 import sys
 import json
@@ -12,11 +18,11 @@ import time
 import pickle
 import shutil
 import requests
-from PyQt5.QtWidgets import QLabel, QSplashScreen, QMessageBox, qApp
+from PyQt5.QtWidgets import QMessageBox
 from PyQt5.QtGui import QPixmap, QFont, QImage
 from PyQt5.QtCore import Qt, QSize, QUrl
-from PyQt5.QtNetwork import QNetworkAccessManager
-
+from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkRequest
+from frames.homepage import Homepage
 from utils.machine import get_machine_code
 from popup import InformationPopup
 from popup.login import LoginPopup
@@ -31,17 +37,67 @@ import settings
 class WelcomePage(QSplashScreen):
     def __init__(self, *args, **kwargs):
         super(WelcomePage, self).__init__(*args, *kwargs)
-        # 请求启动页
-        try:
-            r = requests.get(url=settings.STATIC_PREFIX + 'startpng/start.png')
-            response_img = r.content
-            if r.status_code != 200:
-                raise ValueError('get starting image error')
-            start_image = QImage.fromData(response_img)
-        except Exception:
+        self._bind_global_network_manager()                  # 绑定全局网络管理器
+
+        self._get_start_image()                              # 获取开启的图片
+
+        self._add_client_to_server()                         # 添加客户端到服务器
+
+    def _bind_global_network_manager(self):
+        """ 绑定全局网络管理器 """
+        if not hasattr(qApp, "_network"):
+            network_manager = QNetworkAccessManager(self)
+            setattr(qApp, "_network", network_manager)
+
+    def _add_client_to_server(self):
+        """ 新增客户端 """
+        client_uuid = get_client_uuid()
+        if not client_uuid:
+            logger.error("GET CLIENT-UUID FAIL.")
+            self.close()
+            sys.exit(-1)
+
+        client_info = {
+            'client_name': '',
+            'machine_uuid': client_uuid,
+            'is_manager': ADMINISTRATOR
+        }
+        network_manager = getattr(qApp, '_network')
+        url = SERVER_API + "client/"
+        reply = network_manager.post(QNetworkRequest(QUrl(url)), json.dumps(client_info).encode('utf-8'))
+        reply.finished.connect(self.add_client_reply)
+
+    def add_client_reply(self):
+        """ 添加客户端的信息返回了 """
+        reply = self.sender()
+        if reply.error():
+            logger.error("New Client ERROR!{}".format(reply.error()))
+            sys.exit(-1)
+        data = reply.readAll().data()
+        data = json.loads(data.decode("utf-8"))
+        reply.deleteLater()
+        # 将信息写入token
+        client_uuid = data["client_uuid"]
+        client_ini_path = os.path.join(BASE_DIR, "dawn/client.ini")
+        token_config = QSettings(client_ini_path, QSettings.IniFormat)
+        token_config.setValue("TOKEN/UUID", client_uuid)
+
+    def _get_start_image(self):
+        """ 获取开启的页面图片 """
+        network_manager = getattr(qApp, "_network")
+        url = STATIC_URL + "start_image_bg.png"
+        reply = network_manager.get(QNetworkRequest(QUrl(url)))
+        reply.finished.connect(self.start_image_reply)
+
+    def start_image_reply(self):
+        """ 开启图片返回 """
+        reply = self.sender()
+        if reply.error():
             pixmap = QPixmap('media/start.png')
         else:
-            pixmap = QPixmap.fromImage(start_image)
+            start_image = QImage.fromData(reply.readAll().data())
+            pixmap = QPixmap(start_image)
+        reply.deleteLater()
         scaled_map = pixmap.scaled(QSize(660, 400), Qt.KeepAspectRatio)
         self.setPixmap(scaled_map)
         font = QFont()
@@ -109,7 +165,7 @@ class WelcomePage(QSplashScreen):
 
     # 导入模块到运行环境
     def import_packages(self):
-        import pandas
+        pass
 
 
 # 主窗口(无边框)
@@ -120,6 +176,16 @@ class ADSClient(FrameLessWindow):
         if not hasattr(qApp, "_network"):
             network_manager = QNetworkAccessManager(self)
             setattr(qApp, "_network", network_manager)
+
+    def set_default_homepage(self):
+        """ 设置默认首页 """
+        self.page_container.clear()
+        page = HomePage()
+        page.getCurrentNews()
+        page.getCurrentSliderAdvertisement()
+        page.getFoldedBoxContent()
+        page.folded_box_clicked(category_id=1, head_text='常规报告')  # 默认点击常规报告分类id=1
+        self.page_container.addWidget(page)
 
     # 用户点击【登录】
     def user_to_login(self):
@@ -176,8 +242,8 @@ class ADSClient(FrameLessWindow):
         # 设置用户id
         self.navigation_bar.permit_bar.set_user_id(response_data['id'])
         # 菜单
-        modules = self.get_system_modules()
-        self.navigation_bar.module_bar.setMenus(modules)
+        # modules = self.get_system_modules()
+        # self.navigation_bar.module_bar.setMenus(modules)
 
     # 请求菜单项
     def get_system_modules(self):
@@ -246,25 +312,6 @@ class ADSClient(FrameLessWindow):
         page.psd_changed.connect(self.navigation_bar.permit_bar.user_logout)
         self.page_container.addWidget(page)
 
-    # 检测是否有权限进入
-    def is_accessed_module(self, module_id):
-        try:
-            r = requests.get(
-                url=settings.SERVER_ADDR + 'module/' + str(module_id) + '/',
-                headers={'Content-Type': "application/json;charset=utf8"},
-                data=json.dumps({"utoken": settings.app_dawn.value('AUTHORIZATION')})
-            )
-            response = json.loads(r.content.decode('utf-8'))
-            if not response['auth']:
-                raise ValueError("您还没开通这个功能,联系管理员开通。")
-        except Exception as e:
-            # 弹窗提示
-            info_popup = InformationPopup(parent=self, message=str(e))
-            info_popup.exec_()
-            return False
-        else:  # 模块权限验证通过
-            return True
-
     # 进入数据管理页面
     def to_data_manage_page(self, module_text):
         if module_text == u"首页管理":
@@ -289,8 +336,51 @@ class ADSClient(FrameLessWindow):
             page.setText("「" + module_text + "」还不能进行后台管理\n正在加紧开发中~.")
         return page
 
-    # 进入功能页面,含后台的运营管理
-    def to_module_page(self, module_text):
+    # 检测是否有权限并拒绝或进入
+    def accessed_module(self, module_id, module_text):
+        if module_id == "0":
+            self.set_default_homepage()
+            return
+        network_manager = getattr(qApp, '_network')
+        url = settings.SERVER_ADDR + 'module_access/'
+        request = QNetworkRequest(QUrl(url))
+        request.setHeader(QNetworkRequest.ContentTypeHeader, "application/json;charset=utf-8")
+        body_data = {
+            "module_id": module_id,
+            "module_text": module_text,
+            "utoken": settings.app_dawn.value("AUTHORIZATION"),
+            "client": settings.app_dawn.value("machine")
+        }
+        reply = network_manager.post(request, json.dumps(body_data).encode("utf-8"))
+        reply.finished.connect(self.access_module_reply)
+
+    def access_module_reply(self):
+        reply = self.sender()
+        data = reply.readAll().data()
+        if reply.error():
+            page = QLabel(parent=self.page_container,
+                          styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
+                          alignment=Qt.AlignCenter)
+            page.setText("网络开小差了,检查网络设置!\n{}".format(reply.error()))
+        else:
+            data = json.loads(data.decode('utf-8'))
+            if data["allow_in"]:
+                # 进入相应模块
+                page = self.get_module_page(data["module_id"], data["module_text"])
+            else:
+                page = QLabel(parent=self.page_container,
+                              styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
+                              alignment=Qt.AlignCenter)
+                page.setText(data["message"])
+        reply.deleteLater()
+        self.page_container.clear()
+        self.page_container.addWidget(page)
+
+    # 进入功能页面
+    def get_module_page(self, module_id, module_text):
+        print(module_id, module_text, "允许进入")
+        page = QLabel()
+        return page
         if module_text == u'运营管理':
             from admin.oprator import OperatorMaintain
             page = OperatorMaintain()
@@ -306,18 +396,24 @@ class ADSClient(FrameLessWindow):
             from frames.prosever import InfoServicePage
             page = InfoServicePage()
             page.addServiceContents()
-        elif module_text == '基本分析':
+        elif module_text == u'基本分析':
             from frames.basetrend import TrendPage
             page = TrendPage()
             page.getGroupVarieties()
-        elif module_text == '计算平台':
+        elif module_text == u'计算平台':
             from frames.formulas import FormulasCalculate
             page = FormulasCalculate()
             page.getGroupVarieties()
-        elif module_text == "交割服务":
+        elif module_text == u"交割服务":
             from frames.delivery import DeliveryPage
             page = DeliveryPage(self.page_container)
             page.get_latest_discuss()
+        elif module_text == u"交易所数据":
+            from frames.industry.exchange_query import ExchangeQuery
+            page = ExchangeQuery()
+        elif module_text == u"品种净持仓":
+            from frames.industry.net_position import NetPosition
+            page = NetPosition()
         else:
             page = QLabel(parent=self.page_container,
                           styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
@@ -325,18 +421,21 @@ class ADSClient(FrameLessWindow):
             page.setText("「" + module_text + "」暂未开放\n敬请期待,感谢支持~.")
         return page
 
-    # 点击模块菜单事件(接受到模块的id和模块名称)
-    def module_clicked(self, module_id, module_text):
-        # print(module_id, module_text)
-        if module_id == -9:
-            page = self.to_data_manage_page(module_text)
-        else:
-            if not self.is_accessed_module(module_id):
-                page = QLabel(parent=self.page_container,
-                              styleSheet='font-size:16px;font-weight:bold;color:rgb(230,50,50)',
-                              alignment=Qt.AlignCenter)
-                page.setText("您还没有进入「" + module_text + "」的权限...\n请联系管理员进行开通.")
-            else:
-                page = self.to_module_page(module_text)
-        self.page_container.clear()
-        self.page_container.addWidget(page)
+
+        #
+        # try:
+        #     r = requests.get(
+        #         url=settings.SERVER_ADDR + 'module/' + str(module_id) + '/',
+        #         headers={'Content-Type': "application/json;charset=utf8"},
+        #         data=json.dumps({"utoken": settings.app_dawn.value('AUTHORIZATION')})
+        #     )
+        #     response = json.loads(r.content.decode('utf-8'))
+        #     if not response['auth']:
+        #         raise ValueError("您还没开通这个功能,联系管理员开通。")
+        # except Exception as e:
+        #     # 弹窗提示
+        #     info_popup = InformationPopup(parent=self, message=str(e))
+        #     info_popup.exec_()
+        #     return False
+        # else:  # 模块权限验证通过
+        #     return True

@@ -12,7 +12,8 @@ from PyQt5.QtWebChannel import QWebChannel
 from PyQt5.QtWebEngineWidgets import QWebEngineView
 from channels.delivery import WarehouseMapChannel
 from widgets import CAvatar, Paginator, PDFContentPopup
-from settings import SERVER_ADDR, STATIC_PREFIX, USER_AGENT, app_dawn
+from utils.client import get_user_token
+from settings import SERVER_API, SERVER_ADDR, STATIC_PREFIX, USER_AGENT, STATIC_URL
 
 
 class MenuPushButton(QPushButton):
@@ -283,7 +284,7 @@ class ReplyItem(QWidget):
         self.setAttribute(Qt.WA_DeleteOnClose)
         reply_layout = QVBoxLayout(self)
         user_layout = QHBoxLayout(self)
-        avatar_url = STATIC_PREFIX + reply_item['avatar']
+        avatar_url = STATIC_PREFIX + reply_item['avatar'] if reply_item['avatar'] else "media/default_avatar.png"
         avatar = CAvatar(url=avatar_url,size=QSize(20, 20), parent=self)
         user_layout.addWidget(avatar)
         user_layout.addWidget(QLabel(reply_item['username'], self))
@@ -312,7 +313,7 @@ class DiscussItem(QWidget):
         discuss_title.setFixedHeight(22)
         username_layout = QHBoxLayout(self)
         username_layout.setContentsMargins(QMargins(2,1,1,1))
-        avatar_url = STATIC_PREFIX + discuss['avatar']
+        avatar_url = STATIC_PREFIX + discuss['avatar'] if discuss['avatar'] else "media/default_avatar.png"
         self.avatar = CAvatar(url=avatar_url,size=QSize(20,20), parent=self)
         username_layout.addWidget(self.avatar)
         self.username = QLabel(discuss['username'])
@@ -532,6 +533,7 @@ class WarehouseTable(QTableWidget):
             self.setRowHeight(row, 30)
             item0 = QTableWidgetItem(row_item['area'])
             item0.id = row_item['id']
+            item0.fixed_code = row_item["fixed_code"]
             item0.variety_en = None
             item0.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 0, item0)
@@ -566,6 +568,7 @@ class WarehouseTable(QTableWidget):
             item0 = QTableWidgetItem(row_item['variety'])
             item0.setTextAlignment(Qt.AlignCenter)
             item0.id = row_item['id']
+            item0.fixed_code = row_item['fixed_code']
             item0.variety_en = row_item['variety_en']
             self.setItem(row, 0, item0)
             item1 = QTableWidgetItem(row_item['name'])
@@ -838,6 +841,7 @@ class MoreDiscussWidget(QWidget):
         opts_layout = QHBoxLayout(self)
         self.search_edit = QLineEdit(self)
         self.search_button = QPushButton('搜索', self)
+        self.search_button.clicked.connect(self.query_keyword_discussion)
 
         opts_layout.addWidget(self.search_edit)
         opts_layout.addWidget(self.search_button)
@@ -847,6 +851,7 @@ class MoreDiscussWidget(QWidget):
         opts_layout.addWidget(self.paginator)
         opts_layout.addStretch()
         self.myself_button = QPushButton('我的问题', self)
+        self.myself_button.clicked.connect(self.query_own_discussion)
         self.question_button = QPushButton('我要提问', self)
         self.question_button.clicked.connect(self.new_question)
         opts_layout.addWidget(self.myself_button)
@@ -863,11 +868,25 @@ class MoreDiscussWidget(QWidget):
     def set_replies(self, replies, reply_id):
         self.discuss_widget.set_replies(replies, reply_id)
 
-    def _get_discuss_message(self):
+    def query_own_discussion(self):
+        """ 查询用户自己提问的问题 """
+        self._get_discuss_message(is_own=True, keyword=None)
+
+    def query_keyword_discussion(self):
+        """ 关键字查询 """
+        self._get_discuss_message(keyword=self.search_edit.text())
+
+    def _get_discuss_message(self, is_own=False, keyword=None):
         current_page = self.paginator.current_page
+        if is_own:  # 查询自己发表的问题
+            url = SERVER_API + 'delivery/discussion-own/'
+        else:  # 分页查询所有问题
+            url = SERVER_API + 'delivery/discussion/?c_page=' + str(current_page)
+        if keyword is not None:  # 关键字查询问题
+            url = SERVER_API + 'delivery/discussion-query/?keyword={}'.format(keyword)
         # 获取第一页交流与讨论的内容
         try:
-            r = requests.get(SERVER_ADDR + 'discussion/?page=' + str(current_page))
+            r = requests.get(url, headers={"Authorization": get_user_token()})
             response = json.loads(r.content.decode('utf8'))
             if r.status_code != 200:
                 raise ValueError('获取讨论数据失败')
@@ -887,23 +906,27 @@ class MoreDiscussWidget(QWidget):
 
     def new_question(self):
         # 提交新的问题
+
         def commit_question():
             content = popup.text_edit.toPlainText().strip()
-            utoken = app_dawn.value('AUTHORIZATION')
             try:
                 r = requests.post(
-                    url=SERVER_ADDR + 'discussion/',
-                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
-                    data=json.dumps({'utoken': utoken, 'content': content})
+                    url=SERVER_API + 'delivery/discussion/',
+                    headers={
+                        'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT,
+                        'Authorization': get_user_token()
+                    },
+                    data=json.dumps({"content": content})
                 )
                 response = json.loads(r.content.decode('utf8'))
                 if r.status_code != 201:
-                    raise ValueError(response['message'])
+                    raise ValueError(response['detail'])
             except Exception as e:
                 QMessageBox.information(popup, '错误', str(e))
             else:
                 QMessageBox.information(popup, '成功', response['message'])
                 popup.close()
+                self._get_discuss_message()
 
         popup = QDialog(self)
         popup.resize(350,180)
@@ -916,8 +939,7 @@ class MoreDiscussWidget(QWidget):
         popup.commit_button.clicked.connect(commit_question)
         layout.addWidget(popup.commit_button, alignment=Qt.AlignRight)
         popup.setLayout(layout)
-        if not popup.exec_():
-            self._get_discuss_message()
+        popup.exec_()
 
 
 class DeliveryPage(QScrollArea):
@@ -1054,6 +1076,9 @@ class DeliveryPage(QScrollArea):
         """)
         self.menu_bar.set_menus(self.get_menus())
 
+        # 获取最新的讨论
+        self.get_latest_discuss()
+
     def resizeEvent(self, event):
         self.resize_widgets(True)
         if self.detail_warehouse is not None:  # 改变详情控件的大小
@@ -1068,21 +1093,22 @@ class DeliveryPage(QScrollArea):
             self.map_view.setFixedSize(width, height)
             self.discuss_show.setFixedHeight(height - self.more_dis_button.height() - 5)  # 减去更多按钮的高度和QFrame横线的高度
             self.contact_channel.resize_map.emit(width, height)  # 调整界面中地图的大小
-            print('发出调整')
 
     def user_reply_discussion(self, discuss_id):
         def commit_discussion():
             content = popup.text_edit.toPlainText().strip()
             try:
-                utoken = app_dawn.value('AUTHORIZATION')
                 r = requests.post(
-                    url=SERVER_ADDR + 'discussion/',
-                    headers={'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT},
-                    data=json.dumps({'utoken': utoken,'content': content, 'parent_id': discuss_id})
+                    url=SERVER_API + 'delivery/discussion/',
+                    headers={
+                        'Content-Type': 'application/json;charset=utf8', 'User-Agent': USER_AGENT,
+                        'Authorization': get_user_token()
+                    },
+                    data=json.dumps({'content': content, 'parent_id': discuss_id})
                 )
                 response = json.loads(r.content.decode('utf8'))
                 if r.status_code != 201:
-                    raise ValueError(response['message'])
+                    raise ValueError(response['detail'])
             except Exception as e:
                 QMessageBox.information(popup, '错误', str(e))
             else:
@@ -1092,7 +1118,7 @@ class DeliveryPage(QScrollArea):
                     try:
                         self.more_dis_widget.set_replies(replies, discuss_id)
                     except Exception as e:
-                        print(e)
+                        pass
                 else:
                     self.discuss_show.set_replies(replies, discuss_id)
                 popup.close()
@@ -1140,7 +1166,7 @@ class DeliveryPage(QScrollArea):
     # 获取最新的讨论交流
     def get_latest_discuss(self):
         try:
-            r = requests.get(SERVER_ADDR + 'discussion/latest/')
+            r = requests.get(SERVER_API + 'delivery/discussion-latest/')
             response = json.loads(r.content.decode('utf8'))
             if r.status_code != 200:
                 raise ValueError('获取最新讨论失败')
@@ -1205,7 +1231,7 @@ class DeliveryPage(QScrollArea):
         ]
         try:
             r = requests.get(
-                url=SERVER_ADDR + 'variety/?way=exchange',
+                url=SERVER_API + 'exchange/variety-all/',
                 headers={'User-Agent': USER_AGENT}
             )
             response = json.loads(r.content.decode('utf8'))
@@ -1214,13 +1240,13 @@ class DeliveryPage(QScrollArea):
         except Exception:
             pass
         else:
-            variety_menus = {"id": 1, "text": "品种仓库", 'children': response['variety']}
+            variety_menus = {"id": 1, "text": "品种仓库", 'children': response['varieties']}
             menus.insert(0, variety_menus)
-            brand_menus = {"id": 4, "text": "品牌名录", "children": response['variety']}
+            brand_menus = {"id": 4, "text": "品牌名录", "children": response['varieties']}
             menus.append(brand_menus)
-            cost_menus = {"id": 5, "text": "交割费用", "children": response['variety']}
+            cost_menus = {"id": 5, "text": "交割费用", "children": response['varieties']}
             menus.append(cost_menus)
-            quality_menus = {"id": 6, "text": "质检机构", "children": response['variety']}
+            quality_menus = {"id": 6, "text": "质检机构", "children": response['varieties']}
             menus.append(quality_menus)
         finally:
             return menus
@@ -1231,9 +1257,10 @@ class DeliveryPage(QScrollArea):
             layout = QVBoxLayout()
             layout.setSpacing(2)
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                exchange_name = variety_list[0]["exchange_name"]
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1245,7 +1272,7 @@ class DeliveryPage(QScrollArea):
 
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['name_en'],text=variety_item["name"])
+                        v_btn = VarietyButton(bid=variety_item['id'], v_en=variety_item['variety_en'],text=variety_item["variety_name"])
                         v_btn.select_variety_menu.connect(self.get_variety_warehouses)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
                     layout.addLayout(sub_layout)
@@ -1277,9 +1304,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 4:  # 品牌名录
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                exchange_name = variety_list[0]["exchange_name"]
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1290,8 +1318,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'brand'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
@@ -1299,9 +1327,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 5:  # 交割费用
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                exchange_name = variety_list[0]["exchange_name"]
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1312,8 +1341,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'cost'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
@@ -1322,9 +1351,10 @@ class DeliveryPage(QScrollArea):
         elif p_id == 6:  # 质检机构
             layout = QVBoxLayout()
             for exchange, variety_list in child_menus.items():
-                if exchange in ["中国金融期货交易所", "上海国际能源交易中心"]:
+                if exchange in ["cffex", "ine"]:
                     continue
-                layout.addWidget(QLabel(exchange,
+                exchange_name = variety_list[0]["exchange_name"]
+                layout.addWidget(QLabel(exchange_name,
                                         styleSheet='font-size:14px;'
                                                    'font-weight:bold;'
                                                    'background-color:rgb(180,180,180);'
@@ -1335,8 +1365,8 @@ class DeliveryPage(QScrollArea):
                 if len(variety_list) > 0:
                     sub_layout = QGridLayout()
                     for index, variety_item in enumerate(variety_list):
-                        v_btn = CustomMenuButton(text=variety_item["name"], width=65)
-                        v_btn.variety_en = variety_item['name_en']
+                        v_btn = CustomMenuButton(text=variety_item["variety_name"], width=65)
+                        v_btn.variety_en = variety_item['variety_en']
                         v_btn.category = 'quality'
                         v_btn.clicked.connect(self.show_target_pdf)
                         sub_layout.addWidget(v_btn, index / 8, index % 8, alignment=Qt.AlignLeft)
@@ -1350,7 +1380,7 @@ class DeliveryPage(QScrollArea):
         if not btn or not isinstance(btn, QPushButton):
             return
         menu_text = btn.text()
-        file_url = "{}delivery/{}/{}{}.pdf".format(STATIC_PREFIX, btn.category, menu_text, btn.variety_en)
+        file_url = "{}DELIVERY/{}/{}{}.pdf".format(STATIC_URL, btn.category, menu_text, btn.variety_en)
         popup = PDFContentPopup(title=menu_text, file=file_url)
         popup.exec_()
 
@@ -1365,7 +1395,7 @@ class DeliveryPage(QScrollArea):
             "上期所交割流程","郑商所交割流程","大商所交割流程","能源中心交割流程",
             "上期所套保业务","郑商所套保业务","大商所套保业务","能源中心套保业务"
         ]:
-            file_url = STATIC_PREFIX + 'delivery/' + menu_text + '.pdf'
+            file_url = STATIC_URL + 'DELIVERY/' + menu_text + '.pdf'
             popup = PDFContentPopup(title=menu_text, file=file_url)
             popup.exec_()
 
@@ -1383,7 +1413,7 @@ class DeliveryPage(QScrollArea):
     def request_variety_warehouses(self,variety_en):
         try:
             r = requests.get(
-                url=SERVER_ADDR + 'variety/warehouse/?v_en=' + str(variety_en),
+                url=SERVER_API + '{}/warehouses/'.format(variety_en),
                 headers={'User-Agent': USER_AGENT}
             )
             response = json.loads(r.content.decode('utf8'))
@@ -1407,7 +1437,7 @@ class DeliveryPage(QScrollArea):
     def request_province_warehouses(self, area):
         try:
             r = requests.get(
-                url=SERVER_ADDR + 'province/warehouse/?province=' + str(area),
+                url=SERVER_API + 'province-warehouse/?province=' + str(area),
                 headers={'User-Agent': USER_AGENT}
             )
             response = json.loads(r.content.decode('utf8'))
@@ -1420,9 +1450,9 @@ class DeliveryPage(QScrollArea):
 
     # 双击进入仓库详情
     def warehouse_table_double_clicked(self, row, col):
-        current_id = self.warehouse_table.item(row, 0).id
+        warehouse_code = self.warehouse_table.item(row, 0).fixed_code
         current_variety = self.warehouse_table.item(row, 0).variety_en
-        self.get_detail_receipts_and_show(current_id, current_variety)
+        self.get_detail_receipts_and_show(warehouse_code, current_variety)
 
     # 点击显示仓库信息的表格
     def warehouse_table_cell_clicked(self, row, col):
@@ -1431,15 +1461,15 @@ class DeliveryPage(QScrollArea):
             return
         current_text = current_item.text()
         if current_text in ['仓单', '详情']:
-            current_id = self.warehouse_table.item(row, 0).id
+            warehouse_code = self.warehouse_table.item(row, 0).fixed_code
             current_variety = self.warehouse_table.item(row, 0).variety_en
-            self.get_detail_receipts_and_show(current_id, current_variety)
+            self.get_detail_receipts_and_show(warehouse_code, current_variety)
 
-    def get_detail_receipts_and_show(self, current_id, current_variety):
+    def get_detail_receipts_and_show(self, warehouse_code, current_variety):
         # print(current_id, current_variety)
-        request_url = SERVER_ADDR + 'warehouse/' + str(current_id) + '/receipts/'
+        request_url = SERVER_API + 'warehouse/{}/receipt/'.format(warehouse_code)
         if current_variety is not None:
-            request_url += '?v_en=' + str(current_variety)
+            request_url += '?variety_en=' + str(current_variety)
 
         warehouses_receipts = self.request_warehouse_receipts(request_url)
         if not warehouses_receipts:
@@ -1494,7 +1524,7 @@ class DeliveryPage(QScrollArea):
 
     # 界面点击仓库点
     def get_warehouse_receipts(self, wh_id):
-        request_url = SERVER_ADDR + 'warehouse/' + str(wh_id) + '/receipts/'
+        request_url = SERVER_ADDR + 'warehouse/' + str(wh_id) + '/receipt/'
         warehouses_receipts = self.request_warehouse_receipts(request_url)
         if not warehouses_receipts:
             QMessageBox.information(self, '消息', '该仓库没有相关的仓单信息.')

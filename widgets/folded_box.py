@@ -11,7 +11,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 
 # 折叠盒子的按钮
 class FoldedBodyButton(QPushButton):
-    mouse_clicked = pyqtSignal(int, str)
+    mouse_clicked = pyqtSignal(str, str)
 
     def __init__(self, text, bid, name_en=None, *args, **kwargs):
         super(FoldedBodyButton, self).__init__(*args, **kwargs)
@@ -35,6 +35,7 @@ class FoldedBodyButton(QPushButton):
         #button:hover{
             color:rgb(200,120,200);
             background-color:rgb(200,200,200);
+            background-color:rgb(200,200,200);
             border-radius:3px;
         }
         #button:pressed{
@@ -47,7 +48,7 @@ class FoldedBodyButton(QPushButton):
     def left_mouse_clicked(self):
         # print(self.bid)
         name_en = self.name_en if self.name_en else ""
-        self.mouse_clicked.emit(self.bid, name_en)
+        self.mouse_clicked.emit(str(self.bid), name_en)
 
 
 # FoldedHead(), FoldedBody()
@@ -69,13 +70,7 @@ class FoldedHead(QWidget):
         # 样式
         self.setAutoFillBackground(True)  # 受父窗口影响(父窗口已设置透明)会透明,填充默认颜色
         self.setAttribute(Qt.WA_StyledBackground, True)  # 支持qss设置背景颜色(受父窗口透明影响qss会透明)
-        # self.setStyleSheet("""
-        # #headLabel{
-        #     padding:8px 5px;
-        #     font-weight: bold;
-        #     font-size:12px;
-        # }
-        # """)
+
         self.moreButtonStyle()
 
     # 折叠的button样式
@@ -116,35 +111,18 @@ class FoldedHead(QWidget):
 
 # 折叠盒子的身体
 class FoldedBody(QWidget):
-    mouse_clicked = pyqtSignal(int, str, str)
+    mouse_clicked = pyqtSignal(str, str, str)
 
     def __init__(self, *args, **kwargs):
         super(FoldedBody, self).__init__(*args, **kwargs)
         layout = QGridLayout(margin=0)
         self.button_list = list()
         self.setLayout(layout)
-        # 样式
-        self.setAutoFillBackground(True)  # 受父窗口影响(父窗口已设置透明)会透明,填充默认颜色
-        self.setAttribute(Qt.WA_StyledBackground, True)  # 支持qss设置背景颜色(受父窗口透明影响qss会透明)
 
     def addButton(self, id, name, name_en=None):
         button = FoldedBodyButton(text=name, bid=id, name_en=name_en, parent=self)
         button.mouse_clicked.connect(self.body_button_clicked)
         self.button_list.append(button)
-
-    # # 添加按钮
-    # def addButtons(self, button_list, horizontal_count=3):
-    #     self.button_list.clear()
-    #
-    #     for button_item in button_list:
-    #         button = FoldedBodyButton(
-    #             text=button_item['name'],
-    #             bid=button_item['id'],
-    #             name_en=button_item.get('name_en', None),
-    #             parent=self
-    #         )
-    #         button.mouse_clicked.connect(self.body_button_clicked)
-    #         self.button_list.append(button)
 
     # 按钮被点击
     def body_button_clicked(self, bid, name_en):
@@ -169,7 +147,7 @@ class FoldedBody(QWidget):
         row_index = 0
         col_index = 0
         for index, button in enumerate(self.button_list):
-            self.layout().addWidget(button, row_index, col_index)
+            self.layout().addWidget(button, row_index, col_index, alignment=Qt.AlignLeft)  # 居左
             col_index += 1
             if col_index == horizontal_count:  # 因为col_index先+1,此处应相等
                 row_index += 1
@@ -178,7 +156,7 @@ class FoldedBody(QWidget):
 
 # 滚动折叠盒子
 class ScrollFoldedBox(QScrollArea):
-    left_mouse_clicked = pyqtSignal(int, str, str)  # 当前id 与父级的text
+    left_mouse_clicked = pyqtSignal(str, str, str)  # 当前id 与父级的text
 
     def __init__(self, *args, **kwargs):
         super(ScrollFoldedBox, self).__init__(*args, **kwargs)

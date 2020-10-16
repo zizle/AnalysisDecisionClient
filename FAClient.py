@@ -6,20 +6,15 @@
 # ---------------------------
 import sys
 from PyQt5.QtWidgets import QApplication
+import pandas
 from PyQt5.QtWebEngineWidgets import QWebEngineView
-from frames import WelcomePage, ADSClient
+from frames import WelcomePage, ClientMainApp
 
 app = QApplication(sys.argv)
 splash = WelcomePage()
 splash.show()
 app.processEvents()  # non-blocking
-splash.import_packages()
-splash.make_client_existed()
-splash.getCurrentAdvertisements()
-base_window = ADSClient()  # main window
-base_window.bind_network_manager()
-base_window.running_auto_login()
-base_window.module_clicked(module_id=0, module_text=u'首页')  # 启动后显示首页
-base_window.show()
-splash.finish(base_window)
+main_app = ClientMainApp()
+main_app.show()
+splash.finish(main_app)
 sys.exit(app.exec_())

@@ -9,7 +9,7 @@ import json
 import requests
 from urllib3 import encode_multipart_formdata
 from PyQt5.QtWidgets import qApp,QWidget, QListWidget, QHBoxLayout, QVBoxLayout,QMessageBox, QTabWidget, QLabel, QComboBox, QGridLayout, \
-    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame
+    QHeaderView, QPushButton, QTableWidgetItem, QLineEdit, QAbstractItemView, QTableWidget, QDialog, QMenu, QFrame, QSplitter, QCheckBox
 from PyQt5.QtCore import Qt, QPoint, QMargins
 from PyQt5.QtGui import QCursor, QIcon, QColor, QBrush, QPixmap, QImage
 from widgets import PDFContentPopup, ImagePathLineEdit, FilePathLineEdit
@@ -273,7 +273,7 @@ class UsersTable(QTableWidget):
 
     def setRowContents(self, row_contents):
         self.clear()
-        table_headers = ["序号", "用户名","手机", "加入时间", "最近登录", "邮箱","角色","备注名"]
+        table_headers = ["序号", "用户名", "手机", "加入时间", "最近登录", "邮箱", "角色", "备注名", "状态"]
         self.setColumnCount(len(table_headers))
         self.setHorizontalHeaderLabels(table_headers)
         self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -284,6 +284,7 @@ class UsersTable(QTableWidget):
             item0.setTextAlignment(Qt.AlignCenter)
             item0.id = row_item['id']
             item0.role_num = row_item['role_num']
+            item0.is_active = row_item['is_active']
             self.setItem(row, 0, item0)
             item1 = QTableWidgetItem(row_item['username'])
             item1.setTextAlignment(Qt.AlignCenter)
@@ -306,6 +307,21 @@ class UsersTable(QTableWidget):
             item7 = QTableWidgetItem(row_item["note"])
             item7.setTextAlignment(Qt.AlignCenter)
             self.setItem(row, 7, item7)
+            if row_item["is_active"]:
+                item8 = QTableWidgetItem("在职")
+            else:
+                item8 = QTableWidgetItem("离职")
+                item0.setForeground(QBrush(QColor(140, 140, 140)))
+                item1.setForeground(QBrush(QColor(140, 140, 140)))
+                item2.setForeground(QBrush(QColor(140, 140, 140)))
+                item3.setForeground(QBrush(QColor(140, 140, 140)))
+                item4.setForeground(QBrush(QColor(140, 140, 140)))
+                item5.setForeground(QBrush(QColor(140, 140, 140)))
+                item6.setForeground(QBrush(QColor(140, 140, 140)))
+                item7.setForeground(QBrush(QColor(140, 140, 140)))
+                item8.setForeground(QBrush(QColor(140, 140, 140)))
+            item8.setTextAlignment(Qt.AlignCenter)
+            self.setItem(row, 8, item8)
 
     def mousePressEvent(self, event):
         super(UsersTable, self).mousePressEvent(event)
@@ -373,7 +389,9 @@ class UsersTable(QTableWidget):
                     data=json.dumps({
                         'utoken': settings.app_dawn.value("AUTHORIZATION"),
                         'role_num': role_num,
-                        'note': note_edit.text().strip()
+                        'note': note_edit.text().strip(),
+                        'is_active': is_active_checked.isChecked(),
+                        'sync_tables': sync_tables_checked.isChecked()
                     })
                 )
                 response = json.loads(r.content.decode('utf8'))
@@ -390,8 +408,10 @@ class UsersTable(QTableWidget):
         current_row = self.currentRow()
         username = self.item(current_row, 1).text()
         user_id = self.item(current_row, 0).id
+        is_active = self.item(current_row, 0).is_active
         role_text = self.item(current_row, 6).text()
         note_name = self.item(current_row, 7).text()
+
         popup = QDialog(parent=self)
         popup.setWindowTitle("【" + username + "】角色设置")
         popup.setFixedSize(320, 150)
@@ -417,8 +437,21 @@ class UsersTable(QTableWidget):
         note_layout.addWidget(note_edit)
         mainlayout.addLayout(note_layout)
 
+        status_layout = QHBoxLayout(self)
+        status_layout.addWidget(QLabel("状态:", popup))
+        is_active_checked = QCheckBox(popup)
+        is_active_checked.setText("是否在职")
+        if is_active:
+            is_active_checked.setChecked(Qt.Checked)
+        mainlayout.addLayout(status_layout)
+        status_layout.addWidget(is_active_checked)
         commit_button = QPushButton("确定")
         commit_button.clicked.connect(commit)
+
+        sync_tables_checked = QCheckBox(popup)
+        sync_tables_checked.setText("同步数据表状态")
+        status_layout.addWidget(sync_tables_checked)
+        status_layout.addStretch()
 
         mainlayout.addWidget(commit_button)
         popup.setLayout(mainlayout)
@@ -1087,7 +1120,7 @@ class AdvertisementPage(QWidget):
 
 
 # 运营管理主页
-class OperatorMaintain(QWidget):
+class OperatorMaintain(QSplitter):
     def __init__(self, *args, **kwargs):
         super(OperatorMaintain, self).__init__(*args, **kwargs)
         layout = QHBoxLayout()
@@ -1097,14 +1130,18 @@ class OperatorMaintain(QWidget):
         self.operate_list = QListWidget(self)
 
         self.operate_list.clicked.connect(self.operate_list_clicked)
-        layout.addWidget(self.operate_list, alignment=Qt.AlignLeft)
+        # layout.addWidget(self.operate_list, alignment=Qt.AlignLeft)
+        self.addWidget(self.operate_list)
         # 右侧tab显示
         self.frame_tab = QTabWidget()
         self.frame_tab.setDocumentMode(True)
         self.frame_tab.tabBar().hide()
-        layout.addWidget(self.frame_tab)
-        self.setLayout(layout)
-
+        # layout.addWidget(self.frame_tab)
+        self.addWidget(self.frame_tab)
+        # self.setLayout(layout)
+        self.setStretchFactor(1, 2)
+        self.setStretchFactor(2, 8)
+        self.setHandleWidth(1)
         self.operate_list.setObjectName('optsList')
         self.setStyleSheet("""
         #optsList{

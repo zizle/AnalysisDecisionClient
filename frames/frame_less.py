@@ -7,9 +7,9 @@
 import os
 import shutil
 import pickle
-from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QStackedWidget, QHBoxLayout, QPushButton, QMenu
-from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QImage, QPainterPath, QMovie
-from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QPropertyAnimation, QRectF, QPointF, pyqtProperty, QUrl
+from PyQt5.QtWidgets import qApp, QWidget, QDesktopWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton, QMenu,QMenuBar, QAction, QMessageBox
+from PyQt5.QtGui import QIcon, QEnterEvent, QPen, QPainter, QColor, QPixmap, QFont, QPainterPath, QMovie
+from PyQt5.QtCore import Qt, QSize, pyqtSignal, QTimer, QPropertyAnimation, QRectF, QPointF, pyqtProperty, QUrl, QMargins
 from PyQt5.QtNetwork import QNetworkAccessManager, QNetworkDiskCache, QNetworkRequest
 from widgets import LoadedPage
 import settings
@@ -315,7 +315,7 @@ class TitleBar(QWidget):
         self.buttonMinimum.setFixedSize(self.HEIGHT - 5, self.HEIGHT - 5)
         self.buttonMaximum.setFixedSize(self.HEIGHT - 5, self.HEIGHT - 5)
         self.buttonClose.setFixedSize(self.HEIGHT - 5, self.HEIGHT - 5)
-        self.window_title.setText('瑞达期货研究院分析决策系统管理端')
+        self.window_title.setText(settings.WINDOW_TITLE)
         self.setStyleSheet("""
         #titleBar{
             background-color: rgb(34,102,175);
@@ -383,8 +383,8 @@ class TitleBar(QWidget):
 
     # 关闭
     def windowClosed(self):
-        # print('关闭窗口')
-        self.parent().close()
+        if QMessageBox.Yes == QMessageBox.information(self.parent(), "提示", "确定退出分析决策系统?", QMessageBox.Yes | QMessageBox.No):
+            self.parent().close()
 
     # 鼠标双击
     def mouseDoubleClickEvent(self, event):
@@ -421,6 +421,8 @@ class ModuleButton(QPushButton):
         super(ModuleButton, self).__init__(text, *args, **kwargs)
         self.mid = mid
         self.clicked.connect(lambda: self.clicked_module.emit(self))
+        # self.setObjectName("pbtn")  # 隐藏下来三角,不实用,仍占位置
+        # self.setStyleSheet("#pbtn::menu-indicator{image:none;}")
 
 
 # 管理菜单按钮
@@ -450,34 +452,28 @@ class DropdownMenu(QMenu):
 
 # 模块菜单栏
 class ModuleBar(QWidget):
-    menu_clicked = pyqtSignal(int, str)
+    menu_clicked = pyqtSignal(str, str)
 
     def __init__(self, *args, **kwargs):
         super(ModuleBar, self).__init__(*args, **kwargs)
-        layout = QHBoxLayout(margin=0, spacing=0)
+        layout = QHBoxLayout(spacing=0)
+        layout.setContentsMargins(QMargins(2, 0, 0, 0))
+        # 设置菜单
+        self.menu_bar = QMenuBar(self)
+        layout.addWidget(self.menu_bar)
+        self.set_menus(settings.SYSTEM_MENUS, None)
+
         self.setLayout(layout)
         # 样式设计
         self.setObjectName('moduleBar')
+        self.menu_bar.setObjectName("menuBar")
         self.setStyleSheet("""
-        #moduleBar{
-            min-height:24px;
-            max-height:24px;
-        }
-        QPushButton{
-            background-color:rgb(34,102,175);
-            color: rgb(235,20,150);
-            border: 1px solid rgb(34,142,155);
-            margin-left:3px;
-            padding: 1px 6px;  /*上下，左右*/
-            min-height:16px;
-            max-height:16px;
-            color: #FFFFFF
-        }
-        QPushButton:hover {
-            background-color: rgb(34,132,200);
-        }
+        #menuBar{background-color:rgb(34,102,175);color:rgb(255,255,255);}
+        #menuBar::item{background-color:rgb(34,102,175);}
+        #menuBar::item:selected{background-color:rgb(34,132,200);}
+        #menuBar::item:pressed{background:rgb(34,132,200)}
+        #moduleBar{min-height:24px;max-height:24px;}
         """)
-        self.set_default_menu()
 
     def clear(self):
         for i in range(self.layout().count()):
@@ -487,10 +483,34 @@ class ModuleBar(QWidget):
             del widget
         self.set_default_menu()
 
-    def set_default_menu(self):
-        menu = ModuleButton(mid=0, text='首页')
-        menu.clicked_module.connect(self.module_menu_clicked)
-        self.layout().addWidget(menu)
+    def set_menus(self, menu_data, parent_menu=None):
+        """ 设置菜单 """
+        for menu_item in menu_data:
+            if menu_item["children"]:
+                if parent_menu:
+                    menu = parent_menu.addMenu(menu_item["name"])
+                    menu.setIcon(QIcon(menu_item["logo"]))
+                else:
+                    menu = self.menu_bar.addMenu(menu_item["name"])
+                    menu.setIcon(QIcon(menu_item["logo"]))
+                menu.setObjectName("subMenu")
+                self.set_menus(menu_item["children"], menu)
+            else:
+                if parent_menu:
+                    action = parent_menu.addAction(menu_item["name"])
+                    action.setIcon(QIcon(menu_item["logo"]))
+                else:
+                    action = self.menu_bar.addAction(menu_item["name"])
+                    action.setIcon(QIcon(menu_item["logo"]))
+                setattr(action, "id", menu_item['id'])
+                action.triggered.connect(self.select_menu_action)
+
+    def select_menu_action(self):
+        action = self.sender()
+        action_id = getattr(action, "id")
+        action_text = action.text()
+        self.menu_clicked.emit(action_id, action_text)
+
 
     # 设置菜单按钮
     def setMenus(self, menu_obj_list):
@@ -735,8 +755,7 @@ class FrameLessWindow(QWidget):
         # self.mousePressed = False
         # 设置窗体的图标和名称
         self.setWindowIcon(QIcon("media/logo.png"))
-        self.setWindowTitle("瑞达期货研究院分析决策系统")
-        # 标题栏
+        self.setWindowTitle("瑞达期货研究院分析决策系统")        # 标题栏
         self.title_bar = TitleBar(parent=self)
         # 导航栏
         self.navigation_bar = NavigationBar(parent=self)
@@ -744,7 +763,7 @@ class FrameLessWindow(QWidget):
         self.navigation_bar.clicked_login_button.connect(self.user_to_login)
         self.navigation_bar.clicked_register_button.connect(self.user_to_register)
         self.navigation_bar.clicked_logout_button.connect(self.user_to_logout)
-        self.navigation_bar.module_bar.menu_clicked.connect(self.module_clicked)  # 选择了某个模块的
+        self.navigation_bar.module_bar.menu_clicked.connect(self.accessed_module)  # 选择了某个模块的
         self.navigation_bar.permit_bar.to_usercenter.connect(self.skip_to_usercenter)  # 跳转至用户中心
         # 窗口承载体
         self.page_container = LoadedPage(parent=self)
@@ -752,7 +771,7 @@ class FrameLessWindow(QWidget):
         user_desktop = QDesktopWidget().availableGeometry()  # 用户的桌面信息,来改变自身窗体大小
         max_width = user_desktop.width()
         max_height = user_desktop.height()
-        self.resize(max_width * 0.7, max_width * 0.8 * 0.518)
+        self.resize(max_width * 0.75, max_height * 0.8)
         self.setMaximumSize(max_width, max_height)  # 最大为用户桌面大小
         self.setMinimumSize(max_width * 0.5, max_height * 0.5)  # 最小为用户桌面大小的一半
         my_frame = self.frameGeometry()  # 1 (三步法放置桌面中心)自身窗体信息(虚拟框架)
@@ -778,32 +797,18 @@ class FrameLessWindow(QWidget):
             self.update_tips = UpdateTipsLabel(self)
             self.update_tips.setWordWrap(True)
             self.update_tips.setWindowFlags(Qt.Dialog)
-            self.update_tips.setWindowTitle("【1.14.0更新】")
-            self.update_tips.setFixedSize(350, 150)
-            self.update_tips.setText("<p>【1.14.0】版本更新:</p>"
-                                     "<p>1 新增功能模块【计算平台】.</p>"
-                                     "<p>支持部分品种的相关数据公式计算,</p>"
-                                     "<p>输入数据,时刻得到公式结果</p>"
+            self.update_tips.setWindowTitle("【1.3.1更新】")
+            self.update_tips.setFixedSize(250, 150)
+            self.update_tips.setText("<p>【1.3.1】版本更新:</p>"
+                                     "<p>1 新增交易所数据查询</p>"
+                                     "<p>2 新增品种净持仓查询</p>"
+                                     "<p>3 数据查询结果支持Ctrl+C快捷键复制连续的数据块</p>"
                                      )
             tips_frame = self.update_tips.frameGeometry()
             tips_frame.moveCenter(user_desktop.center())
             self.update_tips.move(tips_frame.topLeft())
             self.update_tips.show()
             self.update_tips.setStyleSheet("color:rgb(7,99,109);font-weight:bold;font-size:14px;padding-left:30px")
-
-    # def close(self):
-    #     super(FrameLessWindow, self).close()
-        # # 清理缓存目录
-        # cache_path = os.path.join(settings.BASE_DIR, 'cache/')
-        # shutil.rmtree(cache_path)
-        # os.mkdir(cache_path)
-
-    # def show(self):
-    #     super(FrameLessWindow, self).show()
-        # # 创建缓存目录
-        # cache_path = os.path.join(settings.BASE_DIR, 'cache/')
-        # if not os.path.exists(cache_path):
-        #     os.mkdir(cache_path)
 
     # 事件过滤器, 用于解决鼠标进入其它控件后还原为标准鼠标样式
     def eventFilter(self, obj, event):
