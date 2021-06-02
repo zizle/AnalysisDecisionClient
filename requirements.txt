@@ -11,5 +11,5 @@ pywin32==228
 requests==2.23.0
 sip==4.19.8
 six==1.15.0
-urllib3==1.25.10
+urllib3==1.26.5
 WMI==1.5.1
